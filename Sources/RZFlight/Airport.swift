@@ -10,12 +10,12 @@ import CoreLocation
 import Geomagnetism
 import OSLog
 
-struct Airport : Decodable {
+public struct Airport : Decodable {
     
     enum Category: String, Decodable {
             case city, name, country, elevation_ft, icao, latitude, longitude, reporting
         }
-    struct Runway : Decodable{
+    public struct Runway : Decodable{
         enum Category: String, Decodable {
                 case length_ft, width_ft, surface, bearing1, bearing2, ident1, ident2
             }
@@ -50,18 +50,18 @@ struct Airport : Decodable {
         var station : Airport
     }
     
-    var name : String
-    var city : String
-    var country : String
-    var elevation_ft : Int
-    var icao : String
+    public var name : String
+    public var city : String
+    public var country : String
+    public var elevation_ft : Int
+    public var icao : String
     var latitude : Double
     var longitude : Double
-    var reporting : Bool
+    public var reporting : Bool
     
-    var runways : [Runway]
+    public var runways : [Runway]
     
-    var coord : CLLocationCoordinate2D { return CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
+    public var coord : CLLocationCoordinate2D { return CLLocationCoordinate2D(latitude: latitude, longitude: longitude) }
     
     private var declination : Double { return Geomagnetism(longitude: longitude, latitude: latitude).declination }
     
@@ -72,7 +72,7 @@ struct Airport : Decodable {
         return Heading(heading: (from.heading + declination) )
     }
     
-    func bestRunway(wind : Heading) -> Heading {
+    public func bestRunway(wind : Heading) -> Heading {
         if let first = runways.first {
             var best : Runway = first
             for runway in runways {
@@ -85,7 +85,7 @@ struct Airport : Decodable {
         return wind
     }
     
-    static func at(icao: String, callback : @escaping (_ : Airport?) -> Void ) {
+    public static func at(icao: String, callback : @escaping (_ : Airport?) -> Void ) {
         if let url = URL(string: "https://avwx.rest/api/station/\(icao)"),
            let token = Secrets.shared["avwx"]{
             var request = URLRequest(url: url)
@@ -120,7 +120,7 @@ struct Airport : Decodable {
         }
     }
     
-    static func near(coord : CLLocationCoordinate2D, count : Int = 5, callback : @escaping (_ : [Airport]) -> Void) {
+    public static func near(coord : CLLocationCoordinate2D, count : Int = 5, callback : @escaping (_ : [Airport]) -> Void) {
         if let url = URL(string: "https://avwx.rest/api/station/near/\(coord.latitude),\(coord.longitude)?n=\(count)&reporting=true"),
            let token = Secrets.shared["avwx"]{
             var request = URLRequest(url: url)

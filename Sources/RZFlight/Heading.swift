@@ -7,8 +7,8 @@
 
 import Foundation
 
-struct Heading {
-    enum Direction {
+public struct Heading {
+    public enum Direction {
         case left
         case right
         case ahead
@@ -33,39 +33,39 @@ struct Heading {
         
     }
     
-    private(set) var roundedHeading : Int
+    var roundedHeading : Int
     
-    var heading : Double {
+    public var heading : Double {
         get { return Double(roundedHeading) }
         set { self.roundedHeading = Int(round(newValue)) % 360 }
     }
     
-    var descriptionWithUnit : String {
+    public var descriptionWithUnit : String {
         get { let x = Int(round(heading)); return "\(x)°" }
     }
     
-    var description : String {
+    public var description : String {
         get { let x = Int(round(heading)); return x == 0 ? "360" : "\(x)" }
         set { if let x = Int(newValue) { self.roundedHeading = x } }
     }
     
-    var runwayDescription : String {
+    public var runwayDescription : String {
         get { let x = Int(round(heading/10)); return x == 0 ? "36" : "\(String(format: "%02d",x))" }
         set { if let x = Int(newValue) { self.roundedHeading = (x % 360) * 10 } }
     }
     
-    var opposing : Heading {
+    public var opposing : Heading {
         get { return Heading(roundedHeading: self.roundedHeading + 180) }
         set { self.roundedHeading = (newValue.roundedHeading + 180) % 360 }
     }
     
     //MARK: - Init
     
-    init(roundedHeading: Int){
+    public init(roundedHeading: Int){
         self.roundedHeading = (roundedHeading % 360)
     }
     
-    init(runwayDescription : String){
+    public init(runwayDescription : String){
         if let x = Int(runwayDescription) {
             self.roundedHeading = x * 10
         }else{
@@ -73,11 +73,11 @@ struct Heading {
         }
     }
     
-    init(heading : Double){
+    public init(heading : Double){
         self.roundedHeading = Int(round(heading))
     }
     
-    init(description: String){
+    public init(description: String){
         if let x = Int(description) {
             self.roundedHeading = x
         }else{
@@ -146,7 +146,30 @@ func + (left:Heading, right:Heading) -> Heading {
     return Heading(roundedHeading: (left.roundedHeading+right.roundedHeading)%360)
 }
 extension Heading : Equatable {
-    static func == (left:Heading, right:Heading) -> Bool {
+    public static func == (left:Heading, right:Heading) -> Bool {
         return left.roundedHeading == right.roundedHeading
     }
 }
+
+@propertyWrapper
+public struct HeadingStorage {
+    private let key : String
+    private let defaultValue : Heading
+    
+    public init(key : String, defaultValue : Heading){
+        self.key = key
+        self.defaultValue = defaultValue
+    }
+    
+    public var wrappedValue : Heading {
+        get {
+            let val = UserDefaults.standard.integer(forKey: key)
+            return Heading(roundedHeading: val)
+        }
+        set {
+            UserDefaults.standard.set(newValue.roundedHeading, forKey: key)
+        }
+    }
+}
+
+

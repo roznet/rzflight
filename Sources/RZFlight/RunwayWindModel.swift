@@ -8,27 +8,27 @@
 import Foundation
 import AVFoundation
 
-@objc class RunwayWindModel : NSObject {
+@objc public class RunwayWindModel : NSObject {
     private var completion : ()->Void = {}
     var synthetizer : AVSpeechSynthesizer? = nil
     
-    var runwayHeading : Heading
-    var windHeading : Heading
+    public var runwayHeading : Heading
+    public var windHeading : Heading
 
-    var windSpeed : Speed = Speed(roundedSpeed: 10 )
-    var windGust : Speed? = nil
+    public var windSpeed : Speed = Speed(roundedSpeed: 10 )
+    public var windGust : Speed? = nil
     
-    var windSource : String? = nil
-    var windSourceDate : Date? = nil
+    public var windSource : String? = nil
+    public var windSourceDate : Date? = nil
     
-    init( runway : Heading, wind : Heading? = nil, speed : Speed? = nil, gust : Speed? = nil){
+    public init( runway : Heading, wind : Heading? = nil, speed : Speed? = nil, gust : Speed? = nil){
         self.runwayHeading = runway
         self.windHeading = wind ?? runway
         self.windSpeed = speed ?? Speed(roundedSpeed: 0)
         self.windGust = gust
     }
     
-    override init(){
+    public override init(){
         self.runwayHeading = Heading(roundedHeading: 240 )
         self.windHeading = Heading(roundedHeading: 190 )
         self.windSpeed = Speed(roundedSpeed: 10)
@@ -37,31 +37,31 @@ import AVFoundation
 
     //MARK: - calculate
     
-    var crossWindComponent :  Percent {
+    public var crossWindComponent :  Percent {
         return self.windHeading.crossWindComponent(with: self.runwayHeading)
     }
     
-    var crossWindSpeed : Speed {
+    public var crossWindSpeed : Speed {
         return self.windSpeed * crossWindComponent
     }
     
-    var directWindDirection : Heading.Direction {
+    public var directWindDirection : Heading.Direction {
         return self.windHeading.directDirection(to: self.runwayHeading)
     }
     
-    var crossWindDirection : Heading.Direction {
+    public var crossWindDirection : Heading.Direction {
         return self.windHeading.crossDirection(to: self.runwayHeading)
     }
     
-    var headWindComponent : Percent {
+    public var headWindComponent : Percent {
         return self.windHeading.headWindComponent(with: self.runwayHeading)
     }
     
-    var headWindSpeed : Speed {
+    public var headWindSpeed : Speed {
         return self.windSpeed * self.headWindComponent
     }
 
-    var windRunwayOffset : Heading {
+    public var windRunwayOffset : Heading {
         return self.windHeading.absoluteDifference(with: self.runwayHeading)
     }
     
@@ -69,16 +69,16 @@ import AVFoundation
     
     //MARK: - describe
     
-    func enunciate(number : String) -> String{
+    public func enunciate(number : String) -> String{
         let chars = number.map { String($0) }
         return chars.joined(separator: " ")
     }
 
-    var windDisplay : String {
+    public var windDisplay : String {
         return "\(self.windHeading.description) @ \(self.windSpeed.description)"
     }
     
-    var announce : String {
+    public var announce : String {
         let eHeading = self.enunciate(number: self.windHeading.description)
         let eSpeed = self.enunciate(number: self.windSpeed.description)
         if let windGust = self.windGust {
@@ -89,20 +89,20 @@ import AVFoundation
         }
     }
     
-    var windcheck : String {
+    public var windcheck : String {
         return "Wind: \(self.announce)"
     }
     
-    var clearance : String {
+    public var clearance : String {
         let eRunway = self.enunciate(number: self.runwayHeading.runwayDescription)
         return "Wind: \(self.announce), Runway \(eRunway), Clear to land"
     }
     
-    enum SpeechType {
+    public enum SpeechType {
         case clearance, windcheck
     }
     
-    func speak( which : SpeechType = .clearance, completion : @escaping ()->Void = {}){
+    public func speak( which : SpeechType = .clearance, completion : @escaping ()->Void = {}){
         
         let utterance = AVSpeechUtterance(string: which == .clearance ? self.clearance : self.windcheck )
         utterance.rate = 0.5 + (Float.random(in: 0..<10)/1000.0)
@@ -158,7 +158,7 @@ import AVFoundation
         return Double(probabilities.count - 1)
     }
     
-    func randomizeWind() {
+    public func randomizeWind() {
         let windOffset = Int.random(in: -9...9)
         let runwayHeading = runwayHeading.heading
         let windHeading = round(runwayHeading/10)*10 + Double(windOffset * 10)
@@ -177,11 +177,11 @@ import AVFoundation
     
     //MARK: - change values
     
-    func opposingRunway(){
+    public func opposingRunway(){
         self.runwayHeading = self.runwayHeading.opposing
     }
     
-    func alreadyRefreshed(airport : Airport? = nil, icao : String? = nil) -> Bool {
+    public func alreadyRefreshed(airport : Airport? = nil, icao : String? = nil) -> Bool {
         if let sourceDate = self.windSourceDate {
             if sourceDate.timeIntervalSinceNow > -600.0 {
                 if let icao = icao {
@@ -195,7 +195,7 @@ import AVFoundation
         return false
     }
     
-    func setupFrom(metar : Metar, airport : Airport? = nil, icao : String? = nil) {
+    public func setupFrom(metar : Metar, airport : Airport? = nil, icao : String? = nil) {
         if let icao = icao {
             self.windSource = icao
         }
@@ -214,20 +214,20 @@ import AVFoundation
         }
     }
     
-    func rotateHeading(degree : Int){
+    public func rotateHeading(degree : Int){
         self.runwayHeading.rotate(degree: degree)
     }
     
-    func updateRunwayHeading(heading : Heading){
+    public func updateRunwayHeading(heading : Heading){
         self.runwayHeading = heading
     }
     
-    func rotateWind(degree : Int){
+    public func rotateWind(degree : Int){
         self.windSource = nil
         self.windHeading.rotate(degree: degree)
     }
     
-    func increaseWind(speed : Int, maximumSpeed : Int = 75){
+    public func increaseWind(speed : Int, maximumSpeed : Int = 75){
         self.windSource = nil
         self.windSpeed.increase(speed: speed)
         self.windSpeed.cap(at: maximumSpeed)
@@ -235,7 +235,7 @@ import AVFoundation
 }
 
 extension RunwayWindModel : AVSpeechSynthesizerDelegate {
-    @objc func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+    @objc public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         self.completion()
     }
 }

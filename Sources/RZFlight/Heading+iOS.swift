@@ -11,7 +11,7 @@ import Foundation
 import UIKit
 
 extension Heading.Direction {
-    var image : UIImage? {
+    public var image : UIImage? {
         switch self {
         case .left:
             return UIImage(systemName: "arrow.left")

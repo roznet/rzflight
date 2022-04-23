@@ -7,44 +7,66 @@
 
 import Foundation
 
-struct Speed {
+public struct Speed {
     var roundedSpeed : Int
     
-    var speed : Double {
+    public var speed : Double {
         get { Double(self.roundedSpeed) }
         set { self.roundedSpeed = max(0,Int(round(newValue))) }
     }
     
-    var descriptionWithUnit : String {
+    public var descriptionWithUnit : String {
         get { "\(roundedSpeed)kts" }
     }
 
-    var description : String {
+    public var description : String {
         get { "\(roundedSpeed)" }
         set { if let x = Int(newValue) { roundedSpeed = x } else { roundedSpeed = 0 } }
     }
 
-    init( roundedSpeed : Int){
+    public init( roundedSpeed : Int){
         self.roundedSpeed = roundedSpeed
     }
     
-    init( speed : Double){
+    public init( speed : Double){
         self.roundedSpeed = Int(round(speed))
     }
     
-    mutating func increase(speed : Int){
+    public mutating func increase(speed : Int){
         self.roundedSpeed = max(0, speed + self.roundedSpeed)
     }
     
-    mutating func cap(at : Int){
+    public mutating func cap(at : Int){
         if roundedSpeed > at {
             roundedSpeed = at
         }
     }
     
-    static func *(_ speed : Speed, _ percent : Percent) -> Speed {
+    public static func *(_ speed : Speed, _ percent : Percent) -> Speed {
         return Speed(speed: speed.speed * percent.percent)
     }
 
 }
+
+@propertyWrapper
+public struct SpeedStorage {
+    private let key : String
+    private let defaultValue : Speed
+    
+    public init(key : String, defaultValue : Speed){
+        self.key = key
+        self.defaultValue = defaultValue
+    }
+    
+    public var wrappedValue : Speed {
+        get {
+            let val = UserDefaults.standard.integer(forKey: key)
+            return Speed(roundedSpeed: val)
+        }
+        set {
+            UserDefaults.standard.set(newValue.roundedSpeed, forKey: key)
+        }
+    }
+}
+
 

@@ -8,7 +8,7 @@
 import Foundation
 import OSLog
 
-struct Metar : Decodable {
+public struct Metar : Decodable {
     enum Category: String, Decodable {
             case wind_direction, wind_speed
         }
@@ -46,7 +46,7 @@ struct Metar : Decodable {
         return rv
     }
     
-    static func metar(icao : String, callback : @escaping (_ : Metar?, _ : String) -> Void){
+    public static func metar(icao : String, callback : @escaping (_ : Metar?, _ : String) -> Void){
         if let url = URL(string: "https://avwx.rest/api/metar/\(icao)"),
            let token = Secrets.shared["avwx"]{
             var request = URLRequest(url: url)

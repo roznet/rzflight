@@ -7,19 +7,19 @@
 
 import Foundation
 
-struct Percent {
+public struct Percent {
     // store in decimal: 1 = 100%
     var percent : Double
     
-    init(percent : Double){
+    public init(percent : Double){
         self.percent = percent
     }
     
-    init(rounded: Int){
+    public init(rounded: Int){
         self.percent = Double(rounded) / 100.0
     }
     
-    var description : String {
+    public var description : String {
         let rounded = Int(round(percent*100.0))
         return "\(rounded)%"
     }

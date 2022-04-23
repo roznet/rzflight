@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Secrets : Decodable {
+public struct Secrets : Decodable {
     private let info : [String : String]
     private init(){
         if let fileurl = Bundle.main.url(forResource: "secrets", withExtension: "json"),
