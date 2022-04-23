@@ -16,7 +16,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
-        .package(url: "git@github.com:roznet/Geomagnetism.git", from: "1.0.0"),
+        .package(name: "Geomagnetism", url: "https://github.com/roznet/Geomagnetism", from: "1.0.0"),
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -26,6 +26,9 @@ let package = Package(
             dependencies: [ .product(name: "Geomagnetism", package: "Geomagnetism") ] ),
         .testTarget(
             name: "RZFlightTests",
-            dependencies: ["RZFlight"]),
+            dependencies: ["RZFlight"],
+            exclude: [ "samples"]
+        ),
+        
     ]
 )
