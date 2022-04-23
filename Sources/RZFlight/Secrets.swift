@@ -9,8 +9,8 @@ import Foundation
 
 public struct Secrets : Decodable {
     private let info : [String : String]
-    private init(){
-        if let fileurl = Bundle.main.url(forResource: "secrets", withExtension: "json"),
+    public init(url : URL?){
+        if let fileurl = url,
            let data = try? Data(contentsOf: fileurl),
            let secrets = try? JSONDecoder().decode([String:String].self, from: data) {
             info = secrets
@@ -23,5 +23,8 @@ public struct Secrets : Decodable {
         return info[ key ]
     }
     
-    static let shared = Secrets()
+    /**
+     * need to be initialized by the application with a valid json secret file
+     */
+    public static var shared = Secrets(url: nil)
 }
