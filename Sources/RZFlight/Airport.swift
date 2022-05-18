@@ -9,8 +9,14 @@ import Foundation
 import CoreLocation
 import Geomagnetism
 import OSLog
+import FMDB
+
 
 public struct Airport : Decodable {
+        
+    enum AirportError :  Error {
+        case unknownIdentifier
+    }
     
     enum Category: String, Decodable {
             case city, name, country, elevation_ft, icao, latitude, longitude, reporting
@@ -39,6 +45,29 @@ public struct Airport : Decodable {
             let otherComponent = other.bestTrueHeading(for: wind).headWindComponent(with: wind)
             
             return thisComponent.percent > otherComponent.percent
+        }
+        
+        init(res : FMResultSet){
+            //id INT,
+            //airport_ref INT,
+            //airport_ident TEXT,
+            self.length_ft = Int(res.int(forColumn: "length_ft"))
+            self.width_ft = Int(res.int(forColumn: "width_ft"))
+            self.surface = res.string(forColumn: "surface") ?? ""
+            //lighted INT,
+            //closed INT,
+            self.ident1 = res.string(forColumn: "le_ident") ?? ""
+            //le_latitude_deg REAL,
+            //le_longitude_deg REAL,
+            //le_elevation_ft REAL,
+            self.bearing1 = res.double(forColumn: "le_heading_degT")
+            //le_displaced_threshold_ft REAL,
+            self.ident2 = res.string(forColumn: "he_ident") ?? ""
+            //he_latitude_deg REAL,
+            //he_longitude_deg REAL,
+            //he_elevation_ft REAL,
+            self.bearing2 = res.double(forColumn: "he_heading_degT")
+            //he_displaced_threshold_ft REAL
         }
     }
     
@@ -70,6 +99,40 @@ public struct Airport : Decodable {
     }
     func trueHeading(from : Heading) -> Heading {
         return Heading(heading: (from.heading + declination) )
+    }
+    
+    public init(db : FMDatabase, ident : String) throws{
+        let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
+        if let res = res, res.next() {
+            self.icao = ident
+            //type TEXT,
+            self.name = res.string(forColumn: "name") ?? ident
+            self.latitude = res.double(forColumn: "latitude_deg")
+            self.longitude = res.double(forColumn: "longitude_deg")
+            self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
+            //continent TEXT,
+            self.country = res.string(forColumn: "iso_country") ?? ""
+            //iso_region TEXT,
+            self.city = res.string(forColumn: "municipality") ?? ""
+            //scheduled_service TEXT,
+            //gps_code TEXT,
+            //iata_code TEXT,
+            //local_code TEXT,
+            //home_link TEXT,
+            //wikipedia_link TEXT,
+            //keywords TEXT
+        }else{
+            throw AirportError.unknownIdentifier
+        }
+        let run = db.executeQuery("SELECT * FROM runways WHERE airport_ident = ?", withArgumentsIn: [ident])
+        var runways : [Runway] = []
+        if let run = run {
+            while run.next() {
+                runways.append(Runway(res: run))
+            }
+        }
+        self.runways = runways
+        self.reporting = false
     }
     
     public func bestRunway(wind : Heading) -> Heading {
@@ -120,8 +183,9 @@ public struct Airport : Decodable {
         }
     }
     
-    public static func near(coord : CLLocationCoordinate2D, count : Int = 5, callback : @escaping (_ : [Airport]) -> Void) {
-        if let url = URL(string: "https://avwx.rest/api/station/near/\(coord.latitude),\(coord.longitude)?n=\(count)&reporting=true"),
+    public static func near(coord : CLLocationCoordinate2D, count : Int = 5, reporting : Bool = true, callback : @escaping (_ : [Airport]) -> Void) {
+        let reportingParameter = reporting ? "true" : "false"
+        if let url = URL(string: "https://avwx.rest/api/station/near/\(coord.latitude),\(coord.longitude)?n=\(count)&reporting=\(reportingParameter)"),
            let token = Secrets.shared["avwx"]{
             var request = URLRequest(url: url)
             Logger.web.info("query \(url, privacy: .public)")
@@ -154,3 +218,4 @@ public struct Airport : Decodable {
         }
     }
 }
+
