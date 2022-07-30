@@ -101,6 +101,14 @@ public struct Airport : Decodable {
         return Heading(heading: (from.heading + declination) )
     }
     
+    public func contains( _ searchText : String) -> Bool {
+        let lowered = searchText.lowercased()
+        if icao.lowercased().contains(lowered) || name.lowercased().contains(lowered) || country.lowercased().contains(lowered) || city.lowercased().contains(lowered) {
+            return true
+        }
+        return false
+    }
+    
     public init(db : FMDatabase, ident : String) throws{
         let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
         if let res = res, res.next() {
