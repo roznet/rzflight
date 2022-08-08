@@ -227,3 +227,12 @@ public struct Airport : Decodable {
     }
 }
 
+extension Airport : Hashable, Equatable {
+    static public func ==(lhs : Airport, rhs : Airport) -> Bool {
+        return lhs.icao == rhs.icao
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.icao)
+    }
+}
