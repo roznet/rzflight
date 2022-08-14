@@ -236,3 +236,7 @@ extension Airport : Hashable, Equatable {
         hasher.combine(self.icao)
     }
 }
+
+extension Airport : CustomStringConvertible {
+    public var description : String { return "Airport(\(icao))" }
+}
