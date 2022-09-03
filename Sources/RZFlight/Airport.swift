@@ -12,16 +12,16 @@ import OSLog
 import FMDB
 
 
-public struct Airport : Decodable {
+public struct Airport : Codable {
         
     enum AirportError :  Error {
         case unknownIdentifier
     }
     
-    enum Category: String, Decodable {
+    enum Category: String, Codable {
             case city, name, country, elevation_ft, icao, latitude, longitude, reporting
         }
-    public struct Runway : Decodable{
+    public struct Runway : Codable{
         enum Category: String, Decodable {
                 case length_ft, width_ft, surface, bearing1, bearing2, ident1, ident2
             }
