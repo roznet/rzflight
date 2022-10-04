@@ -23,6 +23,9 @@ public struct Secrets : Decodable {
         return info[ key ]
     }
     
+    public func value(for key: String, default value :String = "") -> String {
+        return info[key] ?? value
+    }
     /**
      * need to be initialized by the application with a valid json secret file
      */
