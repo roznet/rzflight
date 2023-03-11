@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "RZFlight",
     platforms: [
-        .macOS(.v11), .iOS(.v15)
+        .macOS(.v12), .iOS(.v15)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -16,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         // Dependencies declare other packages that this package depends on.
+        .package(name: "RZUtils", url: "https://github.com/roznet/rzutils", from: "1.0.27"),
         .package(name: "Geomagnetism", url: "https://github.com/roznet/Geomagnetism", from: "1.0.0"),
         .package(name: "FMDB", url: "https://github.com/ccgus/fmdb", from: "2.7.7")
     ],
@@ -24,7 +25,11 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "RZFlight",
-            dependencies: [ .product(name: "Geomagnetism", package: "Geomagnetism"), .product(name: "FMDB", package: "FMDB") ] ),
+            dependencies: [
+                .product(name: "RZUtilsSwift", package: "RZUtils"),
+                .product(name: "Geomagnetism", package: "Geomagnetism"),
+                .product(name: "FMDB", package: "FMDB")
+            ] ),
         .testTarget(
             name: "RZFlightTests",
             dependencies: ["RZFlight"],

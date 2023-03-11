@@ -7,6 +7,7 @@
 
 import Foundation
 import OSLog
+import RZUtilsSwift
 
 public struct Metar : Decodable {
     enum Category: String, Decodable {

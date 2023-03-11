@@ -10,6 +10,7 @@ import CoreLocation
 import Geomagnetism
 import OSLog
 import FMDB
+import RZUtilsSwift
 
 
 public struct Airport : Codable {
