@@ -110,6 +110,37 @@ public struct Airport : Codable {
         return false
     }
     
+    public init?(res : FMResultSet, db : FMDatabase? = nil) {
+        guard let ident = res.string(forColumn: "ident")
+        else { return nil }
+        
+        self.icao = ident
+        self.name = res.string(forColumn: "name") ?? ident
+        self.latitude = res.double(forColumn: "latitude_deg")
+        self.longitude = res.double(forColumn: "longitude_deg")
+        self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
+        //continent TEXT,
+        self.country = res.string(forColumn: "iso_country") ?? ""
+        //iso_region TEXT,
+        self.city = res.string(forColumn: "municipality") ?? ""
+        
+        if let db = db {
+            let run = db.executeQuery("SELECT * FROM runways WHERE airport_ident = ?", withArgumentsIn: [ident])
+            var runways : [Runway] = []
+            if let run = run {
+                while run.next() {
+                    runways.append(Runway(res: run))
+                }
+            }
+            self.runways = runways
+        }else{
+            self.runways = []
+        }
+        
+        self.reporting = false
+        
+    }
+    
     public init(db : FMDatabase, ident : String) throws{
         let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
         if let res = res, res.next() {
