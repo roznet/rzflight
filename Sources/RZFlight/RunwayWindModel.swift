@@ -6,11 +6,12 @@
 //
 
 import Foundation
+#if os(iOS)
 import AVFoundation
+#endif
 
 @objc public class RunwayWindModel : NSObject {
     private var completion : ()->Void = {}
-    var synthetizer : AVSpeechSynthesizer? = nil
     
     public var runwayHeading : Heading
     public var windHeading : Heading
@@ -97,7 +98,10 @@ import AVFoundation
         let eRunway = self.enunciate(number: self.runwayHeading.runwayDescription)
         return "Wind: \(self.announce), Runway \(eRunway), Clear to land"
     }
+   
     
+#if os(iOS)
+    var synthetizer : AVSpeechSynthesizer? = nil
     public enum SpeechType {
         case clearance, windcheck
     }
@@ -122,7 +126,7 @@ import AVFoundation
         synthetizer?.delegate = self
         synthetizer?.speak(utterance)
     }
-
+#endif
     //MARK: - generate
     
     func speedProbabilities() -> [Double] {
@@ -234,8 +238,11 @@ import AVFoundation
     }    
 }
 
+
+#if os(iOS)
 extension RunwayWindModel : AVSpeechSynthesizerDelegate {
     @objc public func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         self.completion()
     }
 }
+#endif
