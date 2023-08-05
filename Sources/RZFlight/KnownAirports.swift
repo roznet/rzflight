@@ -48,17 +48,17 @@ extension Airport : KDTreePoint {
         let lon = (longitude-otherPoint.longitude)
         return lat*lat+lon*lon
     }
-    func distance(to: CLLocationCoordinate2D) -> CLLocationDistance {
+    public func distance(to: CLLocationCoordinate2D) -> CLLocationDistance {
         return MKMapPoint(CLLocationCoordinate2D(latitude: latitude, longitude: longitude)).distance(to: MKMapPoint(to))
     }
 }
 
-class KnownAirports {
+public class KnownAirports {
     let tree : KDTree<Airport>
     let db : FMDatabase
     let known : [String:Airport]
     
-    init(db : FMDatabase, where whereClause : String? = nil){
+    public init(db : FMDatabase, where whereClause : String? = nil){
         var points : [String:Airport] = [:]
         var sql = "SELECT * FROM airports"
         if let whereClause = whereClause {
@@ -76,24 +76,24 @@ class KnownAirports {
         self.tree = KDTree<Airport>(values: Array(points.values))
     }
     
-    func airport(icao : String) -> Airport? {
+    public func airport(icao : String) -> Airport? {
         return known[icao]
     }
  
-    func nearestAirport(coord : CLLocationCoordinate2D) -> Airport? {
+    public func nearestAirport(coord : CLLocationCoordinate2D) -> Airport? {
         let found = tree.nearest(to: Airport.at(location: coord))
         return found
     }
-    func nearest(coord : CLLocationCoordinate2D, count : Int) -> [Airport] {
+    public func nearest(coord : CLLocationCoordinate2D, count : Int) -> [Airport] {
         return tree.nearestK(count, to: Airport.at(location: coord))
     }
-    func nearestMatching(coord : CLLocationCoordinate2D, needle: String, count : Int) -> [Airport] {
+    public func nearestMatching(coord : CLLocationCoordinate2D, needle: String, count : Int) -> [Airport] {
         if needle.isEmpty {
             return self.nearest(coord: coord, count: count)
         }
         return tree.nearestK(count, to: Airport.at(location: coord)) { $0.matches(needle) }
     }
-    func matching(needle : String) -> [Airport] {
+    public func matching(needle : String) -> [Airport] {
         var rv : [Airport] = []
         for (_,airport) in self.known {
             if airport.matches(needle) {
@@ -103,6 +103,3 @@ class KnownAirports {
         return rv
     }
 }
-
-
-import Foundation
