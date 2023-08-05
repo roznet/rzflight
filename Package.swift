@@ -18,7 +18,8 @@ let package = Package(
         // Dependencies declare other packages that this package depends on.
         .package(name: "RZUtils", url: "https://github.com/roznet/rzutils", from: "1.0.27"),
         .package(name: "Geomagnetism", url: "https://github.com/roznet/Geomagnetism", from: "1.0.0"),
-        .package(name: "FMDB", url: "https://github.com/ccgus/fmdb", from: "2.7.7")
+        .package(name: "FMDB", url: "https://github.com/ccgus/fmdb", from: "2.7.7"),
+        .package(name: "KDTree", url: "https://github.com/Bersaelor/KDTree.git", from: "1.4.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -28,6 +29,7 @@ let package = Package(
             dependencies: [
                 .product(name: "RZUtilsSwift", package: "RZUtils"),
                 .product(name: "Geomagnetism", package: "Geomagnetism"),
+                .product(name: "KDTree", package: "KDTree"),
                 .product(name: "FMDB", package: "FMDB")
             ] ),
         .testTarget(

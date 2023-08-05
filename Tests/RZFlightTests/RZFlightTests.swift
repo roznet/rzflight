@@ -8,7 +8,6 @@ final class RZFlightTests: XCTestCase {
         let thisDirectory = thisSourceFile.deletingLastPathComponent()
         let resourceURL = thisDirectory.appendingPathComponent("samples").appendingPathComponent(name)
         return resourceURL
-        
     }
     func testHeading() throws {
         let tests = [ (240, 60), (270, 90), (180,0), (20, 200)]
@@ -38,7 +37,7 @@ final class RZFlightTests: XCTestCase {
         let url = self.findResource(name: "near-\(location).json")
         do {
             let data = try Data(contentsOf: url)
-            let airports = try JSONDecoder().decode([Airport.Near].self, from: data)
+            let airports = try JSONDecoder().decode([AviationRemoteService.AVWX.Near].self, from: data)
             XCTAssertEqual(airports.count, 5)
             return airports.map { $0.station }
         } catch {

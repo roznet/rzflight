@@ -22,6 +22,27 @@ public struct Airport : Codable {
     enum Category: String, Codable {
             case city, name, country, elevation_ft, icao, latitude, longitude, reporting
         }
+    
+    public enum AirportType : String, Codable {
+        case none
+        case balloonport
+        case closed
+        case large_airport
+        case medium_airport
+        case seaplane_base
+        case small_airport
+    }
+    public enum Continent : String, Codable {
+        case none
+        case AF
+        case AN
+        case AS
+        case EU
+        case NA
+        case OC
+        case SA
+    }
+    
     public struct Runway : Codable{
         enum Category: String, Decodable {
                 case length_ft, width_ft, surface, bearing1, bearing2, ident1, ident2
@@ -72,22 +93,16 @@ public struct Airport : Codable {
         }
     }
     
-    struct Near : Decodable{
-        enum Category: String, Decodable {
-                case station
-            }
-
-        var station : Airport
-    }
     
-    public var name : String
-    public var city : String
-    public var country : String
-    public var elevation_ft : Int
-    public var icao : String
-    var latitude : Double
-    var longitude : Double
-    public var reporting : Bool
+    public let name : String
+    public let city : String
+    public let country : String
+    public let elevation_ft : Int
+    public let icao : String
+    public let type : AirportType
+    public let continent : Continent
+    let latitude : Double
+    let longitude : Double
     
     public var runways : [Runway]
     
@@ -109,6 +124,13 @@ public struct Airport : Codable {
         }
         return false
     }
+    func matches(_ needle : String) -> Bool {
+        if self.icao.range(of: needle, options: [.caseInsensitive,.diacriticInsensitive]) != nil ||
+            self.name.range(of: needle, options: [.caseInsensitive,.diacriticInsensitive]) != nil {
+            return true
+        }
+        return false
+    }
     
     public init?(res : FMResultSet, db : FMDatabase? = nil) {
         guard let ident = res.string(forColumn: "ident")
@@ -119,38 +141,59 @@ public struct Airport : Codable {
         self.latitude = res.double(forColumn: "latitude_deg")
         self.longitude = res.double(forColumn: "longitude_deg")
         self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
-        //continent TEXT,
+        self.continent = Continent(rawValue: res.string(forColumn: "continent") ?? "") ?? .none
+        self.type = AirportType(rawValue: res.string(forColumn:"type") ?? "") ?? .none
         self.country = res.string(forColumn: "iso_country") ?? ""
         //iso_region TEXT,
         self.city = res.string(forColumn: "municipality") ?? ""
         
         if let db = db {
-            let run = db.executeQuery("SELECT * FROM runways WHERE airport_ident = ?", withArgumentsIn: [ident])
-            var runways : [Runway] = []
-            if let run = run {
-                while run.next() {
-                    runways.append(Runway(res: run))
-                }
-            }
-            self.runways = runways
+            self.runways = Self.runways(for: self.icao, db: db)
         }else{
             self.runways = []
         }
-        
-        self.reporting = false
-        
+    }
+   
+    private static func runways(for icao : String, db : FMDatabase) -> [Runway] {
+        let run = db.executeQuery("SELECT * FROM runways WHERE airport_ident = ?", withArgumentsIn: [icao])
+        var runways : [Runway] = []
+        if let run = run {
+            while run.next() {
+                runways.append(Runway(res: run))
+            }
+        }
+        return runways
     }
     
+    public mutating func addRunways(db : FMDatabase) {
+        self.runways = Self.runways(for: self.icao, db: db)
+    }
+    static func at(location: CLLocationCoordinate2D) -> Airport {
+        return Airport(location: location, icao: "__DUMMY__")
+    }
+    public init(location : CLLocationCoordinate2D, icao : String? = nil) {
+        self.latitude = location.latitude
+        self.longitude = location.longitude
+        self.icao = icao ?? ""
+        self.name = ""
+        self.city = ""
+        self.country = ""
+        self.elevation_ft = 0
+        self.runways = []
+        self.continent = .none
+        self.type = .none
+    
+    }
     public init(db : FMDatabase, ident : String) throws{
         let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
         if let res = res, res.next() {
             self.icao = ident
-            //type TEXT,
+            self.type = AirportType(rawValue: res.string(forColumn:"type") ?? "") ?? .none
             self.name = res.string(forColumn: "name") ?? ident
             self.latitude = res.double(forColumn: "latitude_deg")
             self.longitude = res.double(forColumn: "longitude_deg")
             self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
-            //continent TEXT,
+            self.continent = Continent(rawValue: res.string(forColumn: "continent") ?? "") ?? .none
             self.country = res.string(forColumn: "iso_country") ?? ""
             //iso_region TEXT,
             self.city = res.string(forColumn: "municipality") ?? ""
@@ -172,7 +215,6 @@ public struct Airport : Codable {
             }
         }
         self.runways = runways
-        self.reporting = false
     }
     
     public func bestRunway(wind : Heading) -> Heading {
@@ -181,85 +223,16 @@ public struct Airport : Codable {
             for runway in runways {
                 if runway.better(for: wind, than: best) {
                     best = runway
-                } 
+                }
             }
             return self.magneticHeading(from: best.bestTrueHeading(for: wind))
         }
         return wind
     }
     
-    public static func at(icao: String, callback : @escaping (_ : Airport?) -> Void ) {
-        if let url = URL(string: "https://avwx.rest/api/station/\(icao)"),
-           let token = Secrets.shared["avwx"]{
-            var request = URLRequest(url: url)
-            
-            request.setValue("BEARER \(token)", forHTTPHeaderField: "Authorization")
-            Logger.web.info("query \(url, privacy: .public)")
-
-            let task = URLSession.shared.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    Logger.web.error("failed with \(error.localizedDescription, privacy: .public)")
-                    callback(nil)
-                    return
-                }
-                guard let httpResponse = response as? HTTPURLResponse,
-                      (200...299).contains(httpResponse.statusCode) else {
-                          callback(nil)
-                          return
-                      }
-                if let mimeType = httpResponse.mimeType, mimeType == "application/json",
-                   let data = data {
-                    do {
-                        let rv : Airport = try JSONDecoder().decode(Airport.self, from: data)
-                        Logger.web.info("success \(url, privacy: .public)")
-                        callback(rv)
-                    } catch {
-                        Logger.web.error("failed with \(error.localizedDescription, privacy: .public)")
-                        callback(nil)
-                    }
-                }
-            }
-            task.resume()
-        }
-    }
-    
-    public static func near(coord : CLLocationCoordinate2D, count : Int = 5, reporting : Bool = true, callback : @escaping (_ : [Airport]) -> Void) {
-        let reportingParameter = reporting ? "true" : "false"
-        if let url = URL(string: "https://avwx.rest/api/station/near/\(coord.latitude),\(coord.longitude)?n=\(count)&reporting=\(reportingParameter)"),
-           let token = Secrets.shared["avwx"]{
-            var request = URLRequest(url: url)
-            Logger.web.info("query \(url, privacy: .public)")
-            request.setValue("BEARER \(token)", forHTTPHeaderField: "Authorization")
-            let task = URLSession.shared.dataTask(with: request) { data, response, error in
-                if let error = error {
-                    Logger.web.error("failed with \(error.localizedDescription, privacy: .public)")
-                    callback([])
-                    return
-                }
-                guard let httpResponse = response as? HTTPURLResponse,
-                      (200...299).contains(httpResponse.statusCode) else {
-                          Logger.web.error("failed with invalid statusCode")
-                          callback([])
-                          return
-                      }
-                if let mimeType = httpResponse.mimeType, mimeType == "application/json",
-                   let data = data {
-                    do {
-                        let rv : [Near] = try JSONDecoder().decode([Near].self, from: data)
-                        Logger.web.info("success \(url, privacy: .public)")
-                        callback(rv.map { $0.station })
-                    } catch {
-                        Logger.web.error("failed with \(error.localizedDescription, privacy: .public)")
-                        callback([])
-                    }
-                }
-            }
-            task.resume()
-        }
-    }
 }
 
-extension Airport : Hashable, Equatable {
+extension Airport : Hashable, Equatable,Identifiable {
     static public func ==(lhs : Airport, rhs : Airport) -> Bool {
         return lhs.icao == rhs.icao
     }
@@ -267,8 +240,10 @@ extension Airport : Hashable, Equatable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(self.icao)
     }
+    public var id: String { return self.icao }
 }
 
 extension Airport : CustomStringConvertible {
     public var description : String { return "Airport(\(icao))" }
 }
+
