@@ -2,18 +2,54 @@
 
 import sys
 import argparse
+import datetime
 import requests
 from pprint import pprint
 import json
 from urllib.parse import urlparse
 import os
 import camelot
+import getpass
 
 class Autorouter:
-    def __init__(self, bearer, cache, force=False):
-        self.bearer = bearer
+    def __init__(self, token, cache, force=False):
+        self.token = token
         self.cache = cache
         self.force = force
+        self.checkToken()
+
+
+    def checkToken(self):
+        if self.token is None:
+            credentialFile = os.path.join(self.cache,'credentials.json')
+            self.credentials = None
+            if os.path.exists(credentialFile):
+                with open(credentialFile) as f:
+                    credentials = json.load(f)
+                    self.credentials = credentials
+
+            if self.credentials is None:
+                username = input('Username: ')
+                self.credentials = {'username':username}
+
+
+            print( f'Using username {self.credentials["username"]}')
+            if self.credentials.get('access_token') is None:
+                pw=getpass.getpass()
+                postdata = {'client_id':self.credentials['username'],'client_secret':pw,'grant_type':'client_credentials'}
+                response = requests.post('https://api.autorouter.aero/v1.0/oauth2/token',data=postdata)
+                if response.status_code == 200:
+                    data = response.json()
+                    self.credentials['access_token'] = data['access_token']
+                    expiration = datetime.datetime.now() + datetime.timedelta(seconds=data['expires_in'])
+                    self.credentials['expiration'] = expiration.isoformat()
+
+                    with open(credentialFile,'w') as f:
+                        json.dump(self.credentials,f)
+
+            self.token = self.credentials['access_token']
+            print(f'Using token {self.token} valid until {self.credentials["expiration"]}')
+
 
     def fullUrl(self, url):
         return f'https://api.autorouter.aero/v1.0/pams/{url}'
@@ -52,7 +88,7 @@ class Autorouter:
             print( f'Using cached {url}')
             return rv
         
-        headers = {'Authorization': f'Bearer {self.bearer}'}
+        headers = {'Authorization': f'Bearer {self.token}'}
         response = requests.get(self.fullUrl(url),headers=headers)
         if response.status_code == 200:
             rv = response.json()
@@ -76,7 +112,7 @@ class Autorouter:
             return cached
 
         url = f'id/{docid}'
-        headers = {'Authorization': f'Bearer {self.bearer}'}
+        headers = {'Authorization': f'Bearer {self.token}'}
         response = requests.get(self.fullUrl(url),headers=headers)
         if response.status_code == 200:
             print(f'Writing {filename} to cache')
@@ -111,7 +147,7 @@ class Airport:
     def retrieveProcedures(self,api):
         url = f'procedures/{self.code}'
         cache = api.cachedJson(url)
-        if cache:
+        if cache is not None:
             print( f'Using cached {url}')
             return cache
 
@@ -201,7 +237,7 @@ class Airport:
                         value = sp[0]
                         alt_value = sp[1]
 
-                data = {'icao':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': value, 'alt_value': alt_value}
+                data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': value, 'alt_value': alt_value}
                 rv.append(data)
         return rv
 
@@ -212,7 +248,7 @@ if __name__ == '__main__':
     parser.add_argument('airports', help='list of airports to query', nargs='+')
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
-    parser.add_argument('-t', '--token', help='bearer token', required=True)
+    parser.add_argument('-t', '--token', help='bearer token')
     args = parser.parse_args()
 
     for airport in args.airports:
