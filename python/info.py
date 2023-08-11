@@ -32,9 +32,13 @@ class Autorouter:
                 username = input('Username: ')
                 self.credentials = {'username':username}
 
-
             print( f'Using username {self.credentials["username"]}')
-            if self.credentials.get('access_token') is None:
+
+            exp = datetime.datetime.fromisoformat( self.credentials.get('expiration') )
+            isExpired = exp < datetime.datetime.now()
+            if isExpired:
+                print( f'Token expired at {exp}')
+            if self.credentials.get('access_token') is None or isExpired:
                 pw=getpass.getpass()
                 postdata = {'client_id':self.credentials['username'],'client_secret':pw,'grant_type':'client_credentials'}
                 response = requests.post('https://api.autorouter.aero/v1.0/oauth2/token',data=postdata)
@@ -240,8 +244,6 @@ class Airport:
                 data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': value, 'alt_value': alt_value}
                 rv.append(data)
         return rv
-
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
