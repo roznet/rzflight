@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import os
 import camelot
 import getpass
+import sqlite3
 
 class Autorouter:
     def __init__(self, token, cache, force=False):
@@ -17,7 +18,6 @@ class Autorouter:
         self.cache = cache
         self.force = force
         self.checkToken()
-
 
     def checkToken(self):
         if self.token is None:
@@ -132,6 +132,34 @@ class Autorouter:
             print(f'Error {response.status_code} retrieving {url}')
             sys.exit(1)
 
+
+class Database:
+    def __init__(self, filename):
+        self.filename = filename
+        self.conn = sqlite3.connect(filename)
+        self.cursor = self.conn.cursor()
+        self.create()    
+
+    def create(self):
+        #make sure table info exists or create it
+        if self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='info'").fetchone() is None:
+            self.cursor.execute('CREATE TABLE info (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
+            self.conn.commit()
+
+    # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
+    def updateInfo(self, infos):
+        if len(infos) == 0:
+            return
+        ident = infos[0]['ident']
+        self.cursor.execute("SELECT COUNT(*) FROM info WHERE ident=?", (ident,))
+        already = self.cursor.fetchone()[0]
+        if already > 0:
+            print(f'Already have {already} info records for {ident}')
+            return
+        print(f'Updating {len(infos)} info records')
+        self.cursor.executemany('INSERT INTO info (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
+
+        self.conn.commit()
 
 class Airport:
     def __init__(self, code):
@@ -262,13 +290,17 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
+    parser.add_argument('-d', '--database', help='database file', default='aip.db')
     args = parser.parse_args()
 
     for airport in args.airports:
         print(f'Processing {airport}')
         a=Airport(airport)
         api = Autorouter(args.token, args.cache_dir, args.force)
-        a.retrieveTable(api)
+        db = Database(args.database)
         a.retrieveDocList(api)
+        table = (a.retrieveTable(api))
+        if table:
+            db.updateInfo(table)
         a.retrieveProcedures(api)
 
