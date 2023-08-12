@@ -82,7 +82,11 @@ class Autorouter:
         cache = self.cacheFilePath(url,'json')
         if os.path.exists(cache):
             with open(cache) as f:
-                return json.load(f)
+                try:
+                    return json.load(f)
+                except:
+                    print(f'Error parsing json for file {cache}')
+                    return None
         else:
             return None
 
@@ -144,8 +148,12 @@ class Airport:
         data = api.json(url)
         one = data[0]
         airport = one['Airport']
-        doc = api.doc(airport[0])
+        doc = None
 
+        for one in airport:
+            if one['section'] == 'AD 2':
+                doc = api.doc(airport[0])
+                break
         return doc
 
     def retrieveProcedures(self,api):
@@ -179,6 +187,9 @@ class Airport:
             print( f'Using cached {url}')
             return cache
         doc = self.retrieveDocList(api)
+        if doc is None:
+            print( f'No AD 2 for {self.code}')
+            return None
         tables = camelot.read_pdf(doc, pages='1-2')
 
         if len(tables) > 1:
@@ -254,6 +265,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     for airport in args.airports:
+        print(f'Processing {airport}')
         a=Airport(airport)
         api = Autorouter(args.token, args.cache_dir, args.force)
         a.retrieveTable(api)
