@@ -11,6 +11,7 @@ import os
 import camelot
 import getpass
 import sqlite3
+import pandas as pd
 
 class Autorouter:
     def __init__(self, token, cache):
@@ -218,6 +219,8 @@ class Airport:
 
     def retrieveTable(self,api):
         list = self.retrieveDocList(api)
+        if list is None:
+            return None
         for one in list:
             api.validate(one,['doccachefilename','filename','docid'])
             aipurl = one['aipcachefilename']
@@ -323,6 +326,9 @@ class Database:
             self.cursor.execute('CREATE TABLE info (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
             self.conn.commit()
 
+            self.cursor.execute('CREATE INDEX info_index ON info (ident)')
+            self.conn.commit()
+
     # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
     def updateInfo(self, infos):
         if len(infos) == 0:
@@ -330,17 +336,20 @@ class Database:
         ident = infos[0]['ident']
         self.cursor.execute("SELECT COUNT(*) FROM info WHERE ident=?", (ident,))
         already = self.cursor.fetchone()[0]
-        if already > 0:
+        if already == len(infos):
             print(f'Already have {already} info records for {ident}')
             return
+        if already > 0:
+            print(f'Clearing {already} info records for {ident}')
+            self.rebuildInfo(ident)
         print(f'Updating {len(infos)} info records')
         self.cursor.executemany('INSERT INTO info (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
-
         self.conn.commit()
 
     def rebuildInfo(self,airport):
-        self.db.execute('DELETE FROM info WHERE ident=?',(airport,))
-        self.db.commit()
+        print(f'Clearing info for {airport}')
+        self.conn.execute('DELETE FROM info WHERE ident=?',(airport,))
+        self.conn.commit()
 
 class Command:
     def __init__(self,args):
@@ -384,6 +393,8 @@ class Command:
             table = a.retrieveTable(api)
             if table:
                 print(f'Building db for {airport}')
+                if force:
+                    db.rebuildInfo(airport)
                 db.updateInfo(table)
             else:
                 print(f'No info to build {airport}')
@@ -394,6 +405,12 @@ class Command:
     def run_list(self):
         pprint(Airport.list(args.cache_dir))
 
+    def run_show(self):
+        api = Autorouter(args.token, args.cache_dir )
+        for one in self.args.airports:
+            a = Airport(one)
+            df = pd.DataFrame(a.retrieveTable(api))
+            print(df[['section','field','value']])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
