@@ -8,128 +8,85 @@ import sqlite3
 import urllib.request
 import os
 
-airportsfile = 'airports.csv'
-runwaysfile = 'runways.csv'
-if not os.path.exists("airports.csv"):
-    urllib.request.urlretrieve("https://davidmegginson.github.io/ourairports-data/airports.csv", airportsfile)
-    urllib.request.urlretrieve("https://davidmegginson.github.io/ourairports-data/runways.csv", runwaysfile)
 
-sql_create_airports = '''CREATE TABLE airports (
-id INT,
-ident TEXT PRIMARY KEY,
-type TEXT,
-name TEXT,
-latitude_deg REAL,
-longitude_deg REAL,
-elevation_ft REAL,
-continent TEXT,
-iso_country TEXT,
-iso_region TEXT,
-municipality TEXT,
-scheduled_service TEXT,
-gps_code TEXT,
-iata_code TEXT,
-local_code TEXT,
-home_link TEXT,
-wikipedia_link TEXT,
-keywords TEXT
-)'''
-sql_insert_airports = '''INSERT INTO airports VALUES (
-:id,
-:ident,
-:type,
-:name,
-:latitude_deg,
-:longitude_deg,
-:elevation_ft,
-:continent,
-:iso_country,
-:iso_region,
-:municipality,
-:scheduled_service,
-:gps_code,
-:iata_code,
-:local_code,
-:home_link,
-:wikipedia_link,
-:keywords
-)'''
+knownSuffixColumnTypes = {
+        'id': 'INT',
+        '_deg': 'REAL',
+        '_ft': 'REAL',
+        '_degT': 'REAL',
+        }
+
+def sql_create_table_from_csv(tablename,fields,primarykey='ident'):
+    sql = 'CREATE TABLE ' + tablename + ' (\n'
+    for field in fields:
+        if field == primarykey:
+            sql += field + ' TEXT PRIMARY KEY,\n'
+        else:
+            sql += field + ' ' + knownSuffixColumnTypes.get(field[-4:], 'TEXT') + ',\n'
+    sql = sql[:-2] + '\n)'
+    return sql
+
+def sql_insert_table_from_csv(tablename,fields):
+    sql = 'INSERT INTO ' + tablename + ' VALUES (\n'
+    for field in fields:
+        sql += ':' + field + ',\n'
+    sql = sql[:-2] + '\n)'
+    return sql
+class Airports:
+
+    def __init__(self):
+        self.airportsfile = 'cache/airports.csv'
+        self.runwaysfile = 'cache/runways.csv'
+        self.db = sqlite3.connect('airports.db')
+        self.cur = self.db.cursor()
+
+    def download(self):
+        if not os.path.exists(self.airportsfile):
+            urllib.request.urlretrieve("https://davidmegginson.github.io/ourairports-data/airports.csv", self.airportsfile)
+        if not os.path.exists(self.runwaysfile):
+            urllib.request.urlretrieve("https://davidmegginson.github.io/ourairports-data/runways.csv", self.runwaysfile)
 
 
-db = sqlite3.connect('airports.db')
-cur = db.cursor()
+    def createAirportsTable(self):
+        self.cur.execute( 'DROP TABLE IF EXISTS airports' )
+        self.db.commit()
 
-cur.execute( 'DROP TABLE IF EXISTS airports' )
-cur.execute( sql_create_airports )
-db.commit()
+        with open(self.airportsfile, encoding='utf-8-sig') as csvf:
+            csvReader = csv.DictReader(csvf)
 
-with open(airportsfile, encoding='utf-8-sig') as csvf:
-    csvReader = csv.DictReader(csvf)
+            fields = csvReader.fieldnames
+            sql_create_airports = sql_create_table_from_csv('airports',fields);
+            sql_insert_airports = sql_insert_table_from_csv('airports',fields);
+            self.cur.execute(sql_create_airports)
+            self.db.commit()
 
-    for row in csvReader:
-        if row['type'] != 'heliport':
-            db.execute(sql_insert_airports,row)
+            for row in csvReader:
+                if row['type'] != 'heliport':
+                    self.db.execute(sql_insert_airports,row)
+        self.db.commit()
 
-db.commit()
+    def createRunwaysTable(self):
+        self.cur.execute( 'DROP TABLE IF EXISTS runways' )
+        self.db.commit()
+        with open(self.runwaysfile, encoding='utf-8-sig') as csvf:
+            csvReader = csv.DictReader(csvf)
 
-sql_create_runways = '''CREATE TABLE runways (
-id INT,
-airport_ref INT,
-airport_ident TEXT,
-length_ft REAL,
-width_ft REAL,
-surface TEXT,
-lighted INT,
-closed INT,
-le_ident TEXT,
-le_latitude_deg REAL,
-le_longitude_deg REAL,
-le_elevation_ft REAL,
-le_heading_degT REAL,
-le_displaced_threshold_ft REAL,
-he_ident TEXT,
-he_latitude_deg REAL,
-he_longitude_deg REAL,
-he_elevation_ft REAL,
-he_heading_degT REAL,
-he_displaced_threshold_ft REAL
-)
-'''
-sql_insert_runways = '''INSERT INTO runways VALUES (
-:id,
-:airport_ref,
-:airport_ident,
-:length_ft,
-:width_ft,
-:surface,
-:lighted,
-:closed,
-:le_ident,
-:le_latitude_deg,
-:le_longitude_deg,
-:le_elevation_ft,
-:le_heading_degT,
-:le_displaced_threshold_ft,
-:he_ident,
-:he_latitude_deg,
-:he_longitude_deg,
-:he_elevation_ft,
-:he_heading_degT,
-:he_displaced_threshold_ft
-)
-'''
+            fields = csvReader.fieldnames
+            sql_create_runways = sql_create_table_from_csv('runways',fields);
+            sql_insert_runways = sql_insert_table_from_csv('runways',fields);
+            
+            self.cur.execute(sql_create_runways)
+            self.cur.execute( 'CREATE INDEX idx_airport_ident ON runways (airport_ident)' )
+            self.db.commit()
 
-cur.execute( 'DROP TABLE IF EXISTS runways' )
-cur.execute( sql_create_runways )
-cur.execute( 'CREATE INDEX idx_airport_ident ON runways (airport_ident)' )
-db.commit()
+            for row in csvReader:
+                self.db.execute(sql_insert_runways,row)
+        self.db.commit()
 
-with open(runwaysfile, encoding='utf-8-sig') as csvf:
-    csvReader = csv.DictReader(csvf)
+    def create(self):
+        self.download()
+        self.createAirportsTable()
+        self.createRunwaysTable()
 
-    for row in csvReader:
-        db.execute(sql_insert_runways,row)
-
-
-db.commit()
-
+a = Airports()
+a.create()

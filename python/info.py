@@ -290,7 +290,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
-    parser.add_argument('-d', '--database', help='database file', default='aip.db')
+    parser.add_argument('-d', '--database', help='database file', default='airports.db')
     args = parser.parse_args()
 
     for airport in args.airports:
