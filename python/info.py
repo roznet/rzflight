@@ -298,6 +298,37 @@ class Airport:
 
         return approaches
 
+    def rowIsField(self,row,needle):
+        for f in ['field','alt_field']:
+            v = row.get(f)
+            if v and re.match(needle,v.lower()):
+                return True
+        return False
+            
+    def summaryFromTable(self,api):
+        table = self.retrieveTable(api)
+        approaches = self.parseApproachProcedures(api)
+        
+        rv = {'airport':self.code,'immigration':0,'avgas':0,'jet a1':0,'approaches':0}
+        rv['approaches'] = len(approaches)
+
+        if not table:
+            return
+        for row in table:
+            if self.rowIsField(row,'custom'):
+                if row['value']:
+                    rv['immigration'] = 1
+            if self.rowIsField(row,'fuel.*type'):
+                val = row['value'].lower()
+                if 'avgas' in val or '100ll' in val:
+                    rv['avgas'] = 1 
+                if 'jet' in val or 'a1' in val:
+                    rv['jet a1'] = 1
+                if not rv['avgas'] and not rv['jet a1']:
+                    print( f'{self.code}: Unknown fuel type {val}')
+        pprint(rv)
+        
+
     def processTable(self,table,section):
         header = None
         rv = []
@@ -455,8 +486,7 @@ class Command:
             airports = Airport.list(args.cache_dir)
         for i in airports:
             a = Airport(i)
-            procs = a.parseApproachProcedures(api)
-            pprint(procs)
+            a.summaryFromTable(api)            
 
 
 
