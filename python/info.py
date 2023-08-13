@@ -13,10 +13,9 @@ import getpass
 import sqlite3
 
 class Autorouter:
-    def __init__(self, token, cache, force=False):
+    def __init__(self, token, cache):
         self.token = token
         self.cache = cache
-        self.force = force
         self.checkToken()
 
     def checkToken(self):
@@ -68,8 +67,6 @@ class Autorouter:
         return rv
 
     def cachedFile(self,url,ext):
-        if self.force:
-            return None
         file = self.cacheFilePath(url,ext)
         if os.path.exists(file):
             return file
@@ -77,8 +74,6 @@ class Autorouter:
             return None
 
     def cachedJson(self,url):
-        if self.force:
-            return None
         cache = self.cacheFilePath(url,'json')
         if os.path.exists(cache):
             with open(cache) as f:
@@ -92,15 +87,15 @@ class Autorouter:
 
     def json(self,url):
         rv = self.cachedJson(url)
-        if rv:
+        if rv is not None:
             print( f'Using cached {url}')
             return rv
-        
+
         headers = {'Authorization': f'Bearer {self.token}'}
         response = requests.get(self.fullUrl(url),headers=headers)
         if response.status_code == 200:
             rv = response.json()
-            print(f'Writing {url} to cache')
+            print(f'Retrieved and writing {url} to cache')
             with open(self.cacheFilePath(url,'json'),'w') as f:
                 json.dump(rv,f)
             return rv 
@@ -108,22 +103,49 @@ class Autorouter:
             print(f'Error {response.status_code} retrieving {url}')
             sys.exit(1)
 
-    def doc(self,info): 
-        docid=info['docid']
-        filename=info['filename']
-        basename,ext = os.path.splitext(filename)
-        filename = f'docs/{basename}'
+    def extractAirportDocList(self,data):
+        if len(data) == 0:
+            return None
+        rv = [] 
+        for info in data:
+            icao = info['icao']
+            airport = info['Airport']
+
+            for one in airport:
+                if one['section'] == 'AD 2':
+                    filename = one['filename']
+                    basename,ext = os.path.splitext(filename)
+                    one['doccachefilename'] = f'docs/{basename}'
+                    one['aipcachefilename'] = f'aip/{icao}'
+                    one['icao'] = icao
+                    rv.append(one)
+                    break
+        return rv
+
+    def validate(self,info,required):
+        for one in required:
+            if one not in info:
+                print(f'Error: {one} is required but missing from {info}')
+                return False
+        return True
+
+    def retrieveDocFile(self,info):
+        if not self.validate(info,['doccachefilename','filename','docid']):
+            return None
+
+        filename = info['doccachefilename']
 
         cached = self.cachedFile(filename,'pdf')
         if cached:
             print( f'Using cached {filename}')
             return cached
 
+        docid = info['docid']
         url = f'id/{docid}'
         headers = {'Authorization': f'Bearer {self.token}'}
         response = requests.get(self.fullUrl(url),headers=headers)
         if response.status_code == 200:
-            print(f'Writing {filename} to cache')
+            print(f'Retrieved {filename} and saving to cache')
             cached = self.cacheFilePath(filename,'pdf')
             with open(cached,'wb') as f:
                 f.write(response.content)
@@ -132,34 +154,6 @@ class Autorouter:
             print(f'Error {response.status_code} retrieving {url}')
             sys.exit(1)
 
-
-class Database:
-    def __init__(self, filename):
-        self.filename = filename
-        self.conn = sqlite3.connect(filename)
-        self.cursor = self.conn.cursor()
-        self.create()    
-
-    def create(self):
-        #make sure table info exists or create it
-        if self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='info'").fetchone() is None:
-            self.cursor.execute('CREATE TABLE info (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
-            self.conn.commit()
-
-    # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
-    def updateInfo(self, infos):
-        if len(infos) == 0:
-            return
-        ident = infos[0]['ident']
-        self.cursor.execute("SELECT COUNT(*) FROM info WHERE ident=?", (ident,))
-        already = self.cursor.fetchone()[0]
-        if already > 0:
-            print(f'Already have {already} info records for {ident}')
-            return
-        print(f'Updating {len(infos)} info records')
-        self.cursor.executemany('INSERT INTO info (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
-
-        self.conn.commit()
 
 class Airport:
     def __init__(self, code):
@@ -171,18 +165,25 @@ class Airport:
     def __repr__(self):
         return f'{self.code}'
 
-    def retrieveDocList(self,api):
-        url = f'airport/{self.code}'
-        data = api.json(url)
-        one = data[0]
-        airport = one['Airport']
-        doc = None
 
-        for one in airport:
-            if one['section'] == 'AD 2':
-                doc = api.doc(airport[0])
-                break
-        return doc
+    def clearCache(self,api):
+        cacheUrls = [f'airport/{self.code}',f'procedures/{self.code}',f'aip/{self.code}']
+
+        list = [x['doccachefilename'] for x in self.cachedDocList(api)]
+        cacheUrls.extend(list)
+        for url in cacheUrls:
+            for ext in ['json','pdf']:
+                cache = api.cacheFilePath(url,ext)
+                if os.path.exists(cache):
+                    print(f'Clear cache {cache}')
+                    os.remove(cache)
+
+    def cachedDocList(self,api):
+        url = f'airport/{self.code}'
+        data = api.cachedJson(url)
+        if data:
+            return api.extractAirportDocList(data)
+        return []
 
     def retrieveProcedures(self,api):
         url = f'procedures/{self.code}'
@@ -193,6 +194,8 @@ class Airport:
 
         dataurl = f'airport/{self.code}'
         data = api.json(dataurl)
+        if len(data) == 0:
+            return []
         one = data[0]
         rv = []
         for section in ['Arrival','Departure','Approach']:
@@ -204,41 +207,50 @@ class Airport:
                 rv.append(proc)
 
         with open(api.cacheFilePath(url,'json'),'w') as f:
-            print(f'Writing {url} to cache')
+            print(f'Parsed {url} and saving to cache')
             json.dump(rv,f)
         return rv
+
+    def retrieveDocList(self,api):
+        url = f'airport/{self.code}'
+        data = api.json(url)
+        return api.extractAirportDocList(data)
 
     def retrieveTable(self,api):
-        url = f'aip/{self.code}'
-        cache = api.cachedJson(url)
-        if cache:
-            print( f'Using cached {url}')
-            return cache
-        doc = self.retrieveDocList(api)
-        if doc is None:
-            print( f'No AD 2 for {self.code}')
-            return None
-        tables = camelot.read_pdf(doc, pages='1-2')
-
-        if len(tables) > 1:
-            admin = tables[0].df.to_dict('records')
-            operational = tables[1].df.to_dict('records')
-
-            rv = self.processTable(admin,'admin')
-            rv.extend( self.processTable(operational,'operational'))
-
-        if len(tables) > 3:
-            handling = tables[2].df.to_dict('records')
-            passenger = tables[3].df.to_dict('records')
-
-            rv.extend( self.processTable(handling,'handling'))
-            rv.extend( self.processTable(passenger,'passenger'))
-
-        with open(api.cacheFilePath(url,'json'),'w') as f:
-            print(f'Writing {url} to cache')
-            json.dump(rv,f)
+        list = self.retrieveDocList(api)
+        for one in list:
+            api.validate(one,['doccachefilename','filename','docid'])
+            aipurl = one['aipcachefilename']
+            cache = api.cachedJson(aipurl)
+            if cache:
+                print( f'Using cached {aipurl}')
+                return cache
+            doc = api.retrieveDocFile(one)
         
-        return rv
+            if doc is None:
+                print( f'No AD 2 for {self.code}')
+                return None
+            tables = camelot.read_pdf(doc, pages='1-2')
+
+            if len(tables) > 1:
+                admin = tables[0].df.to_dict('records')
+                operational = tables[1].df.to_dict('records')
+
+                rv = self.processTable(admin,'admin')
+                rv.extend( self.processTable(operational,'operational'))
+
+            if len(tables) > 3:
+                handling = tables[2].df.to_dict('records')
+                passenger = tables[3].df.to_dict('records')
+
+                rv.extend( self.processTable(handling,'handling'))
+                rv.extend( self.processTable(passenger,'passenger'))
+
+            with open(api.cacheFilePath(aipurl,'json'),'w') as f:
+                print(f'Parsed AIP and writing {aipurl} to cache')
+                json.dump(rv,f)
+            
+            return rv
 
     def processTable(self,table,section):
         header = None
@@ -284,6 +296,52 @@ class Airport:
                 rv.append(data)
         return rv
 
+    def list(cache_dir='cache'):
+        path = cache_dir+'/airport'
+        files = os.listdir(path)
+        rv=[]
+        for one in files:
+            if one.endswith('.json'):
+                rv.append(one[:-5])
+
+        return rv
+
+class Database:
+    def __init__(self, args):
+        self.filename = args.database
+        self.conn = sqlite3.connect(self.filename)
+        self.cursor = self.conn.cursor()
+        self.create()    
+
+    def tableExists(self, table):
+        sql = f'SELECT name FROM sqlite_master WHERE type="table" AND name="{table}"'
+        return self.cursor.execute(sql).fetchone() is None
+
+    def create(self):
+        #make sure table info exists or create it
+        if self.tableExists('info'):
+            self.cursor.execute('CREATE TABLE info (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
+            self.conn.commit()
+
+    # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
+    def updateInfo(self, infos):
+        if len(infos) == 0:
+            return
+        ident = infos[0]['ident']
+        self.cursor.execute("SELECT COUNT(*) FROM info WHERE ident=?", (ident,))
+        already = self.cursor.fetchone()[0]
+        if already > 0:
+            print(f'Already have {already} info records for {ident}')
+            return
+        print(f'Updating {len(infos)} info records')
+        self.cursor.executemany('INSERT INTO info (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
+
+        self.conn.commit()
+
+    def rebuildInfo(self,airport):
+        self.db.execute('DELETE FROM info WHERE ident=?',(airport,))
+        self.db.commit()
+
 class Command:
     def __init__(self,args):
         self.args = args
@@ -300,20 +358,42 @@ class Command:
     def run(self):
         getattr(self,f'run_{self.args.command}')()
 
-    def run_build(self):
+    def run_download(self):
+        api = Autorouter(args.token, args.cache_dir)
         for airport in args.airports:
+            airport = airport.strip()
             print(f'Processing {airport}')
             a=Airport(airport)
-            api = Autorouter(args.token, args.cache_dir, args.force)
-            db = Database(args.database)
+            if self.args.force:
+                a.clearCache(api)
             a.retrieveDocList(api)
-            table = (a.retrieveTable(api))
-            if table:
-                db.updateInfo(table)
             a.retrieveProcedures(api)
+            a.retrieveTable(api)
+
+    def run_build(self):
+        db = Database(args)
+        if args.airports:
+            airports = args.airports
+        else:
+            airports = Airport.list(args.cache_dir)
+
+        api = Autorouter(args.token, args.cache_dir )
+        force = args.force
+        for airport in airports:
+            a=Airport(airport)
+            table = a.retrieveTable(api)
+            if table:
+                print(f'Building db for {airport}')
+                db.updateInfo(table)
+            else:
+                print(f'No info to build {airport}')
+
+
+
 
     def run_list(self):
-        pass
+        pprint(Airport.list(args.cache_dir))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -323,6 +403,10 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
+    parser.add_argument('--table', help='table name to create', default='airport_aip_info')
     args = parser.parse_args()
+
+    cmd = Command(args)
+    cmd.run()
 
 

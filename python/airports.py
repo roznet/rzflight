@@ -168,12 +168,12 @@ class Airports:
             collect[ident] = previous
 
 
-        self.db.execute( 'DROP TABLE IF EXISTS airport_runway_summary' )
+        self.db.execute( 'DROP TABLE IF EXISTS airports_runway_summary' )
         self.db.commit()
-        sql_create = sql_create_table_from_csv('airport_runway_summary',['ident','length_ft','surface_type','surface','hard','soft','water','snow'])
+        sql_create = sql_create_table_from_csv('airports_runway_summary',['ident','length_ft','surface_type','surface','hard','soft','water','snow'])
         self.db.execute(sql_create)
         self.db.commit()
-        sql_insert = sql_insert_table_from_csv('airport_runway_summary',['ident','length_ft','surface_type','surface','hard','soft','water','snow'])
+        sql_insert = sql_insert_table_from_csv('airports_runway_summary',['ident','length_ft','surface_type','surface','hard','soft','water','snow'])
         for ident in collect:
             self.db.execute(sql_insert,collect[ident])
         self.db.commit()
