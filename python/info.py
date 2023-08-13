@@ -284,6 +284,8 @@ class Airport:
                 rv.append(data)
         return rv
 
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('airports', help='list of airports to query', nargs='+')
