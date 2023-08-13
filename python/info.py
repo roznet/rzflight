@@ -284,25 +284,45 @@ class Airport:
                 rv.append(data)
         return rv
 
+class Command:
+    def __init__(self,args):
+        self.args = args
 
+    def choices():
+        all = dir(Command)
+        rv = []
+        for one in all:
+            if one.startswith('run_'):
+                rv.append(one[4:])
+
+        return rv
+
+    def run(self):
+        getattr(self,f'run_{self.args.command}')()
+
+    def run_build(self):
+        for airport in args.airports:
+            print(f'Processing {airport}')
+            a=Airport(airport)
+            api = Autorouter(args.token, args.cache_dir, args.force)
+            db = Database(args.database)
+            a.retrieveDocList(api)
+            table = (a.retrieveTable(api))
+            if table:
+                db.updateInfo(table)
+            a.retrieveProcedures(api)
+
+    def run_list(self):
+        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('airports', help='list of airports to query', nargs='+')
+    parser.add_argument('command', help='command to run', choices=Command.choices())
+    parser.add_argument('airports', help='list of airports to query', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
     args = parser.parse_args()
 
-    for airport in args.airports:
-        print(f'Processing {airport}')
-        a=Airport(airport)
-        api = Autorouter(args.token, args.cache_dir, args.force)
-        db = Database(args.database)
-        a.retrieveDocList(api)
-        table = (a.retrieveTable(api))
-        if table:
-            db.updateInfo(table)
-        a.retrieveProcedures(api)
 
