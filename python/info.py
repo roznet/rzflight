@@ -8,6 +8,7 @@ from pprint import pprint
 import json
 from urllib.parse import urlparse
 import os
+import re
 import camelot
 import getpass
 import sqlite3
@@ -255,6 +256,48 @@ class Airport:
             
             return rv
 
+    def parseApproachProcedures(self,api):
+        procs = self.retrieveProcedures(api)
+        if procs is None:
+            return
+
+        regexps = ['.*(INSTRUMENT APPROACH CHART| IAC )[- ]*','[- ]*ICAO[- ]*']
+        skip = [
+                'CODING TABLE',
+                'INSTRUMENT APPROACH PROCEDURE', 
+                'APPENDIX',
+                'TRANSITION',
+                'APPROACH TERRAIN CHART',
+                'INITIAL APPROACH PROCEDURE']
+        valid = ['APPROACH CHART', ' IAC ']
+        approaches = []
+        for proc in procs:
+            heading = proc['heading']
+            icao = proc['airport']
+            type = proc['type']
+            if type == 'approach':
+                iac = False
+                for v in valid:
+                    if v in heading.upper():
+                        iac = True
+                known = False
+                for i in skip:
+                    if i in heading.upper():
+                        known = True
+                if known and iac:
+                    print( f'{icao}: SKIP ambigous {heading}')
+                    continue
+                if not iac:
+                    if not known:
+                        print( f'{icao}: SKIP {heading}')
+                    continue
+                rv = heading.upper()
+                for r in regexps:
+                    rv = re.sub(r,'',rv)
+                approaches.append(rv)
+
+        return approaches
+
     def processTable(self,table,section):
         header = None
         rv = []
@@ -399,11 +442,23 @@ class Command:
             else:
                 print(f'No info to build {airport}')
 
+            procedures = a.parseApproachProcedures(api)
+
 
 
 
     def run_list(self):
-        pprint(Airport.list(args.cache_dir))
+        api = Autorouter(args.token, args.cache_dir )
+        if args.airports:
+            airports = args.airports
+        else:
+            airports = Airport.list(args.cache_dir)
+        for i in airports:
+            a = Airport(i)
+            procs = a.parseApproachProcedures(api)
+            pprint(procs)
+
+
 
     def run_show(self):
         api = Autorouter(args.token, args.cache_dir )
