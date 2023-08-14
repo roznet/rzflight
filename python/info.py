@@ -388,6 +388,7 @@ class Database:
         self.filename = args.database
         self.tableDetails = f'{args.table_prefix}_details'
         self.tableSummary = f'{args.table_prefix}_summary'
+        self.tableProcedures = f'runways_procedures'
         self.conn = sqlite3.connect(self.filename)
         self.cursor = self.conn.cursor()
 
@@ -481,6 +482,53 @@ class Database:
         self.conn.execute(f'DELETE FROM {self.tableSummary} WHERE ident=?',(airport,))
         self.conn.commit()
 
+    def updateRunwayProcedures(self,airport,procedures):
+        if not procedures or len(procedures) == 0:
+            return
+        self.cursor.execute(f'SELECT id,le_ident,he_ident FROM runways WHERE airport_ident=?',(airport,))
+        runways = self.cursor.fetchall()
+        if len(runways) == 0:
+            print(f'No runways for {airport}')
+            return
+
+        rv = []
+        for runway in runways:
+            (id,le_ident,he_ident) = runway
+            if self.cursor.execute(f'SELECT COUNT(*) FROM {self.tableProcedures} WHERE id=?',(id,)).fetchone()[0] > 0:
+                print(f'Already have procedures for {airport} {le_ident} {he_ident}')
+                continue
+
+            has = False
+            one = {'ident':airport,'id':id,'le_ident':le_ident,'he_ident':he_ident,'he_procedures':[],'le_procedures':[]}
+            for procedure in procedures:
+                if le_ident in procedure:
+                    one['le_procedures'].append(procedure)
+                    has = True
+                elif he_ident in procedure:
+                    one['he_procedures'].append(procedure)
+                    has = True
+            if has:
+                one['le_procedures_count'] = len(one['le_procedures'])
+                one['he_procedures_count'] = len(one['he_procedures'])
+                one['le_procedures'] = json.dumps(one['le_procedures'])
+                one['he_procedures'] = json.dumps(one['he_procedures'])
+                rv.append(one)
+        if len(rv) == 0:
+            print(f'No procedures for {airport}')
+            return
+        if not self.tableExists(self.tableProcedures):
+            print(f'Creating {self.tableProcedures}')
+            knownSuffixColumnTypes = {'_count':'INT','id':'INT'}
+            sql = Database.sql_create_table_from_csv(self.tableProcedures,rv[0].keys(),primarykey='id',knownSuffixColumnTypes=knownSuffixColumnTypes)
+            self.conn.execute(sql)
+            self.conn.commit()
+
+        sql_insert = Database.sql_insert_table_from_csv(self.tableProcedures,rv[0].keys())
+        self.cursor.executemany(sql_insert, rv)
+        self.conn.commit()
+            
+
+
 class Command:
     def __init__(self,args):
         self.args = args
@@ -529,12 +577,10 @@ class Command:
             else:
                 print(f'No info to build {airport}')
 
-            procedures = a.parseApproachProcedures(api)
+            approaches = a.parseApproachProcedures(api)
+            db.updateRunwayProcedures(airport,approaches)
             summary = a.summaryFromTable(api)
             db.updateSummary(summary)
-
-
-
 
     def run_list(self):
         api = Autorouter(args.token, args.cache_dir )
