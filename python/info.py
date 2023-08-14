@@ -322,7 +322,7 @@ class Airport:
         for row in table:
 
             if self.rowIsField(row,'custom'):
-                if row['value']:
+                if row['value'] and not row['value'].lower().startswith('nil'):
                     rv['immigration'] = 1
             if self.rowIsField(row,'fuel.*type'):
                 val = row['value'].lower()
@@ -455,8 +455,8 @@ class Database:
         self.conn.commit()
 
     def rebuildInfo(self,airport):
-        print(f'Clearing {self.table} for {airport}')
-        self.conn.execute(f'DELETE FROM {self.table} WHERE ident=?',(airport,))
+        print(f'Clearing {self.tableDetails} for {airport}')
+        self.conn.execute(f'DELETE FROM {self.tableDetails} WHERE ident=?',(airport,))
         self.conn.commit()
 
     def createSummaryTable(self,fields,knownSuffixColumnTypes={}):
@@ -584,6 +584,8 @@ class Command:
 
             approaches = a.parseApproachProcedures(api)
             db.updateRunwayProcedures(airport,approaches)
+            if force:
+                db.rebuildSummary(airport)
             summary = a.summaryFromTable(api)
             db.updateSummary(summary)
 
