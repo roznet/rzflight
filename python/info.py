@@ -309,12 +309,13 @@ class Airport:
         table = self.retrieveTable(api)
         approaches = self.parseApproachProcedures(api)
         
-        rv = {'airport':self.code,'immigration':0,'avgas':0,'jet a1':0,'approaches':0}
+        rv = {'ident':self.code,'immigration':0,'avgas':0,'jeta1':0,'approaches':0}
         rv['approaches'] = len(approaches)
 
         if not table:
             return
         for row in table:
+
             if self.rowIsField(row,'custom'):
                 if row['value']:
                     rv['immigration'] = 1
@@ -323,11 +324,10 @@ class Airport:
                 if 'avgas' in val or '100ll' in val:
                     rv['avgas'] = 1 
                 if 'jet' in val or 'a1' in val:
-                    rv['jet a1'] = 1
-                if not rv['avgas'] and not rv['jet a1']:
+                    rv['jeta1'] = 1
+                if not rv['avgas'] and not rv['jeta1']:
                     print( f'{self.code}: Unknown fuel type {val}')
-        pprint(rv)
-        
+        return rv
 
     def processTable(self,table,section):
         header = None
@@ -386,30 +386,56 @@ class Airport:
 class Database:
     def __init__(self, args):
         self.filename = args.database
-        self.table = args.table
+        self.tableDetails = f'{args.table_prefix}_details'
+        self.tableSummary = f'{args.table_prefix}_summary'
         self.conn = sqlite3.connect(self.filename)
         self.cursor = self.conn.cursor()
-        self.create()    
 
     def tableExists(self, table):
         sql = f'SELECT name FROM sqlite_master WHERE type="table" AND name="{table}"'
-        return self.cursor.execute(sql).fetchone() is None
+        return self.cursor.execute(sql).fetchone() is not None
 
-    def create(self):
+    def sql_create_table_from_csv(tablename,fields,primarykey=None,knownSuffixColumnTypes={}):
+        sql = 'CREATE TABLE ' + tablename + ' (\n'
+        for field in fields:
+            if field == primarykey:
+                sql += field + ' TEXT PRIMARY KEY,\n'
+            else:
+                sql += field + ' ' + knownSuffixColumnTypes.get(field[-4:], 'TEXT') + ',\n'
+        sql = sql[:-2] + '\n)'
+        return sql
+
+    def sql_insert_table_from_csv(tablename,fields):
+        sql = 'INSERT INTO ' + tablename + ' VALUES (\n'
+        for field in fields:
+            sql += ':' + field + ',\n'
+        sql = sql[:-2] + '\n)'
+        return sql
+
+
+    def createInfoTable(self):
         #make sure table info exists or create it
-        if self.tableExists(self.table):
-            self.cursor.execute(f'CREATE TABLE {self.table} (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
-            self.conn.commit()
+        if self.tableExists(self.tableDetails):
+            return
 
-            self.cursor.execute(f'CREATE INDEX {self.table}_index ON {self.table} (ident)')
-            self.conn.commit()
+        fields = ['ident','section','field','alt_field','value','alt_value']
+        sql = Database.sql_create_table_from_csv(f'{self.tableDetails}',fields)
+        self.cursor.execute(sql)
+        self.conn.commit()
+
+        self.cursor.execute(f'CREATE INDEX {self.tableDetails}_index ON {self.tableDetails} (ident)')
+        self.conn.commit()
 
     # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
     def updateInfo(self, infos):
         if len(infos) == 0:
             return
-        ident = infos[0]['ident']
-        self.cursor.execute(f"SELECT COUNT(*) FROM {self.table} WHERE ident=?", (ident,))
+
+        sample = infos[0]
+        self.createInfoTable()
+
+        ident = sample['ident']
+        self.cursor.execute(f"SELECT COUNT(*) FROM {self.tableDetails} WHERE ident=?", (ident,))
         already = self.cursor.fetchone()[0]
         if already == len(infos):
             print(f'Already have {already} records for {ident}')
@@ -418,12 +444,41 @@ class Database:
             print(f'Clearing {already} records for {ident}')
             self.rebuildInfo(ident)
         print(f'Updating {len(infos)} records')
-        self.cursor.executemany(f'INSERT INTO {self.table} (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
+        sql = Database.sql_insert_table_from_csv(self.tableDetails, sample.keys())
+        self.cursor.executemany(sql, infos)
         self.conn.commit()
 
     def rebuildInfo(self,airport):
         print(f'Clearing {self.table} for {airport}')
         self.conn.execute(f'DELETE FROM {self.table} WHERE ident=?',(airport,))
+        self.conn.commit()
+
+    def createSummaryTable(self,fields,knownSuffixColumnTypes={}):
+        if self.tableExists(self.tableSummary):
+            return
+        sql = Database.sql_create_table_from_csv(self.tableSummary,fields,primarykey='ident',knownSuffixColumnTypes=knownSuffixColumnTypes)
+        self.conn.execute(sql)
+        self.conn.commit()
+
+    def updateSummary(self, summary):
+        if not summary or len(summary) == 0:
+            return
+        ident = summary['ident'] 
+        knownSuffixColumnTypes = {x:'INT' for x in summary.keys() if x != 'ident'}
+        self.createSummaryTable(summary.keys(), knownSuffixColumnTypes=knownSuffixColumnTypes)
+        self.cursor.execute(f"SELECT COUNT(*) FROM {self.tableSummary} WHERE ident=?", (ident,))
+        already = self.cursor.fetchone()[0]
+        if already == 1:
+            print(f'Already have {already} records for {ident}')
+            return
+        print(f'Updating summary for {ident}')
+        sql = Database.sql_insert_table_from_csv(self.tableSummary, summary.keys())
+        self.cursor.execute(sql, summary)
+        self.conn.commit()
+
+    def rebuildSummary(self,airport):
+        print(f'Clearing {self.tableSummary} for {airport}')
+        self.conn.execute(f'DELETE FROM {self.tableSummary} WHERE ident=?',(airport,))
         self.conn.commit()
 
 class Command:
@@ -475,6 +530,8 @@ class Command:
                 print(f'No info to build {airport}')
 
             procedures = a.parseApproachProcedures(api)
+            summary = a.summaryFromTable(api)
+            db.updateSummary(summary)
 
 
 
@@ -506,7 +563,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
-    parser.add_argument('--table', help='table name to create', default='airports_aip_detail')
+    parser.add_argument('--table-prefix', help='table name to create', default='airports_aip')
     args = parser.parse_args()
 
     cmd = Command(args)
