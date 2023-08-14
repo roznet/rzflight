@@ -223,6 +223,7 @@ class Airport:
         if list is None:
             return None
         for one in list:
+            rv = None
             api.validate(one,['doccachefilename','filename','docid'])
             aipurl = one['aipcachefilename']
             cache = api.cachedJson(aipurl)
@@ -234,7 +235,11 @@ class Airport:
             if doc is None:
                 print( f'No AD 2 for {self.code}')
                 return None
-            tables = camelot.read_pdf(doc, pages='1-2')
+            try:
+                tables = camelot.read_pdf(doc, pages='1-2')
+            except:
+                print( f'Error parsing {doc}')
+                return None
 
             if len(tables) > 1:
                 admin = tables[0].df.to_dict('records')
@@ -249,10 +254,10 @@ class Airport:
 
                 rv.extend( self.processTable(handling,'handling'))
                 rv.extend( self.processTable(passenger,'passenger'))
-
-            with open(api.cacheFilePath(aipurl,'json'),'w') as f:
-                print(f'Parsed AIP and writing {aipurl} to cache')
-                json.dump(rv,f)
+            if rv:
+                with open(api.cacheFilePath(aipurl,'json'),'w') as f:
+                    print(f'Parsed AIP and writing {aipurl} to cache')
+                    json.dump(rv,f)
             
             return rv
 
@@ -261,7 +266,7 @@ class Airport:
         if procs is None:
             return
 
-        regexps = ['.*(INSTRUMENT APPROACH CHART| IAC )[- ]*','[- ]*ICAO[- ]*']
+        regexps = ['.*(INSTRUMENT APPROACH CHART| IAC[ /])[- ]*','[- ]*ICAO[- ]*']
         skip = [
                 'CODING TABLE',
                 'INSTRUMENT APPROACH PROCEDURE', 
@@ -269,7 +274,7 @@ class Airport:
                 'TRANSITION',
                 'APPROACH TERRAIN CHART',
                 'INITIAL APPROACH PROCEDURE']
-        valid = ['APPROACH CHART', ' IAC ']
+        valid = ['APPROACH CHART', ' IAC ', ' IAC/']
         approaches = []
         for proc in procs:
             heading = proc['heading']
