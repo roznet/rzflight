@@ -386,6 +386,7 @@ class Airport:
 class Database:
     def __init__(self, args):
         self.filename = args.database
+        self.table = args.table
         self.conn = sqlite3.connect(self.filename)
         self.cursor = self.conn.cursor()
         self.create()    
@@ -396,11 +397,11 @@ class Database:
 
     def create(self):
         #make sure table info exists or create it
-        if self.tableExists('info'):
-            self.cursor.execute('CREATE TABLE info (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
+        if self.tableExists(self.table):
+            self.cursor.execute(f'CREATE TABLE {self.table} (ident TEXT, section TEXT, field TEXT, alt_field TEXT, value TEXT, alt_value TEXT)')
             self.conn.commit()
 
-            self.cursor.execute('CREATE INDEX info_index ON info (ident)')
+            self.cursor.execute(f'CREATE INDEX {self.table}_index ON {self.table} (ident)')
             self.conn.commit()
 
     # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
@@ -408,21 +409,21 @@ class Database:
         if len(infos) == 0:
             return
         ident = infos[0]['ident']
-        self.cursor.execute("SELECT COUNT(*) FROM info WHERE ident=?", (ident,))
+        self.cursor.execute(f"SELECT COUNT(*) FROM {self.table} WHERE ident=?", (ident,))
         already = self.cursor.fetchone()[0]
         if already == len(infos):
-            print(f'Already have {already} info records for {ident}')
+            print(f'Already have {already} records for {ident}')
             return
         if already > 0:
-            print(f'Clearing {already} info records for {ident}')
+            print(f'Clearing {already} records for {ident}')
             self.rebuildInfo(ident)
-        print(f'Updating {len(infos)} info records')
-        self.cursor.executemany('INSERT INTO info (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
+        print(f'Updating {len(infos)} records')
+        self.cursor.executemany(f'INSERT INTO {self.table} (ident, section, field, alt_field, value, alt_value) VALUES (:ident, :section, :field, :alt_field, :value, :alt_value)', infos)
         self.conn.commit()
 
     def rebuildInfo(self,airport):
-        print(f'Clearing info for {airport}')
-        self.conn.execute('DELETE FROM info WHERE ident=?',(airport,))
+        print(f'Clearing {self.table} for {airport}')
+        self.conn.execute(f'DELETE FROM {self.table} WHERE ident=?',(airport,))
         self.conn.commit()
 
 class Command:
@@ -505,7 +506,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
-    parser.add_argument('--table', help='table name to create', default='airport_aip_info')
+    parser.add_argument('--table', help='table name to create', default='airports_aip_detail')
     args = parser.parse_args()
 
     cmd = Command(args)
