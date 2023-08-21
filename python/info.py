@@ -9,7 +9,6 @@ import json
 from urllib.parse import urlparse
 import os
 import re
-import camelot
 import getpass
 import sqlite3
 import pandas as pd
@@ -45,12 +44,17 @@ class Autorouter:
                 response = requests.post('https://api.autorouter.aero/v1.0/oauth2/token',data=postdata)
                 if response.status_code == 200:
                     data = response.json()
+                    pprint(data)
                     self.credentials['access_token'] = data['access_token']
                     expiration = datetime.datetime.now() + datetime.timedelta(seconds=data['expires_in'])
                     self.credentials['expiration'] = expiration.isoformat()
+                    pprint(self.credentials)
 
                     with open(credentialFile,'w') as f:
                         json.dump(self.credentials,f)
+                else:
+                    print(f'Error {response.status_code} retrieving token')
+                    sys.exit(1)
 
             self.token = self.credentials['access_token']
             print(f'Using token {self.token} valid until {self.credentials["expiration"]}')
@@ -218,13 +222,111 @@ class Airport:
         data = api.json(url)
         return api.extractAirportDocList(data)
 
+
+    def parsePdfStandardTable(self,doc):
+        import camelot
+        rv = []
+        try:
+            tables = camelot.read_pdf(doc, pages='1-2')
+        except:
+            print( f'Error parsing {doc}')
+            return None
+            
+        if len(tables) > 1:
+            admin = tables[0].df.to_dict('records')
+            operational = tables[1].df.to_dict('records')
+
+            rv = self.processTable(admin,'admin')
+            rv.extend( self.processTable(operational,'operational'))
+
+        if len(tables) > 3:
+            handling = tables[2].df.to_dict('records')
+            passenger = tables[3].df.to_dict('records')
+
+            rv.extend( self.processTable(handling,'handling'))
+            rv.extend( self.processTable(passenger,'passenger'))
+        return rv
+
+    def parsePdfColumnTable(self,doc):
+        print( f'Parsing {doc} as text')
+        txt = f'{doc}.txt'
+        if not os.path.exists(txt):
+            os.system(f'ps2ascii {doc} {txt}')
+        with open(txt,'r') as f:
+            lines = f.readlines()
+        rv = []
+        fwf = pd.read_fwf(txt)
+        print(fwf.columns)
+
+        if len(fwf.columns) < 2:
+            print( f'Error parsing {doc} not enough columns {len(fwf.columns)}')
+            return rv
+
+        cn1 = fwf.columns[0]
+        cn2 = fwf.columns[1]
+        if len(fwf.columns) > 2:
+            cn3 = fwf.columns[2]
+        else:
+            cn3 = None
+        table_number = 0
+
+        sections = [None,None,'admin','operational','handling','passenger']
+        section = None
+        remarks = False
+        verbose = True
+        
+        for line in fwf.iterrows():
+            one = line[1]
+            c1,c2,c3 = one[cn1],one[cn2],one[cn3] if cn3 else None
+            processed = False
+            if not type(c1) == str:
+                print( f'>>>Skipping {c1}')
+                continue
+            if re.search('^\d+\.\s+\w+',c1):
+                remarks = False
+                table_number += 1
+                if len(sections) > table_number:
+                    section = sections[table_number]
+                else:
+                    if verbose:
+                        print( f'>>>Last Section {c1}')
+                    break
+                if verbose:
+                    print( f">>>Section {section} Header: {c1}")
+                continue
+            if section:
+                data = None
+                if type(c1) == str:
+                    res1 = re.match(r'^([\w\s]+):\s(.+)',c1)
+                    if res1:
+                        (field,value) = res1.groups()
+                        data = {'ident':self.code,'section':section,'field': field, 'alt_field': field, 'value': value, 'alt_value': value}
+                        processed = True
+                if data and type(c2) == str:
+                    res2 = re.match(r'^([\w\s]+):\s(.+)',c2)
+                    if res2:
+                        (alt_field,alt_value) = res2.groups()
+                        if alt_field.lower().startswith('remarks'):
+                            remarks = True
+                        data['alt_field'] = alt_field
+                        data['alt_value'] = alt_value
+
+                if processed and not remarks:
+                    rv.append(data)
+                    continue
+
+            if not processed:
+                if verbose:
+                    print( f'>>>Skipping {c1} | {c2} | {c3}')
+        return rv 
+
     def retrieveTable(self,api):
         list = self.retrieveDocList(api)
         if list is None:
             return None
         for one in list:
             rv = None
-            api.validate(one,['doccachefilename','filename','docid'])
+            api.validate(one,['doccachefilename','filename','docid','authority'])
             aipurl = one['aipcachefilename']
             cache = api.cachedJson(aipurl)
             if cache:
@@ -235,31 +337,19 @@ class Airport:
             if doc is None:
                 print( f'No AD 2 for {self.code}')
                 return None
-            try:
-                tables = camelot.read_pdf(doc, pages='1-2')
-            except:
-                print( f'Error parsing {doc}')
-                return None
+            authority = one['authority']
+            if authority == 'LEC':
+                rv = self.parsePdfColumnTable(doc)
+            else:
+                rv = self.parsePdfStandardTable(doc)
 
-            if len(tables) > 1:
-                admin = tables[0].df.to_dict('records')
-                operational = tables[1].df.to_dict('records')
-
-                rv = self.processTable(admin,'admin')
-                rv.extend( self.processTable(operational,'operational'))
-
-            if len(tables) > 3:
-                handling = tables[2].df.to_dict('records')
-                passenger = tables[3].df.to_dict('records')
-
-                rv.extend( self.processTable(handling,'handling'))
-                rv.extend( self.processTable(passenger,'passenger'))
             if rv:
                 with open(api.cacheFilePath(aipurl,'json'),'w') as f:
                     print(f'Parsed AIP and writing {aipurl} to cache')
                     json.dump(rv,f)
             
             return rv
+
 
     def parseApproachProcedures(self,api):
         procs = self.retrieveProcedures(api)
