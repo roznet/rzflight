@@ -76,10 +76,14 @@ public class KnownAirports {
         self.tree = KDTree<Airport>(values: Array(points.values))
     }
     
-    public func airport(icao : String) -> Airport? {
-        return known[icao]
+    public func airport(icao : String, ensureRunway: Bool = true) -> Airport? {
+        var found = known[icao]
+        if ensureRunway {
+            found?.addRunways(db: self.db)
+        }
+        return found
     }
- 
+    
     public func nearestAirport(coord : CLLocationCoordinate2D) -> Airport? {
         let found = tree.nearest(to: Airport.at(location: coord))
         return found
@@ -101,5 +105,26 @@ public class KnownAirports {
             }
         }
         return rv
+    }
+    
+    public func frenchPPL() -> [Airport] {
+        var rv : [Airport] = []
+        let sql = "SELECT ident FROM frppf"
+        if let res = db.executeQuery(sql, withArgumentsIn: []){
+            while( res.next() ){
+                if let ident = res.string(forColumn: "ident"),
+                   let airport = self.airport(icao: ident, ensureRunway: false) {
+                    rv.append(airport)
+                }
+            }
+        }
+        var ppf : [Airport] = []
+        for airport in rv {
+            var one = airport
+            ppf.append(one.addRunways(db: self.db))
+        }
+        return ppf
+
+        
     }
 }

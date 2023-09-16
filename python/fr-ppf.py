@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# This script is used to import the french PPR into the airports.db database
+# the source for the list is https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009
+
+
 import sys
 import csv
 import sqlite3

@@ -55,8 +55,8 @@ public struct Airport : Codable {
         var ident1 : String
         var ident2 : String
         
-        var trueHeading1 : Heading { return Heading(heading: bearing1 ) }
-        var trueHeading2 : Heading { return Heading(heading: bearing2 ) }
+        public var trueHeading1 : Heading { return Heading(heading: bearing1 ) }
+        public var trueHeading2 : Heading { return Heading(heading: bearing2 ) }
         
         func bestTrueHeading(for wind : Heading) -> Heading {
             return trueHeading1.directDirection(to: wind) == .ahead ? trueHeading1 : trueHeading2
@@ -165,8 +165,9 @@ public struct Airport : Codable {
         return runways
     }
     
-    public mutating func addRunways(db : FMDatabase) {
+    public mutating func addRunways(db : FMDatabase) -> Airport {
         self.runways = Self.runways(for: self.icao, db: db)
+        return self
     }
     static func at(location: CLLocationCoordinate2D) -> Airport {
         return Airport(location: location, icao: "__DUMMY__")
