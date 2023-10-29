@@ -10,6 +10,9 @@ import FMDB
 @testable import RZFlight
 import CoreLocation
 
+//Airports in test db:
+//  EGTF (no proc) EGMD (proc)
+//  LFAT (ppf) LFQA (not ppf)
 final class RZFlightAirportTests: XCTestCase {
     func findAirportDb() -> FMDatabase? {
         let thisSourceFile = URL(fileURLWithPath: #file)
