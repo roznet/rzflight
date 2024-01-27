@@ -231,7 +231,6 @@ class Airport:
         except:
             print( f'Error parsing {doc}')
             return None
-            
         if len(tables) > 1:
             admin = tables[0].df.to_dict('records')
             operational = tables[1].df.to_dict('records')
@@ -245,6 +244,9 @@ class Airport:
 
             rv.extend( self.processTable(handling,'handling'))
             rv.extend( self.processTable(passenger,'passenger'))
+        if len(rv) == 0:
+            return  [{'ident':self.code,'section':'admin','field':'Observations','value':'empty file', 'alt_value':''}]
+
         return rv
 
     def parsePdfColumnTable(self,doc):
@@ -681,15 +683,18 @@ class Command:
 
     def run_list(self):
         api = Autorouter(args.token, args.cache_dir )
+        all = []
         if args.airports:
             airports = args.airports
         else:
             airports = Airport.list(args.cache_dir)
         for i in airports:
             a = Airport(i)
-            a.summaryFromTable(api)            
+            p = a.summaryFromTable(api)
+            all.append( p ) 
 
-
+        df = pd.DataFrame(all)
+        print(df)
 
     def run_show(self):
         api = Autorouter(args.token, args.cache_dir )

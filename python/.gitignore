@@ -3,3 +3,4 @@ airports.csv
 airports.db
 aip.db
 cache
+*.kml
