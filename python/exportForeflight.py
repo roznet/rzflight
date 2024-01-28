@@ -2,12 +2,26 @@
 
 
 import sys
+import math
 import csv
 import sqlite3
 import re
 from pprint import pprint
 import simplekml
+import json
 
+
+def description(row):
+    rv = [ f'<h2>{row["name"]} ({row["ident"]})</h2>' ]
+    value = row['value']
+    alt_value = row['alt_value']
+    field = row['field']
+
+    rv += [ f'<p>{field}</p><pre>{value}</pre>' ]
+    if alt_value:
+        rv += [ f'<p>{field}</p><pre>{alt_value}</pre>' ]
+
+    return '\n'.join(rv)
 
 def buildPPF():
     db = sqlite3.connect('airports.db')
@@ -34,8 +48,8 @@ def buildPPF():
         "ED": simplekml.Color.black,  # Germany (Black)
         "LE": simplekml.Color.orange,  # Spain (Orange)
         "LI": simplekml.Color.green,   # Italy (Green)
-        "EH": simplekml.Color.maroon, # Netherlands (Maroon)
-        "EB": simplekml.Color.black,   # Belgium (Black)
+        "EH": simplekml.Color.red, # Netherlands (Maroon)
+        "EB": simplekml.Color.yellow,   # Belgium (Black)
         "LS": simplekml.Color.red,   # Switzerland (Red)
         "LO": simplekml.Color.white,   # Austria (Red)
         "ES": simplekml.Color.yellow,   # Sweden (Blue)
@@ -44,6 +58,8 @@ def buildPPF():
         "EF": simplekml.Color.white,   # Finland (Blue)
         "LG": simplekml.Color.blue,   # Greece (Blue)
         "LP": simplekml.Color.green,   # Portugal (Green)
+        "LQ": simplekml.Color.red,   # Bosnia and Herzegovina (Red)
+        "LD": simplekml.Color.white,   # Croatia (Blue)
         "EI": simplekml.Color.green,    # Ireland (Green)
         "EP": simplekml.Color.crimson,   # Poland (Crimson)
         "LH": simplekml.Color.red,   # Hungary (Vivid Red)
@@ -73,28 +89,112 @@ def buildPPF():
                 stylesmap.normalstyle.labelstyle.color = simplekml.Color.blue
                 stylesmap.normalstyle.iconstyle.color = simplekml.Color.blue
                 stylesmap.normalstyle.iconstyle.icon.href=iconurl
-                stylesmap.highlightstyle.iconstyle.color = simplekml.Color.red
-                stylesmap.highlightstyle.labelstyle.color = simplekml.Color.red
-                stylesmap.highlightstyle.iconstyle.icon.href=iconurl
             else:
                 print(f'Prefix  {identprefix} {icao_to_color[identprefix]}')
                 stylesmap = simplekml.StyleMap()
                 stylesmap.normalstyle.labelstyle.color = icao_to_color[identprefix]
                 stylesmap.normalstyle.iconstyle.color = icao_to_color[identprefix]
                 stylesmap.normalstyle.iconstyle.icon.href=iconurl
-                stylesmap.highlightstyle.iconstyle.color = icao_to_color[identprefix]
-                stylesmap.highlightstyle.labelstyle.color = icao_to_color[identprefix]
-                stylesmap.highlightstyle.iconstyle.icon.href=iconurl
             styles[identprefix] = stylesmap
-
         count[identprefix] += 1
         if smallFile and count[identprefix] > 2:
             continue
 
-        p = kml.newpoint(name='POE.'+row['ident'])
+        p = kml.newpoint(name='POE.'+row['ident'],description=description(row))
         p.coords = [(row['longitude'], row['latitude']+lat_offset)]
         stylemap = styles[identprefix]
         p.stylemap = stylemap
 
     kml.save('PointOfEntry.kml')
-buildPPF()
+
+def new_coordinates(lat1, lon1, bearing, distance):
+    R = 3440  # Earth's radius in nautical miles
+
+    # Convert latitude and longitude from degrees to radians
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+
+    # Convert bearing to radians
+    bearing = math.radians(bearing)
+
+    # Calculate new latitude
+    lat2 = math.asin(math.sin(lat1) * math.cos(distance / R) +
+                     math.cos(lat1) * math.sin(distance / R) * math.cos(bearing))
+
+    # Calculate new longitude
+    lon2 = lon1 + math.atan2(math.sin(bearing) * math.sin(distance / R) * math.cos(lat1),
+                             math.cos(distance / R) - math.sin(lat1) * math.sin(lat2))
+
+    # Convert new latitude and longitude back to degrees
+    lat2 = math.degrees(lat2)
+    lon2 = math.degrees(lon2)
+
+    return lat2, lon2
+
+def buildApproaches():
+    lat_offset = 0.0045  # about 500m
+    db = sqlite3.connect('airports.db')
+
+    sql = 'SELECT * FROM runways r, runways_procedures p, airports a WHERE r.airport_ident = p.ident AND p.le_ident = r.le_ident AND a.ident = r.airport_ident'
+
+    colors = { 0: simplekml.Color.white, 1: simplekml.Color.blue, 2: simplekml.Color.yellow }
+
+    c = db.cursor()
+    c.row_factory = sqlite3.Row
+    rows = c.execute(sql)
+    map = {}
+    doFew = False
+    count = 0
+    kml = simplekml.Kml()
+    airports = {}
+    for row in rows:
+        if doFew and count > 5:
+            break
+        count += 1
+        data = dict(row)
+        highest,coords = airports.get(data['airport_ident'],(0,[])) 
+        for which in ['le','he']:
+            other = 'he' if which == 'le' else 'le'
+            procedure = json.loads(data[f'{which}_procedures'])
+            if not procedure:
+                continue
+            color = simplekml.Color.white
+            procname = None
+            for approach in procedure:
+                if procname is None:
+                    procname = approach
+                if 'ILS' in approach:
+                    highest = 2
+                    procname = approach
+                    color = simplekml.Color.yellow
+                    break
+                if 'RNP' in approach:
+                    if highest < 1:
+                        highest = 1
+                    procname = approach
+                    color = simplekml.Color.blue
+            try:
+                lat,lon = float(data[f'{which}_latitude_deg']),float(data[f'{which}_longitude_deg'])
+            except:
+                lat,lon = float(data[f'latitude_deg']),float(data[f'longitude_deg'])
+            try:
+                bearing = float(data[f'{other}_heading_degT'])
+            except:
+                num = ''.join(c for c in data[f'{which}_ident'] if c.isdigit())
+                bearing = float(num) * 10
+
+            end_lat,end_lon = new_coordinates(lat,lon,bearing,10)
+            line = kml.newlinestring(name=f'{data["ident"]} {procname}',description=f'{data["airport_ident"]} {data["ident"]} {procname}',coords=[(lon,lat),(end_lon,end_lat)])
+            line.style.linestyle.color = color
+            line.style.linestyle.width = 10
+        airports[data['airport_ident']] = (highest,[(row['longitude_deg'], row['latitude_deg']+lat_offset)])
+
+    for (ident,(highest,coords)) in airports.items():
+        p = kml.newpoint(name='IAP.'+ident)
+        p.coords = coords
+        p.style.iconstyle.color = colors[highest]
+
+    kml.save('Approaches.kml')
+
+#buildPPF()
+buildApproaches()
