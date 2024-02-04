@@ -554,7 +554,8 @@ class Airport:
                 if 'jet' in val or 'a1' in val:
                     rv['jeta1'] = 1
                 if not rv['avgas'] and not rv['jeta1']:
-                    print( f'{self.code}: Unknown fuel type {val}')
+                    if val and not 'nil' in val:
+                        print( f'{self.code}: Unknown fuel type {val}')
         return rv
 
 
@@ -600,7 +601,7 @@ class Database:
         return sql
 
 
-    def createInfoTable(self):
+    def createDetailsTable(self):
         #make sure table info exists or create it
         if self.tableExists(self.tableDetails):
             return
@@ -614,12 +615,12 @@ class Database:
         self.conn.commit()
 
     # info is a list of dict with keys (ident, section, field, value, alt_field, alt_value)
-    def updateInfo(self, infos):
+    def updateDetails(self, infos):
         if len(infos) == 0:
             return
 
         sample = infos[0]
-        self.createInfoTable()
+        self.createDetailsTable()
 
         ident = sample['ident']
         self.cursor.execute(f"SELECT COUNT(*) FROM {self.tableDetails} WHERE ident=?", (ident,))
@@ -628,14 +629,14 @@ class Database:
             print(f'Already have {already} records for {ident}')
             return
         if already > 0:
-            print(f'Clearing {already} records for {ident}')
-            self.rebuildInfo(ident)
+            print(f'Clearing {already} records for {ident} (we should have {len(infos)}')
+            self.rebuildDetails(ident)
         print(f'Updating {len(infos)} records')
         sql = Database.sql_insert_table_from_csv(self.tableDetails, sample.keys())
         self.cursor.executemany(sql, infos)
         self.conn.commit()
 
-    def rebuildInfo(self,airport):
+    def rebuildDetails(self,airport):
         print(f'Clearing {self.tableDetails} for {airport}')
         self.conn.execute(f'DELETE FROM {self.tableDetails} WHERE ident=?',(airport,))
         self.conn.commit()
@@ -725,6 +726,8 @@ class Environment:
         self.force_db_details = args.force
         self.force_db_summary = args.force
 
+
+
     def log(self,message):
         if self.args.verbose:
             print(message)
@@ -777,22 +780,21 @@ class Command:
         else:
             airports = Airport.list(args.cache_dir)
 
-        api = Autorouter(args.token, args.cache_dir )
-        force = args.force
+        api = self.env.api
         for airport in airports:
             a=Airport(airport,self.env)
             table = a.retrieveTable()
             if table:
                 self.env.log(f'Building db for {airport}')
-                if force:
-                    db.rebuildInfo(airport)
-                db.updateInfo(table)
+                if self.env.force_db_details:
+                    db.rebuildDetails(airport)
+                db.updateDetails(table)
             else:
                 self.env.log(f'No info to build {airport}')
 
             approaches = a.parseApproachProcedures()
             db.updateRunwayProcedures(airport,approaches)
-            if force or True:
+            if self.env.force_db_summary:
                 db.rebuildSummary(airport)
             summary = a.summaryFromTable()
             db.updateSummary(summary)
