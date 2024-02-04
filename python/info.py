@@ -223,7 +223,15 @@ class Airport:
         data = self.api.json(url)
         return self.api.extractAirportDocList(data)
 
-    def parsePdfLICTable(self,doc):
+
+    ###PDF Parsing
+    ### These function read the AIP pdf file and return a list of dictionaries representing
+    ### the different section, and fields extracted from the pages
+    def parsePdfTableLI(self,doc):
+        '''
+        Parsing LI style table, where the table are vertical and span multiple pages
+        Identify the section by looking up fields
+        '''
         import camelot
         rv = []
         try:
@@ -232,14 +240,10 @@ class Airport:
         except:
             print( f'Error parsing {doc}')
             return None
-        print(len(tables))
         section = 'admin'
         for table in tables:
-            pprint(table.df)
-            one = table.df.to_dict('record')
-            (proc,section) = self.processLITable(one,section)
-            print(f'SECT {section}')
-            pprint(proc)
+            one = table.df.to_dict('records')
+            (proc,section) = self.processTableLI(one,section)
             rv.extend(proc)
             
         if len(rv) == 0:
@@ -247,9 +251,12 @@ class Airport:
 
         return rv
 
-
-
-    def parsePdfStandardTable(self,doc):
+    def parsePdfTableDefault(self,doc):
+        '''
+        Default PDF parsing suitable for most countries, like France, Germany, UK
+        It assumes that each table has been parsed in the right expected
+        Order
+        '''
         import camelot
         rv = []
         try:
@@ -275,7 +282,7 @@ class Airport:
 
         return rv
 
-    def parsePdfColumnTable(self,doc):
+    def parsePdfTableLE(self,doc):
         print( f'Parsing {doc} as text')
         txt = f'{doc}.txt'
         if not os.path.exists(txt):
@@ -348,7 +355,104 @@ class Airport:
                     print( f'>>>Skipping {c1} | {c2} | {c3}')
         return rv 
 
+    ###Table Parsing
+    def processTableLI(self,table,section):
+        header = None
+        curfield = None
+        fieldvalues = []
+        rv = []
+        for row in table:
+            if 1 in row:
+                # non '', then new field
+                if row[1]:
+                    fields = row[1].split('\n')
+                    if len(fields) == 2:
+                        field = fields[0]
+                        alt_field = fields[1]
+                    else:
+                        field = fields[0]
+                        alt_field = fields[0]
+
+                    if 'ARP' in field:
+                        section = 'admin'
+                    if 'custom' in alt_field.lower():
+                        section = 'operational'
+                    if 'handling facilities' in alt_field.lower():
+                        section = 'handling'
+                    if 'hotel' in alt_field.lower():
+                        section = 'passenger'
+
+                    if curfield:
+                        (old_section,old_field, old_alt_field) = curfield
+                        val = '\n'.join(fieldvalues)
+                        data = {'ident':self.code,'section':old_section,'field': old_field, 'alt_field': old_alt_field, 'value': val, 'alt_value': ''}
+                        rv.append(data)
+                    fieldvalues = []
+                    curfield = (section,field,alt_field)
+                
+            if 2 in row:
+                fieldvalues.append(row[2])
+
+        # if leftover
+        if curfield:
+            (old_section,old_field, old_alt_field) = curfield
+            val = '\n'.join(fieldvalues)
+            data = {'ident':self.code,'section':old_section,'field': old_field, 'alt_field': old_alt_field, 'value': val, 'alt_value': ''}
+            rv.append(data)
+        return (rv,section)
+
+    def processTableDefault(self,table,section):
+        if self.code.startswith('LI'):
+            return self.processTableLI(table,section)
+        header = None
+        rv = []
+        for row in table:
+            fieldSepLine = False
+            if 1 in row:
+                fields = row[1.].split(' / ')
+                if len(fields) == 2:
+                    field = fields[0]
+                    alt_field = fields[1]
+                else:
+                    sp = row[1].splitlines()
+                    if len(sp) == 2:
+                        fieldSepLine = True
+                        field = sp[0]
+                        alt_field = sp[1]
+                    else:
+                        field = row[1]
+                        alt_field = None
+
+                if 2 in row:
+                    value = row[2]
+                else:
+                    value = None
+                if 3 in row:
+                    alt_value = row[3]
+                else:
+                    alt_value = None
+                if alt_field and not alt_value:
+                    sp = value.splitlines()
+                    if len(sp) % 2 == 0:
+                        half = len(sp) // 2
+                        value = '\n'.join(sp[:half])
+                        alt_value = '\n'.join(sp[half:])
+                if 3 in row and alt_value == '':
+                    sp = value.splitlines()
+                    if len(sp) == 2:
+                        value = sp[0]
+                        alt_value = sp[1]
+
+                data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': value, 'alt_value': alt_value}
+                rv.append(data)
+        return rv
+
+
+    ###API 
     def retrieveTable(self):
+        '''
+        Main entry function to access table data
+        '''
         list = self.retrieveDocList()
         if list is None:
             return None
@@ -357,7 +461,7 @@ class Airport:
             self.api.validate(one,['doccachefilename','filename','docid','authority'])
             aipurl = one['aipcachefilename']
             cache = self.api.cachedJson(aipurl)
-            if cache:
+            if cache and not self.env.force_parse_aip:
                 print( f'Using cached {aipurl}')
                 return cache
             doc = self.api.retrieveDocFile(one)
@@ -365,13 +469,12 @@ class Airport:
                 print( f'No AD 2 for {self.code}')
                 return None
             authority = one['authority']
-            print(authority)
             if authority == 'LEC':
-                rv = self.parsePdfColumnTable(doc)
+                rv = self.parsePdfTableLE(doc)
             elif authority == 'LIC':
-                rv = self.parsePdfLICTable(doc)
+                rv = self.parsePdfTableLI(doc)
             else:
-                rv = self.parsePdfStandardTable(doc)
+                rv = self.parsePdfTableDefault(doc)
 
             if rv:
                 with open(self.api.cacheFilePath(aipurl,'json'),'w') as f:
@@ -454,89 +557,6 @@ class Airport:
                     print( f'{self.code}: Unknown fuel type {val}')
         return rv
 
-    def processLITable(self,table,section):
-        header = None
-        curfield = None
-        fieldvalues = []
-        rv = []
-        for row in table:
-            if 1 in row:
-                # non '', then new field
-                if row[1]:
-                    fields = row[1].split('\n')
-                    if len(fields) == 2:
-                        field = fields[0]
-                        alt_field = fields[1]
-                    else:
-                        field = fields[0]
-                        alt_field = fields[0]
-
-                    if 'ARP' in field:
-                        section = 'admin'
-                    if 'custom' in alt_field.lower():
-                        section = 'operational'
-                    if 'handling facilities' in alt_field.lower():
-                        section = 'handling'
-                    if 'hotel' in alt_field.lower():
-                        section = 'passenger'
-
-                    if curfield:
-                        (old_field, old_alt_field) = curfield
-                        val = '\n'.join(fieldvalues)
-                        data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': val, 'alt_value': ''}
-                        rv.append(data)
-                    fieldvalues = []
-                    curfield = (field,alt_field)
-                
-            if 2 in row:
-                fieldvalues.append(row[2])
-        return (rv,section)
-
-    def processTable(self,table,section):
-        if self.code.startswith('LI'):
-            return self.processLITable(table,section)
-        header = None
-        rv = []
-        for row in table:
-            fieldSepLine = False
-            if 1 in row:
-                fields = row[1.].split(' / ')
-                if len(fields) == 2:
-                    field = fields[0]
-                    alt_field = fields[1]
-                else:
-                    sp = row[1].splitlines()
-                    if len(sp) == 2:
-                        fieldSepLine = True
-                        field = sp[0]
-                        alt_field = sp[1]
-                    else:
-                        field = row[1]
-                        alt_field = None
-
-                if 2 in row:
-                    value = row[2]
-                else:
-                    value = None
-                if 3 in row:
-                    alt_value = row[3]
-                else:
-                    alt_value = None
-                if alt_field and not alt_value:
-                    sp = value.splitlines()
-                    if len(sp) % 2 == 0:
-                        half = len(sp) // 2
-                        value = '\n'.join(sp[:half])
-                        alt_value = '\n'.join(sp[half:])
-                if 3 in row and alt_value == '':
-                    sp = value.splitlines()
-                    if len(sp) == 2:
-                        value = sp[0]
-                        alt_value = sp[1]
-
-                data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': value, 'alt_value': alt_value}
-                rv.append(data)
-        return rv
 
     def list(cache_dir='cache'):
         path = cache_dir+'/airport'
@@ -702,6 +722,9 @@ class Environment:
         self.force_parse_aip = args.force
         self.force_parse_procedures = args.force
 
+        self.force_db_details = args.force
+        self.force_db_summary = args.force
+
     def log(self,message):
         if self.args.verbose:
             print(message)
@@ -795,9 +818,8 @@ class Command:
         for one in self.args.airports:
             a = Airport(one,self.env)
             df = pd.DataFrame(a.retrieveTable())
-            print(df[['section','field','value']])
+            print(df[['section','field','value','alt_field','alt_value']])
 
-            pprint(a.summaryFromTable())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
