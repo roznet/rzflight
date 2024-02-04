@@ -162,8 +162,10 @@ class Autorouter:
 
 
 class Airport:
-    def __init__(self, code):
+    def __init__(self, code, env):
         self.code = code
+        self.env = env
+        self.api = env.api
 
     def __str__(self):
         return f'{self.code}'
@@ -171,35 +173,34 @@ class Airport:
     def __repr__(self):
         return f'{self.code}'
 
-
-    def clearCache(self,api):
+    def clearCache(self):
         cacheUrls = [f'airport/{self.code}',f'procedures/{self.code}',f'aip/{self.code}']
 
         list = [x['doccachefilename'] for x in self.cachedDocList(api)]
         cacheUrls.extend(list)
         for url in cacheUrls:
             for ext in ['json','pdf']:
-                cache = api.cacheFilePath(url,ext)
+                cache = self.api.cacheFilePath(url,ext)
                 if os.path.exists(cache):
-                    print(f'Clear cache {cache}')
+                    self.env.log(f'Clear cache {cache}')
                     os.remove(cache)
 
-    def cachedDocList(self,api):
+    def cachedDocList(self):
         url = f'airport/{self.code}'
-        data = api.cachedJson(url)
+        data = self.api.cachedJson(url)
         if data:
-            return api.extractAirportDocList(data)
+            return self.api.extractAirportDocList(data)
         return []
 
-    def retrieveProcedures(self,api):
+    def retrieveProcedures(self):
         url = f'procedures/{self.code}'
-        cache = api.cachedJson(url)
+        cache = self.api.cachedJson(url)
         if cache is not None:
-            print( f'Using cached {url}')
+            self.env.log( f'Using cached {url}')
             return cache
 
         dataurl = f'airport/{self.code}'
-        data = api.json(dataurl)
+        data = self.api.json(dataurl)
         if len(data) == 0:
             return []
         one = data[0]
@@ -212,15 +213,40 @@ class Airport:
                     proc[field] = x[field]
                 rv.append(proc)
 
-        with open(api.cacheFilePath(url,'json'),'w') as f:
+        with open(self.api.cacheFilePath(url,'json'),'w') as f:
             print(f'Parsed {url} and saving to cache')
             json.dump(rv,f)
         return rv
 
-    def retrieveDocList(self,api):
+    def retrieveDocList(self):
         url = f'airport/{self.code}'
-        data = api.json(url)
-        return api.extractAirportDocList(data)
+        data = self.api.json(url)
+        return self.api.extractAirportDocList(data)
+
+    def parsePdfLICTable(self,doc):
+        import camelot
+        rv = []
+        try:
+            # for italy process more pages as they are much longer and arranged vertically
+            tables = camelot.read_pdf(doc, pages='1-3')
+        except:
+            print( f'Error parsing {doc}')
+            return None
+        print(len(tables))
+        section = 'admin'
+        for table in tables:
+            pprint(table.df)
+            one = table.df.to_dict('record')
+            (proc,section) = self.processLITable(one,section)
+            print(f'SECT {section}')
+            pprint(proc)
+            rv.extend(proc)
+            
+        if len(rv) == 0:
+            return  [{'ident':self.code,'section':'admin','field':'Observations','value':'empty file', 'alt_value':''}]
+
+        return rv
+
 
 
     def parsePdfStandardTable(self,doc):
@@ -237,7 +263,7 @@ class Airport:
 
             rv = self.processTable(admin,'admin')
             rv.extend( self.processTable(operational,'operational'))
-
+            
         if len(tables) > 3:
             handling = tables[2].df.to_dict('records')
             passenger = tables[3].df.to_dict('records')
@@ -322,39 +348,41 @@ class Airport:
                     print( f'>>>Skipping {c1} | {c2} | {c3}')
         return rv 
 
-    def retrieveTable(self,api):
-        list = self.retrieveDocList(api)
+    def retrieveTable(self):
+        list = self.retrieveDocList()
         if list is None:
             return None
         for one in list:
             rv = None
-            api.validate(one,['doccachefilename','filename','docid','authority'])
+            self.api.validate(one,['doccachefilename','filename','docid','authority'])
             aipurl = one['aipcachefilename']
-            cache = api.cachedJson(aipurl)
+            cache = self.api.cachedJson(aipurl)
             if cache:
                 print( f'Using cached {aipurl}')
                 return cache
-            doc = api.retrieveDocFile(one)
-        
+            doc = self.api.retrieveDocFile(one)
             if doc is None:
                 print( f'No AD 2 for {self.code}')
                 return None
             authority = one['authority']
+            print(authority)
             if authority == 'LEC':
                 rv = self.parsePdfColumnTable(doc)
+            elif authority == 'LIC':
+                rv = self.parsePdfLICTable(doc)
             else:
                 rv = self.parsePdfStandardTable(doc)
 
             if rv:
-                with open(api.cacheFilePath(aipurl,'json'),'w') as f:
+                with open(self.api.cacheFilePath(aipurl,'json'),'w') as f:
                     print(f'Parsed AIP and writing {aipurl} to cache')
                     json.dump(rv,f)
             
             return rv
 
 
-    def parseApproachProcedures(self,api):
-        procs = self.retrieveProcedures(api)
+    def parseApproachProcedures(self):
+        procs = self.retrieveProcedures()
         if procs is None:
             return
 
@@ -402,9 +430,9 @@ class Airport:
                 return True
         return False
             
-    def summaryFromTable(self,api):
-        table = self.retrieveTable(api)
-        approaches = self.parseApproachProcedures(api)
+    def summaryFromTable(self):
+        table = self.retrieveTable()
+        approaches = self.parseApproachProcedures()
         
         rv = {'ident':self.code,'immigration':0,'avgas':0,'jeta1':0,'approaches':0}
         rv['approaches'] = len(approaches)
@@ -426,7 +454,47 @@ class Airport:
                     print( f'{self.code}: Unknown fuel type {val}')
         return rv
 
+    def processLITable(self,table,section):
+        header = None
+        curfield = None
+        fieldvalues = []
+        rv = []
+        for row in table:
+            if 1 in row:
+                # non '', then new field
+                if row[1]:
+                    fields = row[1].split('\n')
+                    if len(fields) == 2:
+                        field = fields[0]
+                        alt_field = fields[1]
+                    else:
+                        field = fields[0]
+                        alt_field = fields[0]
+
+                    if 'ARP' in field:
+                        section = 'admin'
+                    if 'custom' in alt_field.lower():
+                        section = 'operational'
+                    if 'handling facilities' in alt_field.lower():
+                        section = 'handling'
+                    if 'hotel' in alt_field.lower():
+                        section = 'passenger'
+
+                    if curfield:
+                        (old_field, old_alt_field) = curfield
+                        val = '\n'.join(fieldvalues)
+                        data = {'ident':self.code,'section':section,'field': field, 'alt_field': alt_field, 'value': val, 'alt_value': ''}
+                        rv.append(data)
+                    fieldvalues = []
+                    curfield = (field,alt_field)
+                
+            if 2 in row:
+                fieldvalues.append(row[2])
+        return (rv,section)
+
     def processTable(self,table,section):
+        if self.code.startswith('LI'):
+            return self.processLITable(table,section)
         header = None
         rv = []
         for row in table:
@@ -481,8 +549,9 @@ class Airport:
         return rv
 
 class Database:
-    def __init__(self, args):
-        self.filename = args.database
+    def __init__(self, env):
+        self.env = env
+        self.filename = env.args.database
         self.tableDetails = f'{args.table_prefix}_details'
         self.tableSummary = f'{args.table_prefix}_summary'
         self.tableProcedures = f'runways_procedures'
@@ -569,7 +638,7 @@ class Database:
         if already == 1:
             print(f'Already have {already} records for {ident}')
             return
-        print(f'Updating summary for {ident}')
+        print(f'Updating summary for {ident} with {summary}')
         sql = Database.sql_insert_table_from_csv(self.tableSummary, summary.keys())
         self.cursor.execute(sql, summary)
         self.conn.commit()
@@ -624,11 +693,23 @@ class Database:
         self.cursor.executemany(sql_insert, rv)
         self.conn.commit()
             
+class Environment:
+    def __init__(self,args):
+        self.args = args
+        self.api = Autorouter(args.token, args.cache_dir)
 
+        self.force_download = args.force
+        self.force_parse_aip = args.force
+        self.force_parse_procedures = args.force
+
+    def log(self,message):
+        if self.args.verbose:
+            print(message)
 
 class Command:
     def __init__(self,args):
         self.args = args
+        self.env = Environment(args)
 
     def choices():
         all = dir(Command)
@@ -639,23 +720,35 @@ class Command:
 
         return rv
 
+    def choicesDescription():
+        all = dir(Command)
+        cmd = []
+        for one in all:
+            if one.startswith('run_'):
+                name = one[4:]
+                doc = getattr(Command,one).__doc__
+                cmd.append( f'{name}: {doc}' )
+
+        return ';\n'.join(cmd)
+
     def run(self):
         getattr(self,f'run_{self.args.command}')()
 
     def run_download(self):
-        api = Autorouter(args.token, args.cache_dir)
+        '''Download AIPs and procedures'''
         for airport in args.airports:
             airport = airport.strip()
-            print(f'Processing {airport}')
-            a=Airport(airport)
+            self.env.log(f'Processing {airport}')
+            a=Airport(airport,self.env)
             if self.args.force:
-                a.clearCache(api)
-            a.retrieveDocList(api)
-            a.retrieveProcedures(api)
-            a.retrieveTable(api)
+                a.clearCache()
+            a.retrieveDocList()
+            a.retrieveProcedures()
+            a.retrieveTable()
 
     def run_build(self):
-        db = Database(args)
+        '''Build the database'''
+        db = Database(self.env)
         if args.airports:
             airports = args.airports
         else:
@@ -664,51 +757,55 @@ class Command:
         api = Autorouter(args.token, args.cache_dir )
         force = args.force
         for airport in airports:
-            a=Airport(airport)
-            table = a.retrieveTable(api)
+            a=Airport(airport,self.env)
+            table = a.retrieveTable()
             if table:
-                print(f'Building db for {airport}')
+                self.env.log(f'Building db for {airport}')
                 if force:
                     db.rebuildInfo(airport)
                 db.updateInfo(table)
             else:
-                print(f'No info to build {airport}')
+                self.env.log(f'No info to build {airport}')
 
-            approaches = a.parseApproachProcedures(api)
+            approaches = a.parseApproachProcedures()
             db.updateRunwayProcedures(airport,approaches)
-            if force:
+            if force or True:
                 db.rebuildSummary(airport)
-            summary = a.summaryFromTable(api)
+            summary = a.summaryFromTable()
             db.updateSummary(summary)
 
     def run_list(self):
-        api = Autorouter(args.token, args.cache_dir )
+        '''List summary for airports'''
+        api = self.env.api
         all = []
         if args.airports:
             airports = args.airports
         else:
             airports = Airport.list(args.cache_dir)
         for i in airports:
-            a = Airport(i)
-            p = a.summaryFromTable(api)
+            a = Airport(i,self.env)
+            p = a.summaryFromTable()
             all.append( p ) 
 
         df = pd.DataFrame(all)
         print(df)
 
     def run_show(self):
-        api = Autorouter(args.token, args.cache_dir )
+        '''Detail information for an airport'''
         for one in self.args.airports:
-            a = Airport(one)
-            df = pd.DataFrame(a.retrieveTable(api))
+            a = Airport(one,self.env)
+            df = pd.DataFrame(a.retrieveTable())
             print(df[['section','field','value']])
+
+            pprint(a.summaryFromTable())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('command', help='command to run', choices=Command.choices())
+    parser.add_argument('command', help=Command.choicesDescription(), choices=Command.choices())
     parser.add_argument('airports', help='list of airports to query', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
+    parser.add_argument('-v', '--verbose', help='verbose output', action='store_true')
     parser.add_argument('-t', '--token', help='bearer token')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
     parser.add_argument('--table-prefix', help='table name to create', default='airports_aip')
