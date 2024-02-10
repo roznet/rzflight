@@ -1,6 +1,6 @@
 runways.csv
 airports.csv
-airports.db
+airports*.db
 aip.db
 cache
 *.kml

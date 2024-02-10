@@ -12,6 +12,8 @@ import re
 import getpass
 import sqlite3
 import pandas as pd
+import re
+from io import StringIO
 
 class Autorouter:
     def __init__(self, token, cache):
@@ -289,47 +291,34 @@ class Airport:
             os.system(f'ps2ascii {doc} {txt}')
         with open(txt,'r') as f:
             lines = f.readlines()
-        rv = []
-        fwf = pd.read_fwf(txt)
-        print(fwf.columns)
 
-        if len(fwf.columns) < 2:
-            print( f'Error parsing {doc} not enough columns {len(fwf.columns)}')
-            return rv
-
-        cn1 = fwf.columns[0]
-        cn2 = fwf.columns[1]
-        if len(fwf.columns) > 2:
-            cn3 = fwf.columns[2]
-        else:
-            cn3 = None
-        table_number = 0
-
-        sections = [None,None,'admin','operational','handling','passenger']
+        chunks = {} 
+        current = []
         section = None
-        remarks = False
-        verbose = True
-        
-        for line in fwf.iterrows():
-            one = line[1]
-            c1,c2,c3 = one[cn1],one[cn2],one[cn3] if cn3 else None
-            processed = False
-            if not type(c1) == str:
-                print( f'>>>Skipping {c1}')
-                continue
-            if re.search('^\d+\.\s+\w+',c1):
-                remarks = False
-                table_number += 1
-                if len(sections) > table_number:
-                    section = sections[table_number]
-                else:
-                    if verbose:
-                        print( f'>>>Last Section {c1}')
-                    break
-                if verbose:
-                    print( f">>>Section {section} Header: {c1}")
-                continue
-            if section:
+        section_re = re.compile( ' +([0-9]+)\. +[A-Z]+')
+        for line in lines:
+            m = section_re.match(line)
+            if m:
+                print(f'split: {section}')
+                if section and section in ['2','3','4','5']:
+                    one = pd.read_fwf(StringIO('\n'.join(current)))
+                    if section not in chunks:
+                        #chunks[section] = ''.join(current) 
+                        chunks[section] = one
+                section = m.group(1)
+                current = []
+            else:
+                current.append(line)
+
+        rv = []
+
+        for (index,section) in zip(['2','3','4','5'],['admin', 'operational', 'handling', 'passenger']):
+            print(section)
+            df = chunks[index]
+            for line in df.iterrows():
+                (c1,c2) = (line[1], line[-1])
+                print(f'>{c1}<' )
+                processed = False
                 data = None
                 if type(c1) == str:
                     res1 = re.match(r'^([\w\s]+):\s(.+)',c1)
@@ -350,9 +339,6 @@ class Airport:
                     rv.append(data)
                     continue
 
-            if not processed:
-                if verbose:
-                    print( f'>>>Skipping {c1} | {c2} | {c3}')
         return rv 
 
     ###Table Parsing
@@ -726,6 +712,7 @@ class Environment:
         self.force_db_details = args.force
         self.force_db_summary = args.force
 
+        self.force_parse_aip = True
 
 
     def log(self,message):
