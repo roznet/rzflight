@@ -270,15 +270,15 @@ class Airport:
             admin = tables[0].df.to_dict('records')
             operational = tables[1].df.to_dict('records')
 
-            rv = self.processTable(admin,'admin')
-            rv.extend( self.processTable(operational,'operational'))
+            rv = self.processTableDefault(admin,'admin')
+            rv.extend( self.processTableDefault(operational,'operational'))
             
         if len(tables) > 3:
             handling = tables[2].df.to_dict('records')
             passenger = tables[3].df.to_dict('records')
 
-            rv.extend( self.processTable(handling,'handling'))
-            rv.extend( self.processTable(passenger,'passenger'))
+            rv.extend( self.processTableDefault(handling,'handling'))
+            rv.extend( self.processTableDefault(passenger,'passenger'))
         if len(rv) == 0:
             return  [{'ident':self.code,'section':'admin','field':'Observations','value':'empty file', 'alt_value':''}]
 
