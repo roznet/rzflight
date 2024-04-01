@@ -530,7 +530,7 @@ class Airport:
             return
         for row in table:
 
-            if self.rowIsField(row,'custom'):
+            if self.rowIsField(row,'custom|zoll\-'):
                 if row['value'] and not row['value'].lower().startswith('nil'):
                     rv['immigration'] = 1
             if self.rowIsField(row,'fuel.*type'):
@@ -713,6 +713,7 @@ class Environment:
         self.force_db_summary = args.force
 
         self.force_parse_aip = True
+        self.force_db_summary = True
 
 
     def log(self,message):
