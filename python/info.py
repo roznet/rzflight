@@ -285,6 +285,9 @@ class Airport:
         return rv
 
     def parsePdfTableLE(self,doc):
+        '''
+        Parsing LE style table, where the table are horizontal and span multiple pages
+        '''
         print( f'Parsing {doc} as text')
         txt = f'{doc}.txt'
         if not os.path.exists(txt):
@@ -299,10 +302,9 @@ class Airport:
         for line in lines:
             m = section_re.match(line)
             if m:
-                print(f'split: {section}')
                 if section and section in ['2','3','4','5']:
-                    one = pd.read_fwf(StringIO('\n'.join(current)))
                     if section not in chunks:
+                        one = pd.read_fwf(StringIO('\n'.join(current)))
                         #chunks[section] = ''.join(current) 
                         chunks[section] = one
                 section = m.group(1)
@@ -313,12 +315,12 @@ class Airport:
         rv = []
 
         for (index,section) in zip(['2','3','4','5'],['admin', 'operational', 'handling', 'passenger']):
-            print(section)
             df = chunks[index]
-            for line in df.iterrows():
+            
+            for line in df.itertuples():
                 (c1,c2) = (line[1], line[-1])
-                print(f'>{c1}<' )
                 processed = False
+                remarks = False
                 data = None
                 if type(c1) == str:
                     res1 = re.match(r'^([\w\s]+):\s(.+)',c1)
@@ -530,7 +532,7 @@ class Airport:
             return
         for row in table:
 
-            if self.rowIsField(row,'custom|zoll\-'):
+            if self.rowIsField(row,'custom|zoll\-|aduanas'):
                 if row['value'] and not row['value'].lower().startswith('nil'):
                     rv['immigration'] = 1
             if self.rowIsField(row,'fuel.*type'):

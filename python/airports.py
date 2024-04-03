@@ -2,6 +2,10 @@
 # source of data https://ourairports.com/data/
 #
 # Run this script to create the database
+#
+#   create: create the database with only the data from the csv files
+#   process: process the data to create a summary of the runways
+#   hard: list of airports with hard surface
 
 import argparse
 import csv
@@ -193,6 +197,13 @@ class Command:
     def run_process(self):
         self.airports.process()
 
+    def run_hard(self):
+        if self.args.where:
+            additional = ' AND ' + self.args.where
+        self.airports.cur.execute( "SELECT ident FROM airports_runway_summary WHERE hard > 0" + additional)
+        for row in self.airports.cur:
+            print(row[0])
+
     def run_test(self):
         print(f'test {self.args.airports}')
 
@@ -211,6 +222,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--cache-dir', help='directory to cache files', default='cache')
     parser.add_argument('-f', '--force', help='force refresh of cache', action='store_true')
     parser.add_argument('-d', '--database', help='database file', default='airports.db')
+    parser.add_argument('-w', '--where', help='where clause', default='')
     args = parser.parse_args()
 
     command = Command(args)

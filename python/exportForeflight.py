@@ -67,10 +67,13 @@ class Command:
         map = {}
         for row in rows:
             map[row['ident']] = dict(row)
-        rows = c.execute('SELECT a.latitude_deg AS "latitude", a.longitude_deg as "longitude", a.ident, a.name, d.field, d.value, d.alt_value FROM airports_aip_summary s, airports a, airports_aip_details d WHERE s.ident = a.ident AND s.immigration == 1 AND d.ident = a.ident AND (d.field LIKE "%Custom%" OR d.alt_field LIKE "%Custom%")')
+        rows = c.execute('SELECT a.latitude_deg AS "latitude", a.longitude_deg as "longitude", a.ident, a.name, d.field, d.value, d.alt_value FROM airports_aip_summary s, airports a, airports_aip_details d WHERE s.ident = a.ident AND s.immigration == 1 AND d.ident = a.ident')
         for row in rows:
             if row['ident'].startswith('LF'):
                 continue
+            if row['ident'] == 'LEJR':
+                print(row)
+                
             map[row['ident']] = dict(row)
 
         kml = simplekml.Kml()
