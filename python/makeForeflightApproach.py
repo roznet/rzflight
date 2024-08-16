@@ -87,6 +87,8 @@ class Command:
 
     def openDefinitionFile(self,name):
         excelfile = f'{name}.xlsx'
+        if self.args.xlsx:
+            excelfile = self.args.xlsx
         if not os.path.exists(excelfile):
             self.log(f'Could not open definition file {excelfile}')
             raise
@@ -133,7 +135,9 @@ class Command:
                 
                 self.log(f'Incrementing version to {data["version"]}')
 
-        data['effectiveData'] = datetime.datetime.now().isoformat()
+        data['effectiveDate'] = datetime.datetime.now().isoformat()
+        days = int(self.args.expiration)
+        data['expirationDate'] = (datetime.datetime.now() + datetime.timedelta(days=days)).isoformat()
         with open(manifest,'w') as f:
             f.write(json.dumps(data))
         self.log(f'Writing {manifest}')
@@ -221,6 +225,8 @@ if __name__ == '__main__':
     parser.add_argument('name', type=str, help='Name of the pack')
     parser.add_argument('-n', '--next-version', action='store_true', help='Increment version')
     parser.add_argument('-d', '--describe', help='Describe information about list of waypoints')
+    parser.add_argument('-x', '--xlsx', help='excel file with navdata and byop sheets')
+    parser.add_argument('-e', '--expiration', help='number of days until expiration', default='90')
 
     args = parser.parse_args()
 
