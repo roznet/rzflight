@@ -10,6 +10,9 @@ import argparse
 import calendar
 import subprocess
 from pprint import pprint
+from metar_taf_parser.parser.parser import MetarParser, TAFParser
+from metar_taf_parser.model.enum import CloudQuantity
+
 def url_for_date(icao, date, format="html"):
     # first day of the month
     first_day = date.replace(day=1)
@@ -132,9 +135,9 @@ def initialize_database(db_name="metar_taf.db"):
     conn.commit()
     conn.close()
 
-def get_flight_category(metar_string):
+def get_metar_flight_category(metar_string):
     """
-    Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string
+    Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
     
     Returns a dictionary containing:
     - category: Flight category (VFR, MVFR, IFR, LIFR, Unknown)
@@ -142,54 +145,73 @@ def get_flight_category(metar_string):
     - visibility_sm: Visibility in statute miles (None if not found)
     - ceiling: Ceiling height in feet (None if not found)
     """
-    
-    # Check for CAVOK first
-    if 'CAVOK' in metar_string:
+    try:
+        # Remove METAR and METAR COR from the beginning of the string
+        metar_string = re.sub(r'^(?:METAR COR|METAR)\s+', '', metar_string.strip())
+        
+        # Parse the METAR - the library expects the string to start with ICAO code
+        parser = MetarParser()
+        metar = parser.parse(metar_string)
+
+        return get_flight_category(metar)
+    except Exception as e:
+        print(f"Error parsing METAR: {e}")
         return {
-            "category": "VFR",
-            "visibility_meters": 10000,  # >10km
-            "visibility_sm": 6.21371,    # >6SM
-            "ceiling": None             # No significant clouds below 5000ft
+            "category": "Unknown",
+            "visibility_meters": None,
+            "visibility_sm": None,
+            "ceiling": None,
+            "metar": None
         }
+
+def get_flight_category(metar_object):
+    """
+    Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
     
-    # Extract visibility
-    visibility_sm = None
+    Returns a dictionary containing:
+    - category: Flight category (VFR, MVFR, IFR, LIFR, Unknown)
+    - visibility_meters: Visibility in meters (None if not found)
+    - visibility_sm: Visibility in statute miles (None if not found)
+    - ceiling: Ceiling height in feet (None if not found)
+    """
+    metar = metar_object
+    
+    # Get visibility in meters and statute miles
     visibility_meters = None
-    
-    # Try US format first (SM)
-    vis_pattern_sm = r'\s(\d{1,2}|\d{1,2}/\d{1,2}|M?\d{1,2})SM\s'
-    vis_match = re.search(vis_pattern_sm, metar_string)
-    if vis_match:
-        # US format (statute miles)
-        vis_str = vis_match.group(1)
-        if '/' in vis_str:
-            num, denom = map(int, vis_str.split('/'))
-            visibility_sm = num / denom
-        elif vis_str.startswith('M'):
-            visibility_sm = 0  # 'M' means 'less than'
-        else:
-            visibility_sm = float(vis_str)
-        visibility_meters = int(visibility_sm * 1609.34)  # Convert SM to meters
-    else:
-        # Try international format (meters)
-        vis_pattern_m = r'\s(\d{4})\s'
-        vis_match = re.search(vis_pattern_m, metar_string)
-        if vis_match:
-            visibility_meters = int(vis_match.group(1))
-            if visibility_meters == 9999:
-                visibility_sm = 6  # 9999 means >10km, which is >6SM
-                visibility_meters = 10000  # Set to 10km
-            else:
-                visibility_sm = visibility_meters * 0.000621371  # Convert meters to statute miles
-    
-    # Extract ceiling height (lowest broken or overcast layer)
+    visibility_sm = None
+    if metar.visibility:
+        vis_str = metar.visibility.distance
+        # Remove any "greater than" prefix and strip whitespace
+        vis_str = vis_str.replace('>', '').strip()
+        
+        # Extract numeric value and unit
+        match = re.match(r'(\d+(?:\.\d+)?)\s*(SM|km|m)?', vis_str)
+        if match:
+            value = float(match.group(1))
+            unit = match.group(2) or 'm'  # Default to meters if no unit specified
+            
+            # Convert to meters first
+            if unit == 'SM':
+                visibility_meters = int(value * 1609.34)
+                visibility_sm = value
+            elif unit == 'km':
+                visibility_meters = int(value * 1000)
+                visibility_sm = visibility_meters * 0.000621371
+            else:  # meters
+                visibility_meters = int(value)
+                visibility_sm = visibility_meters * 0.000621371
+
+    # Get ceiling from cloud layers
     ceiling = None
-    cloud_pattern = r'(BKN|OVC)(\d{3})'
-    cloud_layers = re.finditer(cloud_pattern, metar_string)
-    for match in cloud_layers:
-        height = int(match.group(2)) * 100  # Convert to feet
-        if ceiling is None or height < ceiling:
-            ceiling = height
+    if metar.clouds:
+        for cloud in metar.clouds:
+            if cloud.quantity in [CloudQuantity.BKN, CloudQuantity.OVC] and (ceiling is None or cloud.height < ceiling):
+                ceiling = cloud.height 
+    
+    if metar.cavok:
+        visibility_meters = 10000
+        visibility_sm = 6.21371
+        ceiling = None
     
     # Determine flight category
     category = "Unknown"
@@ -211,12 +233,13 @@ def get_flight_category(metar_string):
         "category": category,
         "visibility_meters": visibility_meters,
         "visibility_sm": visibility_sm,
-        "ceiling": ceiling
+        "ceiling": ceiling,
+        "metar": metar
     }
+    
 
-def format_category_info(metar_string):
-    """Format flight category, visibility, and ceiling information for display."""
-    wx = get_flight_category(metar_string)
+def format_weather_category(wx):
+    """Format weather category, visibility and ceiling into a display string."""
     # Format visibility string
     if wx['visibility_meters']:
         if wx['visibility_meters'] % 1000 == 0:
@@ -224,8 +247,10 @@ def format_category_info(metar_string):
         else:
             vis_str = f"{wx['visibility_meters']}m"
     else:
-        vis_str = "unknown"
-    ceil_str = f"{wx['ceiling']}ft" if wx['ceiling'] else "none"
+        vis_str = wx['metar'].visibility.distance if wx['metar'] else "unknown"
+    ceil_str = f"{wx['ceiling']}ft" if wx['ceiling'] else "unknown"
+    if wx['ceiling'] == None:
+        return f"[{wx['category']} vis:{vis_str} ncd]"
     return f"[{wx['category']} vis:{vis_str} ceil:{ceil_str}]"
 
 def get_time_specific_reports(cursor, icao, datetime_input, show_category=False):
@@ -261,8 +286,8 @@ def get_time_specific_reports(cursor, icao, datetime_input, show_category=False)
             print("\nLast 12 METARs up to specified time:")
             for row in reversed(metar_rows):
                 if show_category and "METAR" in row[1]:
-                    category_info = format_category_info(row[1])
-                    print(f"{row[0]} {category_info} {row[1]}")
+                    wx = get_metar_flight_category(row[1])
+                    print(f"{row[0]} {format_weather_category(wx)} {row[1]}")
                 else:
                     print(f"{row[0]} {row[1]}")
         else:
@@ -287,8 +312,8 @@ def get_time_specific_reports(cursor, icao, datetime_input, show_category=False)
         print("\nSubsequent METARs:")
         for row in metar_rows:
             if show_category and "METAR" in row[1]:
-                category_info = format_category_info(row[1])
-                print(f"{row[0]} {category_info} {row[1]}")
+                wx = get_metar_flight_category(row[1])
+                print(f"{row[0]} {format_weather_category(wx)} {row[1]}")
             else:
                 print(f"{row[0]} {row[1]}")
     else:
@@ -309,8 +334,8 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False):
         print("\nAll reports for the specified date:")
         for row in rows:
             if show_category and row[1] == "METAR":
-                category_info = format_category_info(row[2])
-                print(f"{row[0]} {category_info} {row[2]}")
+                wx = get_metar_flight_category(row[2])
+                print(f"{row[0]} {format_weather_category(wx)} {row[2]}")
             else:
                 print(f"{row[0]} {row[2]}")
     else:
