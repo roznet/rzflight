@@ -243,7 +243,7 @@ def get_flight_category(metar_object):
     }
     
 
-def calculate_wind_components(runway_heading, wind_direction, wind_speed):
+def calculate_wind_components(runway_heading, wind_direction, wind_speed, gust_speed=None):
     """
     Calculate headwind/tailwind and crosswind components for a given runway and wind.
     
@@ -251,11 +251,14 @@ def calculate_wind_components(runway_heading, wind_direction, wind_speed):
         runway_heading: Runway heading in degrees
         wind_direction: Wind direction in degrees
         wind_speed: Wind speed in knots
+        gust_speed: Gust speed in knots (optional)
     
     Returns:
-        tuple: (direct_wind, cross_wind) where:
+        tuple: (direct_wind, cross_wind, direct_gust, cross_gust) where:
             - direct_wind: Positive for headwind, negative for tailwind
             - cross_wind: Positive for wind from right, negative from left
+            - direct_gust: Gust component along runway heading (None if no gusts)
+            - cross_gust: Gust component across runway (None if no gusts)
     """
     import math
     
@@ -266,14 +269,33 @@ def calculate_wind_components(runway_heading, wind_direction, wind_speed):
     direct_wind = int(round(wind_speed * math.cos(angle)))
     cross_wind = int(round(wind_speed * math.sin(angle)))
     
-    return (direct_wind, cross_wind)
+    # Calculate gust components if gust speed is provided
+    direct_gust = None
+    cross_gust = None
+    if gust_speed is not None:
+        direct_gust = int(round(gust_speed * math.cos(angle)))
+        cross_gust = int(round(gust_speed * math.sin(angle)))
+    
+    return (direct_wind, cross_wind, direct_gust, cross_gust)
 
-def format_wind_components(runway, direct_wind, cross_wind):
+def format_wind_components(runway, direct_wind, cross_wind, direct_gust=None, cross_gust=None):
     """Format wind components into a display string."""
     direct_type = "HEAD" if direct_wind >= 0 else "TAIL"
     cross_type = "RIGHT" if cross_wind >= 0 else "LEFT"
-    return (f"RWY{runway:02d}: {abs(direct_wind)}kt {direct_type} | "
-            f"{abs(cross_wind)}kt {cross_type}")
+    
+    # Format direct wind with gusts if present
+    if direct_gust is not None:
+        direct_str = f"{abs(direct_wind)}G{abs(direct_gust)}"
+    else:
+        direct_str = str(abs(direct_wind))
+    
+    # Format cross wind with gusts if present
+    if cross_gust is not None:
+        cross_str = f"{abs(cross_wind)}G{abs(cross_gust)}"
+    else:
+        cross_str = str(abs(cross_wind))
+    
+    return f"RWY{runway:02d}: {direct_str}kt {direct_type} | {cross_str}kt {cross_type}"
 
 def get_runway_winds(metar, runways):
     """Get wind components for each runway from METAR."""
@@ -284,18 +306,23 @@ def get_runway_winds(metar, runways):
     if not hasattr(metar.wind, 'direction') or not hasattr(metar.wind, 'speed'):
         return []
     # Convert wind direction and speed to integers
+    # the direction is in degrees, the speed is in knots
     try:
         wind_dir = int(metar.wind.degrees)
         wind_speed = int(metar.wind.speed)
+        gust_speed = int(metar.wind.gust) if metar.wind.gust else None
     except (ValueError, TypeError):
+        print(f"Error parsing wind: {metar.wind}")
         return []  # Return empty list if conversion fails
     
     # Calculate for each runway
     results = []
     for rwy in runways:
         rwy_heading = int(rwy) * 10  # Convert runway number to heading
-        direct, cross = calculate_wind_components(rwy_heading, wind_dir, wind_speed)
-        results.append(format_wind_components(int(rwy), direct, cross))
+        direct, cross, direct_gust, cross_gust = calculate_wind_components(
+            rwy_heading, wind_dir, wind_speed, gust_speed)
+        results.append(format_wind_components(
+            int(rwy), direct, cross, direct_gust, cross_gust))
     
     return results
 
