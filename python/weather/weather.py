@@ -109,8 +109,6 @@ def get_from_web(icao, date):
         }
         for row in data
     ]
-    pprint(formatted_data[:5])
-    pprint(len(formatted_data))
     return formatted_data
 
 # Function to create the database if it doesn't exist
@@ -134,7 +132,103 @@ def initialize_database(db_name="metar_taf.db"):
     conn.commit()
     conn.close()
 
-def get_time_specific_reports(cursor, icao, datetime_input):
+def get_flight_category(metar_string):
+    """
+    Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string
+    
+    Returns a dictionary containing:
+    - category: Flight category (VFR, MVFR, IFR, LIFR, Unknown)
+    - visibility_meters: Visibility in meters (None if not found)
+    - visibility_sm: Visibility in statute miles (None if not found)
+    - ceiling: Ceiling height in feet (None if not found)
+    """
+    
+    # Check for CAVOK first
+    if 'CAVOK' in metar_string:
+        return {
+            "category": "VFR",
+            "visibility_meters": 10000,  # >10km
+            "visibility_sm": 6.21371,    # >6SM
+            "ceiling": None             # No significant clouds below 5000ft
+        }
+    
+    # Extract visibility
+    visibility_sm = None
+    visibility_meters = None
+    
+    # Try US format first (SM)
+    vis_pattern_sm = r'\s(\d{1,2}|\d{1,2}/\d{1,2}|M?\d{1,2})SM\s'
+    vis_match = re.search(vis_pattern_sm, metar_string)
+    if vis_match:
+        # US format (statute miles)
+        vis_str = vis_match.group(1)
+        if '/' in vis_str:
+            num, denom = map(int, vis_str.split('/'))
+            visibility_sm = num / denom
+        elif vis_str.startswith('M'):
+            visibility_sm = 0  # 'M' means 'less than'
+        else:
+            visibility_sm = float(vis_str)
+        visibility_meters = int(visibility_sm * 1609.34)  # Convert SM to meters
+    else:
+        # Try international format (meters)
+        vis_pattern_m = r'\s(\d{4})\s'
+        vis_match = re.search(vis_pattern_m, metar_string)
+        if vis_match:
+            visibility_meters = int(vis_match.group(1))
+            if visibility_meters == 9999:
+                visibility_sm = 6  # 9999 means >10km, which is >6SM
+                visibility_meters = 10000  # Set to 10km
+            else:
+                visibility_sm = visibility_meters * 0.000621371  # Convert meters to statute miles
+    
+    # Extract ceiling height (lowest broken or overcast layer)
+    ceiling = None
+    cloud_pattern = r'(BKN|OVC)(\d{3})'
+    cloud_layers = re.finditer(cloud_pattern, metar_string)
+    for match in cloud_layers:
+        height = int(match.group(2)) * 100  # Convert to feet
+        if ceiling is None or height < ceiling:
+            ceiling = height
+    
+    # Determine flight category
+    category = "Unknown"
+    if visibility_sm is not None or ceiling is not None:
+        # LIFR conditions
+        if (visibility_sm is not None and visibility_sm < 1) or (ceiling is not None and ceiling < 500):
+            category = "LIFR"
+        # IFR conditions
+        elif (visibility_sm is not None and 1 <= visibility_sm < 3) or (ceiling is not None and 500 <= ceiling < 1000):
+            category = "IFR"
+        # MVFR conditions
+        elif (visibility_sm is not None and 3 <= visibility_sm <= 5) or (ceiling is not None and 1000 <= ceiling <= 3000):
+            category = "MVFR"
+        # VFR conditions
+        else:
+            category = "VFR"
+    
+    return {
+        "category": category,
+        "visibility_meters": visibility_meters,
+        "visibility_sm": visibility_sm,
+        "ceiling": ceiling
+    }
+
+def format_category_info(metar_string):
+    """Format flight category, visibility, and ceiling information for display."""
+    wx = get_flight_category(metar_string)
+    # Format visibility string
+    if wx['visibility_meters']:
+        if wx['visibility_meters'] % 1000 == 0:
+            vis_str = f"{wx['visibility_meters']//1000}km"
+        else:
+            vis_str = f"{wx['visibility_meters']}m"
+    else:
+        vis_str = "unknown"
+    ceil_str = f"{wx['ceiling']}ft" if wx['ceiling'] else "none"
+    return f"[{wx['category']} vis:{vis_str} ceil:{ceil_str}]"
+
+def get_time_specific_reports(cursor, icao, datetime_input, show_category=False):
     """Get TAF and subsequent METARs for a specific time."""
     cursor.execute('''
         SELECT report_datetime, report_data
@@ -151,12 +245,33 @@ def get_time_specific_reports(cursor, icao, datetime_input):
     
     if not taf_row:
         print("\nNo TAF found before the specified time.")
-        return
+        cursor.execute('''
+            SELECT report_datetime, report_data
+            FROM reports
+            WHERE icao = ? 
+            AND report_type = 'METAR'
+            AND report_datetime <= ?
+            AND date(report_datetime) = date(?)
+            ORDER BY report_datetime DESC
+            LIMIT 12
+        ''', (icao, datetime_input, datetime_input))
         
+        metar_rows = cursor.fetchall()
+        if metar_rows:
+            print("\nLast 12 METARs up to specified time:")
+            for row in reversed(metar_rows):
+                if show_category and "METAR" in row[1]:
+                    category_info = format_category_info(row[1])
+                    print(f"{row[0]} {category_info} {row[1]}")
+                else:
+                    print(f"{row[0]} {row[1]}")
+        else:
+            print("\nNo METARs found in the specified time range.")
+        return
+    
     print("\nMost recent TAF:")
     print(f"{taf_row[0]} {taf_row[1]}")
     
-    # Get all METARs between TAF time and specified time
     cursor.execute('''
         SELECT report_datetime, report_data
         FROM reports
@@ -171,11 +286,15 @@ def get_time_specific_reports(cursor, icao, datetime_input):
     if metar_rows:
         print("\nSubsequent METARs:")
         for row in metar_rows:
-            print(f"{row[0]} {row[1]}")
+            if show_category and "METAR" in row[1]:
+                category_info = format_category_info(row[1])
+                print(f"{row[0]} {category_info} {row[1]}")
+            else:
+                print(f"{row[0]} {row[1]}")
     else:
         print("\nNo METARs found in the specified time range.")
 
-def get_daily_reports(cursor, icao, datetime_input):
+def get_daily_reports(cursor, icao, datetime_input, show_category=False):
     """Get all reports for a specific day."""
     cursor.execute('''
         SELECT report_datetime, report_type, report_data
@@ -189,7 +308,11 @@ def get_daily_reports(cursor, icao, datetime_input):
     if rows:
         print("\nAll reports for the specified date:")
         for row in rows:
-            print(f"{row[0]} {row[2]}")
+            if show_category and row[1] == "METAR":
+                category_info = format_category_info(row[2])
+                print(f"{row[0]} {category_info} {row[2]}")
+            else:
+                print(f"{row[0]} {row[2]}")
     else:
         print("\nNo reports found for the specified date.")
 
@@ -213,7 +336,7 @@ def ensure_data_exists(cursor, conn, icao, datetime_input):
         )
         conn.commit()
 
-def get_report(icao, datetime_input, db_name="metar_taf.db"):
+def get_report(icao, datetime_input, show_category=False, db_name="metar_taf.db"):
     """Main function to get weather reports."""
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -221,11 +344,10 @@ def get_report(icao, datetime_input, db_name="metar_taf.db"):
     try:
         ensure_data_exists(cursor, conn, icao, datetime_input)
 
-        # If time was specified (has minutes), show TAF and subsequent METARs
         if datetime_input.strftime('%H:%M') != '00:00':
-            get_time_specific_reports(cursor, icao, datetime_input)
+            get_time_specific_reports(cursor, icao, datetime_input, show_category)
         else:
-            get_daily_reports(cursor, icao, datetime_input)
+            get_daily_reports(cursor, icao, datetime_input, show_category)
     finally:
         conn.close()
 
@@ -233,24 +355,22 @@ def get_report(icao, datetime_input, db_name="metar_taf.db"):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and store METAR/TAF reports.")
     parser.add_argument("icao", type=str, help="The ICAO code of the airport.")
-    parser.add_argument("datetime", type=str, help="The date in 'YYYYMMDD' format.")
-    parser.add_argument("--time", type=str, help="Optional time in 'HH:MM' format")
+    parser.add_argument("date", type=str, help="The date in 'YYYYMMDD' format")
+    parser.add_argument("time", type=str, nargs='?', help="Optional time in 'HHMM' format")
+    parser.add_argument("--category", "-c", action="store_true", help="Show flight category for METAR reports")
 
     args = parser.parse_args()
 
-    icao_input = args.icao
-    date_input = args.datetime
-
     try:
-        # Parse the YYYYMMDD format and add time if provided
         if args.time:
-            report_datetime = datetime.strptime(f"{date_input} {args.time}", "%Y%m%d %H:%M")
+            time_str = f"{args.time[:2]}:{args.time[2:]}"
+            report_datetime = datetime.strptime(f"{args.date} {time_str}", "%Y%m%d %H:%M")
         else:
-            report_datetime = datetime.strptime(date_input, "%Y%m%d")
+            report_datetime = datetime.strptime(args.date, "%Y%m%d")
             
         initialize_database()
-        get_report(icao_input, report_datetime)
+        get_report(args.icao, report_datetime, args.category)
     except ValueError:
         print("Invalid date/time format. Please use:")
         print("- Date: 'YYYYMMDD' (e.g., 20250103 for January 3rd, 2025)")
-        print("- Time (optional): 'HH:MM' (e.g., 14:30)")
+        print("- Time (optional): 'HHMM' (e.g., 1430)")
