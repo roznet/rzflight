@@ -11,7 +11,8 @@ import calendar
 import subprocess
 from pprint import pprint
 from metar_taf_parser.parser.parser import MetarParser, TAFParser
-from metar_taf_parser.model.enum import CloudQuantity
+from metar_taf_parser.model.enum import CloudQuantity, WeatherChangeType
+from metar_taf_parser.model.model import TAFTrend
 
 def url_for_date(icao, date, format="html"):
     # first day of the month
@@ -303,7 +304,7 @@ def get_runway_winds(metar, runways):
         return []
     
     # Skip if wind is variable direction or missing speed
-    if not hasattr(metar.wind, 'direction') or not hasattr(metar.wind, 'speed'):
+    if not hasattr(metar.wind, 'degrees') or not hasattr(metar.wind, 'speed'):
         return []
     # Convert wind direction and speed to integers
     # the direction is in degrees, the speed is in knots
@@ -335,7 +336,10 @@ def format_weather_category(wx, runways=None):
         else:
             vis_str = f"{wx['visibility_meters']}m"
     else:
-        vis_str = wx['metar'].visibility.distance if wx['metar'] else "unknown"
+        if wx['metar'] and hasattr(wx['metar'], 'visibility') and wx['metar'].visibility:
+            vis_str = wx['metar'].visibility.distance 
+        else:
+            vis_str = "unknown"
     ceil_str = f"{wx['ceiling']}ft" if wx['ceiling'] else "unknown"
     
     # Base string
@@ -491,12 +495,244 @@ def get_report(icao, datetime_input, show_category=False, runways=None, db_name=
     finally:
         conn.close()
 
+def format_taf_trend(trend):
+    """
+    Format a TAF trend into a readable string.
+    
+    Args:
+        trend: TAFTrend object from metar_taf_parser
+    
+    Returns:
+        str: Formatted string with validity period and weather conditions
+    """
+    components = []
+    if trend.validity.start_day == trend.validity.end_day:
+        validity = f"{trend.validity.start_day:02d}/{trend.validity.start_hour:02d}:00-{trend.validity.end_hour:02d}:00"
+    else:
+        validity = f"{trend.validity.start_day:02d}/{trend.validity.start_hour:02d}:00-{trend.validity.end_day:02d}/{trend.validity.end_hour:02d}:00"
+
+    components.append(validity)
+    if hasattr(trend, 'probability') and trend.probability:
+        probability = f" PROBA{trend.probability}"
+        components.append(probability)
+    if hasattr(trend,'type') and  trend.type:
+        # Get the string value from the enum instead of the enum object itself
+        type_str = trend.type.value
+        components.append(type_str)
+    
+    # Get weather category if possible
+    wx = get_flight_category(trend)
+    category_str = format_weather_category(wx)
+    components.append(category_str)
+    return " ".join(components)
+
+
+def get_comparison_reports(icao, datetime_input, show_category=False, runways=None, db_name="metar_taf.db"):
+    """Get TAF sections alongside corresponding METARs."""
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT report_datetime, report_data
+        FROM reports
+        WHERE icao = ? 
+        AND date(report_datetime) = date(?)
+        AND report_type = 'TAF'
+        AND report_datetime <= ?
+        ORDER BY report_datetime DESC
+        LIMIT 1
+    ''', (icao, datetime_input, datetime_input))
+    
+    taf_row = cursor.fetchone()
+    
+    if not taf_row:
+        print("\nNo TAF found before the specified time.")
+        return
+    
+    print("\nMost recent TAF:")
+    print(f"{taf_row[0]} {taf_row[1]}")
+    
+    cursor.execute('''
+        SELECT report_datetime, report_data
+        FROM reports
+        WHERE icao = ? 
+        AND report_type = 'METAR'
+        AND report_datetime BETWEEN ? AND ?
+        ORDER BY report_datetime ASC
+    ''', (icao, taf_row[0], datetime_input))
+    
+    metar_rows = cursor.fetchall()
+    
+    if metar_rows:
+        print("\nComparison of METARs with TAF:")
+        taf = TAFParser().parse(taf_row[1])
+        for row in metar_rows:
+            if "METAR" in row[1]:
+                wx = get_metar_flight_category(row[1]) if show_category else {"metar": parse_metar(row[1])}
+                
+                # Format METAR line
+                metar_line = f"{row[0]}"
+                if show_category:
+                    metar_line += f" {format_weather_category(wx, runways)}"
+                elif runways:
+                    wind_components = get_runway_winds(wx["metar"], runways)
+                    if wind_components:
+                        metar_line += f" [{' | '.join(wind_components)}]"
+                metar_line += f" {row[1]}"
+                print(f"\nMETAR: {metar_line}")
+                
+                # Find and display relevant TAF section
+                metar_time = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
+                prevailing = create_taf_trend_from_taf(taf)
+                relevant = []
+                for trend in taf.trends:
+                    if is_time_in_validity_period(metar_time, trend.validity):
+                        if trend.type == WeatherChangeType.BECMG:
+                            prevailing = create_taf_trend_from_taf(prevailing, trend)
+                        else:
+                            relevant.append(trend)
+                        
+                print(f"TAF:   {format_taf_trend(prevailing)}")
+                for trend in relevant:
+                    print(f"  +:   {format_taf_trend(trend)}")  
+
+                
+    else:
+        print("\nNo METARs found in the specified time range.")
+
+def is_time_in_validity_period(check_time, validity):
+    """
+    Check if a given time falls within a TAF validity period.
+    
+    Args:
+        check_time: datetime object to check
+        validity: TAF validity object with start_day, start_hour, end_day, end_hour
+    
+    Returns:
+        bool: True if time falls within validity period, False otherwise
+    """
+    # Create datetime objects for trend start and end times
+    trend_start = datetime(
+        check_time.year,
+        check_time.month,
+        validity.start_day,
+        validity.start_hour,
+        tzinfo=check_time.tzinfo
+    )
+    trend_end = datetime(
+        check_time.year,
+        check_time.month,
+        validity.end_day,
+        validity.end_hour,
+        tzinfo=check_time.tzinfo
+    )
+    
+    # Handle case where trend ends in next month
+    if trend_end < trend_start:
+        if check_time < trend_start:
+            # If check_time is before start, move start back one month
+            if trend_start.month == 1:
+                trend_start = trend_start.replace(year=trend_start.year-1, month=12)
+            else:
+                trend_start = trend_start.replace(month=trend_start.month-1)
+        else:
+            # If check_time is after start, move end forward one month
+            if trend_end.month == 12:
+                trend_end = trend_end.replace(year=trend_end.year+1, month=1)
+            else:
+                trend_end = trend_end.replace(month=trend_end.month+1)
+    
+    return trend_start <= check_time <= trend_end
+
+def is_after_validity_end(check_time, validity):
+    """
+    Check if a given time is after a TAF validity period end.
+    
+    Args:
+        check_time: datetime object to check
+        validity: TAF validity object with end_day, end_hour
+    
+    Returns:
+        bool: True if time is after validity end, False otherwise
+    """
+    # Create datetime object for trend end time
+    trend_end = datetime(
+        check_time.year,
+        check_time.month,
+        validity.end_day,
+        validity.end_hour,
+        tzinfo=check_time.tzinfo
+    )
+    
+    # Handle case where trend ends in next month
+    if trend_end.day < check_time.day:
+        if trend_end.month == 12:
+            trend_end = trend_end.replace(year=trend_end.year+1, month=1)
+        else:
+            trend_end = trend_end.replace(month=trend_end.month+1)
+    
+    return check_time > trend_end
+
+def create_taf_trend_from_taf(taf, trend = None):
+    """
+    Create a TAFTrend object from a TAF object by copying matching non-None attributes.
+    Only copies attributes that don't start with underscore.
+    
+    Args:
+        trend: Existing TAFTrend object to update
+        taf: TAF object from metar_taf_parser
+    
+    Returns:
+        TAFTrend: Updated TAFTrend object with copied attributes
+    """
+    # Get all public attributes of the TAFTrend object
+
+    new_trend = TAFTrend(weather_change_type=trend.type if trend else None)
+
+    trend_attrs =  ['validity', 'wind', 'visibility', 'cavok', 'probability', 'wind_shear','vertical_visibility']
+    # For each public attribute in the trend
+    for attr_name in trend_attrs:
+        # Check if the TAF has the same attribute
+        if hasattr(taf, attr_name):
+            # Get the value from the TAF
+            taf_value = getattr(taf, attr_name)
+            # Only copy if the value is not None
+            if taf_value is not None:
+                setattr(new_trend, attr_name, taf_value)
+        # if trend overrides the TAF value, use the trend value
+        if trend: 
+            trend_attr = getattr(trend, attr_name)
+            if trend_attr is not None:
+                setattr(new_trend, attr_name, trend_attr)
+
+    add_attrs = ["cloud", "icing", "turbulence", "weather_condition"]
+    for attr_name in add_attrs:
+        copy_from = taf
+        attr_get = f'{attr_name}s' if attr_name != 'turbulence' else 'turbulence'
+        attr_add = f'add_{attr_name}'
+        # if trend overrides the TAF value, use the trend value
+        if trend and getattr(trend, attr_get):
+            copy_from = trend
+        if hasattr(copy_from, attr_get):
+            taf_value = getattr(copy_from, attr_get)
+            if taf_value:
+                for item in taf_value:
+                    getattr(new_trend, attr_add)(item)
+    if False:
+        print("----------")
+        print(f"From: {taf}")
+        print(f"With: {trend}")
+        print(f"To: {new_trend}")
+    return new_trend
+
 # Main script
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and store METAR/TAF reports.")
+
     # Move optional arguments before positional arguments
     parser.add_argument("--category", "-c", action="store_true", help="Show flight category for METAR reports")
     parser.add_argument("--runway", "-r", type=str, help="Comma-separated list of runway numbers (e.g., '24,06')")
+    parser.add_argument("--compare", action="store_true", help="Compare METARs with corresponding TAF sections")
     # Positional arguments last
     parser.add_argument("icao", type=str, help="The ICAO code of the airport.")
     parser.add_argument("date", type=str, help="The date in 'YYYYMMDD' format")
@@ -504,13 +740,24 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if args.time:
-        time_str = f"{args.time[:2]}:{args.time[2:]}"
-        report_datetime = datetime.strptime(f"{args.date} {time_str}", "%Y%m%d %H:%M")
-    else:
-        report_datetime = datetime.strptime(args.date, "%Y%m%d")
-    
-    runways = args.runway.split(',') if args.runway else None
+    try:
+        if args.time:
+            time_str = f"{args.time[:2]}:{args.time[2:]}"
+            report_datetime = datetime.strptime(f"{args.date} {time_str}", "%Y%m%d %H:%M")
+        else:
+            report_datetime = datetime.strptime(args.date, "%Y%m%d")
         
-    initialize_database()
-    get_report(args.icao, report_datetime, args.category, runways)
+        runways = args.runway.split(',') if args.runway else None
+        initialize_database()
+        if args.compare and args.time:
+            get_comparison_reports(args.icao, report_datetime, args.category, runways)
+        elif args.compare:
+            print("\nError: --compare option requires a specific time")
+        else:
+            get_report(args.icao, report_datetime, args.category, runways)
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("\nPlease use:")
+        print("- Date: 'YYYYMMDD' (e.g., 20250103 for January 3rd, 2025)")
+        print("- Time (optional): 'HHMM' (e.g., 1430)")
+        print("- Runway: --runway 24 or --runway 24,06 (comma-separated, no spaces)")
