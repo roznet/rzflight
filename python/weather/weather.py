@@ -135,6 +135,17 @@ def initialize_database(db_name="metar_taf.db"):
     conn.commit()
     conn.close()
 
+def parse_metar(metar_string):
+    try: 
+        metar_string = re.sub(r'^(?:METAR COR|METAR)\s+', '', metar_string.strip())
+        parser = MetarParser()
+        metar = parser.parse(metar_string)
+        return metar
+    except Exception as e:
+        print(f"Error parsing METAR: {e}")
+        return None
+
+
 def get_metar_flight_category(metar_string):
     """
     Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
@@ -145,17 +156,11 @@ def get_metar_flight_category(metar_string):
     - visibility_sm: Visibility in statute miles (None if not found)
     - ceiling: Ceiling height in feet (None if not found)
     """
-    try:
-        # Remove METAR and METAR COR from the beginning of the string
-        metar_string = re.sub(r'^(?:METAR COR|METAR)\s+', '', metar_string.strip())
-        
-        # Parse the METAR - the library expects the string to start with ICAO code
-        parser = MetarParser()
-        metar = parser.parse(metar_string)
 
+    metar = parse_metar(metar_string)
+    if metar:
         return get_flight_category(metar)
-    except Exception as e:
-        print(f"Error parsing METAR: {e}")
+    else:
         return {
             "category": "Unknown",
             "visibility_meters": None,
@@ -238,9 +243,65 @@ def get_flight_category(metar_object):
     }
     
 
-def format_weather_category(wx):
-    """Format weather category, visibility and ceiling into a display string."""
-    # Format visibility string
+def calculate_wind_components(runway_heading, wind_direction, wind_speed):
+    """
+    Calculate headwind/tailwind and crosswind components for a given runway and wind.
+    
+    Args:
+        runway_heading: Runway heading in degrees
+        wind_direction: Wind direction in degrees
+        wind_speed: Wind speed in knots
+    
+    Returns:
+        tuple: (direct_wind, cross_wind) where:
+            - direct_wind: Positive for headwind, negative for tailwind
+            - cross_wind: Positive for wind from right, negative from left
+    """
+    import math
+    
+    # Convert angles to radians
+    angle = math.radians(wind_direction - runway_heading)
+    
+    # Calculate components and round to integers
+    direct_wind = int(round(wind_speed * math.cos(angle)))
+    cross_wind = int(round(wind_speed * math.sin(angle)))
+    
+    return (direct_wind, cross_wind)
+
+def format_wind_components(runway, direct_wind, cross_wind):
+    """Format wind components into a display string."""
+    direct_type = "HEAD" if direct_wind >= 0 else "TAIL"
+    cross_type = "RIGHT" if cross_wind >= 0 else "LEFT"
+    return (f"RWY{runway:02d}: {abs(direct_wind)}kt {direct_type} | "
+            f"{abs(cross_wind)}kt {cross_type}")
+
+def get_runway_winds(metar, runways):
+    """Get wind components for each runway from METAR."""
+    if not metar.wind:
+        return []
+    
+    # Skip if wind is variable direction or missing speed
+    if not hasattr(metar.wind, 'direction') or not hasattr(metar.wind, 'speed'):
+        return []
+    # Convert wind direction and speed to integers
+    try:
+        wind_dir = int(metar.wind.degrees)
+        wind_speed = int(metar.wind.speed)
+    except (ValueError, TypeError):
+        return []  # Return empty list if conversion fails
+    
+    # Calculate for each runway
+    results = []
+    for rwy in runways:
+        rwy_heading = int(rwy) * 10  # Convert runway number to heading
+        direct, cross = calculate_wind_components(rwy_heading, wind_dir, wind_speed)
+        results.append(format_wind_components(int(rwy), direct, cross))
+    
+    return results
+
+def format_weather_category(wx, runways=None):
+    """Format weather category, visibility, ceiling, and runway winds into a display string."""
+    # Start with the existing weather category format
     if wx['visibility_meters']:
         if wx['visibility_meters'] % 1000 == 0:
             vis_str = f"{wx['visibility_meters']//1000}km"
@@ -249,11 +310,22 @@ def format_weather_category(wx):
     else:
         vis_str = wx['metar'].visibility.distance if wx['metar'] else "unknown"
     ceil_str = f"{wx['ceiling']}ft" if wx['ceiling'] else "unknown"
+    
+    # Base string
     if wx['ceiling'] == None:
-        return f"[{wx['category']} vis:{vis_str} ncd]"
-    return f"[{wx['category']} vis:{vis_str} ceil:{ceil_str}]"
+        result = f"[{wx['category']} vis:{vis_str} ncd]"
+    else:
+        result = f"[{wx['category']} vis:{vis_str} ceil:{ceil_str}]"
+    
+    # Add runway winds if requested
+    if runways and wx['metar']:
+        wind_components = get_runway_winds(wx['metar'], runways)
+        if wind_components:
+            result += " " + " | ".join(wind_components)
+    
+    return result
 
-def get_time_specific_reports(cursor, icao, datetime_input, show_category=False):
+def get_time_specific_reports(cursor, icao, datetime_input, show_category=False, runways=None):
     """Get TAF and subsequent METARs for a specific time."""
     cursor.execute('''
         SELECT report_datetime, report_data
@@ -287,7 +359,7 @@ def get_time_specific_reports(cursor, icao, datetime_input, show_category=False)
             for row in reversed(metar_rows):
                 if show_category and "METAR" in row[1]:
                     wx = get_metar_flight_category(row[1])
-                    print(f"{row[0]} {format_weather_category(wx)} {row[1]}")
+                    print(f"{row[0]} {format_weather_category(wx, runways)} {row[1]}")
                 else:
                     print(f"{row[0]} {row[1]}")
         else:
@@ -311,15 +383,23 @@ def get_time_specific_reports(cursor, icao, datetime_input, show_category=False)
     if metar_rows:
         print("\nSubsequent METARs:")
         for row in metar_rows:
-            if show_category and "METAR" in row[1]:
-                wx = get_metar_flight_category(row[1])
-                print(f"{row[0]} {format_weather_category(wx)} {row[1]}")
+            if "METAR" in row[1]:  # Process all METARs for runway winds
+                wx = get_metar_flight_category(row[1]) if show_category else {"metar": parse_metar(row[1])}
+                if show_category:
+                    print(f"{row[0]} {format_weather_category(wx, runways)} {row[1]}")
+                else:
+                    wind_info = ""
+                    if runways:
+                        wind_components = get_runway_winds(wx["metar"], runways)
+                        if wind_components:
+                            wind_info = " [" + " | ".join(wind_components) + "]"
+                    print(f"{row[0]}{wind_info} {row[1]}")
             else:
                 print(f"{row[0]} {row[1]}")
     else:
         print("\nNo METARs found in the specified time range.")
 
-def get_daily_reports(cursor, icao, datetime_input, show_category=False):
+def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways=None):
     """Get all reports for a specific day."""
     cursor.execute('''
         SELECT report_datetime, report_type, report_data
@@ -333,9 +413,17 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False):
     if rows:
         print("\nAll reports for the specified date:")
         for row in rows:
-            if show_category and row[1] == "METAR":
-                wx = get_metar_flight_category(row[2])
-                print(f"{row[0]} {format_weather_category(wx)} {row[2]}")
+            if row[1] == "METAR":  # Process all METARs for runway winds
+                wx = get_metar_flight_category(row[2]) if show_category else {"metar": parse_metar(row[2])}
+                if show_category:
+                    print(f"{row[0]} {format_weather_category(wx, runways)} {row[2]}")
+                else:
+                    wind_info = ""
+                    if runways:
+                        wind_components = get_runway_winds(wx["metar"], runways)
+                        if wind_components:
+                            wind_info = " [" + " | ".join(wind_components) + "]"
+                    print(f"{row[0]}{wind_info} {row[2]}")
             else:
                 print(f"{row[0]} {row[2]}")
     else:
@@ -361,7 +449,7 @@ def ensure_data_exists(cursor, conn, icao, datetime_input):
         )
         conn.commit()
 
-def get_report(icao, datetime_input, show_category=False, db_name="metar_taf.db"):
+def get_report(icao, datetime_input, show_category=False, runways=None, db_name="metar_taf.db"):
     """Main function to get weather reports."""
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
@@ -370,32 +458,32 @@ def get_report(icao, datetime_input, show_category=False, db_name="metar_taf.db"
         ensure_data_exists(cursor, conn, icao, datetime_input)
 
         if datetime_input.strftime('%H:%M') != '00:00':
-            get_time_specific_reports(cursor, icao, datetime_input, show_category)
+            get_time_specific_reports(cursor, icao, datetime_input, show_category, runways)
         else:
-            get_daily_reports(cursor, icao, datetime_input, show_category)
+            get_daily_reports(cursor, icao, datetime_input, show_category, runways)
     finally:
         conn.close()
 
 # Main script
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Fetch and store METAR/TAF reports.")
+    # Move optional arguments before positional arguments
+    parser.add_argument("--category", "-c", action="store_true", help="Show flight category for METAR reports")
+    parser.add_argument("--runway", "-r", type=str, help="Comma-separated list of runway numbers (e.g., '24,06')")
+    # Positional arguments last
     parser.add_argument("icao", type=str, help="The ICAO code of the airport.")
     parser.add_argument("date", type=str, help="The date in 'YYYYMMDD' format")
     parser.add_argument("time", type=str, nargs='?', help="Optional time in 'HHMM' format")
-    parser.add_argument("--category", "-c", action="store_true", help="Show flight category for METAR reports")
 
     args = parser.parse_args()
 
-    try:
-        if args.time:
-            time_str = f"{args.time[:2]}:{args.time[2:]}"
-            report_datetime = datetime.strptime(f"{args.date} {time_str}", "%Y%m%d %H:%M")
-        else:
-            report_datetime = datetime.strptime(args.date, "%Y%m%d")
-            
-        initialize_database()
-        get_report(args.icao, report_datetime, args.category)
-    except ValueError:
-        print("Invalid date/time format. Please use:")
-        print("- Date: 'YYYYMMDD' (e.g., 20250103 for January 3rd, 2025)")
-        print("- Time (optional): 'HHMM' (e.g., 1430)")
+    if args.time:
+        time_str = f"{args.time[:2]}:{args.time[2:]}"
+        report_datetime = datetime.strptime(f"{args.date} {time_str}", "%Y%m%d %H:%M")
+    else:
+        report_datetime = datetime.strptime(args.date, "%Y%m%d")
+    
+    runways = args.runway.split(',') if args.runway else None
+        
+    initialize_database()
+    get_report(args.icao, report_datetime, args.category, runways)
