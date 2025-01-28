@@ -159,7 +159,6 @@ def parse_taf(taf_string):
     try:
         if "NIL" in taf_string:
             return None
-        taf_string = re.sub(r'^(?:TAF\s+)?', '', taf_string.strip())
         parser = TAFParser()
         taf = parser.parse(taf_string)
         return taf
@@ -467,8 +466,7 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways
         current_taf = None
         for row in rows:
             if row[1] == "TAF":
-                print(f"\nNew TAF:")
-                print(f"{row[0]} {row[2]}")
+                print(f"\nTAF: {row[0]} {row[2]}")
                 current_taf = parse_taf(row[2])
             elif row[1] == "METAR":  # Process all METARs for runway winds
                 wx = get_metar_flight_category(row[2]) if show_category else {"metar": parse_metar(row[2])}
@@ -513,14 +511,17 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways
                         prevailing_wx = get_flight_category(prevailing)
                         comp = compare_weather_categories(metar_wx, prevailing_wx)
                         comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
-                        print(f"TAF:   {comp_symbol} {format_taf_trend(prevailing)}")
+                        applicable_symbol = '*' if comp == 0 or comp == 1 else ' '
+
+                        print(f"TAF{applicable_symbol}:   {comp_symbol} {format_taf_trend(prevailing)}")
                         
                         # Compare with each relevant trend
                         for trend in relevant:
                             trend_wx = get_flight_category(trend)
                             comp = compare_weather_categories(metar_wx, trend_wx)
                             comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
-                            print(f"  +:   {comp_symbol} {format_taf_trend(trend)}")
+                            applicable_symbol = '*' if comp == 0 or comp == 1 else ' '
+                            print(f"   {applicable_symbol}:   {comp_symbol} {format_taf_trend(trend)}")
             else:
                 print(f"{row[0]} {row[2]}")
     else:
