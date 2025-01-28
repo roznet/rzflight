@@ -591,11 +591,22 @@ def get_comparison_reports(icao, datetime_input, show_category=False, runways=No
                             prevailing = create_taf_trend_from_taf(prevailing, trend)
                         else:
                             relevant.append(trend)
-                        
-                print(f"TAF:   {format_taf_trend(prevailing)}")
+                
+                # Get weather category for METAR
+                metar_wx = get_flight_category(wx["metar"])
+                
+                # Compare with prevailing conditions
+                prevailing_wx = get_flight_category(prevailing)
+                comp = compare_weather_categories(metar_wx, prevailing_wx)
+                comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                print(f"TAF:   {comp_symbol} {format_taf_trend(prevailing)}")
+                
+                # Compare with each relevant trend
                 for trend in relevant:
-                    print(f"  +:   {format_taf_trend(trend)}")  
-
+                    trend_wx = get_flight_category(trend)
+                    comp = compare_weather_categories(metar_wx, trend_wx)
+                    comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                    print(f"   :   {comp_symbol} {format_taf_trend(trend)}")
                 
     else:
         print("\nNo METARs found in the specified time range.")
@@ -724,6 +735,61 @@ def create_taf_trend_from_taf(taf, trend = None):
         print(f"With: {trend}")
         print(f"To: {new_trend}")
     return new_trend
+
+def compare_weather_categories(wx1, wx2):
+    """
+    Compare two weather category dictionaries returned from get_flight_category.
+    
+    Args:
+        wx1: First weather category dictionary
+        wx2: Second weather category dictionary
+    
+    Returns:
+        int: -1 if wx1 < wx2, 0 if wx1 == wx2, 1 if wx1 > wx2
+        Categories are ordered from worst to best: LIFR < IFR < MVFR < VFR
+        For equal LIFR conditions, compares visibility and ceiling to determine worse conditions
+    """
+    # Define category order (from worst to best)
+    category_order = {
+        'LIFR': 0,
+        'IFR': 1,
+        'MVFR': 2,
+        'VFR': 3,
+        'Unknown': -1  # Place Unknown at the bottom
+    }
+    
+    cat1 = wx1['category']
+    cat2 = wx2['category']
+    
+    # Get numeric values for categories
+    val1 = category_order.get(cat1, -1)
+    val2 = category_order.get(cat2, -1)
+    
+    # If categories are different, compare them directly
+    if val1 != val2:
+        if val1 < val2:
+            return -1
+        else:
+            return 1
+    
+    # For equal LIFR conditions, compare visibility and ceiling
+    if cat1 == 'LIFR' and cat2 == 'LIFR':
+        # Convert visibility to meters if in statute miles
+        vis1 = wx1['visibility_meters']
+        vis2 = wx2['visibility_meters']
+        ceil1 = wx1['ceiling']
+        ceil2 = wx2['ceiling']
+        
+        # If either has worse visibility
+        if vis1 is not None and vis2 is not None and vis1 != vis2:
+            return -1 if vis1 < vis2 else 1
+            
+        # If visibilities are equal or unknown, check ceiling
+        if ceil1 is not None and ceil2 is not None and ceil1 != ceil2:
+            return -1 if ceil1 < ceil2 else 1
+    
+    # If we get here, conditions are equal
+    return 0
 
 # Main script
 if __name__ == "__main__":
