@@ -146,6 +146,26 @@ def parse_metar(metar_string):
         print(f"Error parsing METAR: {e}")
         return None
 
+def parse_taf(taf_string):
+    """
+    Parse a TAF string using metar_taf_parser.
+    
+    Args:
+        taf_string: String containing the TAF report
+    
+    Returns:
+        TAF object if parsing successful, None if NIL TAF or parsing fails
+    """
+    try:
+        if "NIL" in taf_string:
+            return None
+        taf_string = re.sub(r'^(?:TAF\s+)?', '', taf_string.strip())
+        parser = TAFParser()
+        taf = parser.parse(taf_string)
+        return taf
+    except Exception as e:
+        print(f"Error parsing TAF: {e}")
+        return None
 
 def get_metar_flight_category(metar_string):
     """
@@ -430,6 +450,7 @@ def get_time_specific_reports(cursor, icao, datetime_input, show_category=False,
     else:
         print("\nNo METARs found in the specified time range.")
 
+
 def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways=None):
     """Get all reports for a specific day."""
     cursor.execute('''
@@ -443,18 +464,63 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways
     rows = cursor.fetchall()
     if rows:
         print("\nAll reports for the specified date:")
+        current_taf = None
         for row in rows:
-            if row[1] == "METAR":  # Process all METARs for runway winds
+            if row[1] == "TAF":
+                print(f"\nNew TAF:")
+                print(f"{row[0]} {row[2]}")
+                current_taf = parse_taf(row[2])
+            elif row[1] == "METAR":  # Process all METARs for runway winds
                 wx = get_metar_flight_category(row[2]) if show_category else {"metar": parse_metar(row[2])}
+                
+                # Print METAR line
+                metar_line = f"\nMETAR: {row[0]}"
                 if show_category:
-                    print(f"{row[0]} {format_weather_category(wx, runways)} {row[2]}")
-                else:
-                    wind_info = ""
-                    if runways:
-                        wind_components = get_runway_winds(wx["metar"], runways)
-                        if wind_components:
-                            wind_info = " [" + " | ".join(wind_components) + "]"
-                    print(f"{row[0]}{wind_info} {row[2]}")
+                    metar_line += f" {format_weather_category(wx, runways)}"
+                elif runways:
+                    wind_components = get_runway_winds(wx["metar"], runways)
+                    if wind_components:
+                        metar_line += f" [{' | '.join(wind_components)}]"
+                metar_line += f" {row[2]}"
+                print(metar_line)
+                
+                # If we have a current TAF, show the comparison
+                if current_taf:
+                    metar_time = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
+                    prevailing = create_taf_trend_from_taf(current_taf)
+                    if prevailing:  # Only proceed if we have valid prevailing conditions
+                        relevant = []
+                        
+                        # Find relevant TAF sections
+                        for trend in current_taf.trends:
+                            if is_time_in_validity_period(metar_time, trend.validity):
+                                if trend.type == WeatherChangeType.BECMG:
+                                    new_prevailing = create_taf_trend_from_taf(prevailing, trend)
+                                    if new_prevailing:
+                                        prevailing = new_prevailing
+                                else:
+                                    relevant.append(trend)
+                            elif is_after_validity_end(metar_time, trend.validity):
+                                if trend.type == WeatherChangeType.BECMG:
+                                    new_prevailing = create_taf_trend_from_taf(prevailing, trend)
+                                    if new_prevailing:
+                                        prevailing = new_prevailing
+                        
+                        # Get weather category for METAR
+                        metar_wx = get_flight_category(wx["metar"])
+                        
+                        # Compare with prevailing conditions
+                        prevailing_wx = get_flight_category(prevailing)
+                        comp = compare_weather_categories(metar_wx, prevailing_wx)
+                        comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                        print(f"TAF:   {comp_symbol} {format_taf_trend(prevailing)}")
+                        
+                        # Compare with each relevant trend
+                        for trend in relevant:
+                            trend_wx = get_flight_category(trend)
+                            comp = compare_weather_categories(metar_wx, trend_wx)
+                            comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                            print(f"  +:   {comp_symbol} {format_taf_trend(trend)}")
             else:
                 print(f"{row[0]} {row[2]}")
     else:
@@ -565,48 +631,52 @@ def get_comparison_reports(icao, datetime_input, show_category=False, runways=No
     
     if metar_rows:
         print("\nComparison of METARs with TAF:")
-        taf = TAFParser().parse(taf_row[1])
-        for row in metar_rows:
-            if "METAR" in row[1]:
-                wx = get_metar_flight_category(row[1]) if show_category else {"metar": parse_metar(row[1])}
-                
-                # Format METAR line
-                metar_line = f"{row[0]}"
-                if show_category:
-                    metar_line += f" {format_weather_category(wx, runways)}"
-                elif runways:
-                    wind_components = get_runway_winds(wx["metar"], runways)
-                    if wind_components:
-                        metar_line += f" [{' | '.join(wind_components)}]"
-                metar_line += f" {row[1]}"
-                print(f"\nMETAR: {metar_line}")
-                
-                # Find and display relevant TAF section
-                metar_time = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
-                prevailing = create_taf_trend_from_taf(taf)
-                relevant = []
-                for trend in taf.trends:
-                    if is_time_in_validity_period(metar_time, trend.validity):
-                        if trend.type == WeatherChangeType.BECMG:
-                            prevailing = create_taf_trend_from_taf(prevailing, trend)
-                        else:
-                            relevant.append(trend)
-                
-                # Get weather category for METAR
-                metar_wx = get_flight_category(wx["metar"])
-                
-                # Compare with prevailing conditions
-                prevailing_wx = get_flight_category(prevailing)
-                comp = compare_weather_categories(metar_wx, prevailing_wx)
-                comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
-                print(f"TAF:   {comp_symbol} {format_taf_trend(prevailing)}")
-                
-                # Compare with each relevant trend
-                for trend in relevant:
-                    trend_wx = get_flight_category(trend)
-                    comp = compare_weather_categories(metar_wx, trend_wx)
-                    comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
-                    print(f"   :   {comp_symbol} {format_taf_trend(trend)}")
+        taf = parse_taf(taf_row[1])
+        if taf:
+            for row in metar_rows:
+                if "METAR" in row[1]:
+                    wx = get_metar_flight_category(row[1]) if show_category else {"metar": parse_metar(row[1])}
+                    
+                    # Format METAR line
+                    metar_line = f"{row[0]}"
+                    if show_category:
+                        metar_line += f" {format_weather_category(wx, runways)}"
+                    elif runways:
+                        wind_components = get_runway_winds(wx["metar"], runways)
+                        if wind_components:
+                            metar_line += f" [{' | '.join(wind_components)}]"
+                    metar_line += f" {row[1]}"
+                    print(f"\nMETAR: {metar_line}")
+                    
+                    # Find and display relevant TAF section
+                    metar_time = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
+                    prevailing = create_taf_trend_from_taf(taf)
+                    if prevailing:
+                        relevant = []
+                        for trend in taf.trends:
+                            if is_time_in_validity_period(metar_time, trend.validity):
+                                if trend.type == WeatherChangeType.BECMG:
+                                    new_prevailing = create_taf_trend_from_taf(prevailing, trend)
+                                    if new_prevailing:
+                                        prevailing = new_prevailing
+                                else:
+                                    relevant.append(trend)
+                        
+                        # Get weather category for METAR
+                        metar_wx = get_flight_category(wx["metar"])
+                        
+                        # Compare with prevailing conditions
+                        prevailing_wx = get_flight_category(prevailing)
+                        comp = compare_weather_categories(metar_wx, prevailing_wx)
+                        comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                        print(f"TAF:   {comp_symbol} {format_taf_trend(prevailing)}")
+                        
+                        # Compare with each relevant trend
+                        for trend in relevant:
+                            trend_wx = get_flight_category(trend)
+                            comp = compare_weather_categories(metar_wx, trend_wx)
+                            comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                            print(f"  +:   {comp_symbol} {format_taf_trend(trend)}")
                 
     else:
         print("\nNo METARs found in the specified time range.")
@@ -696,8 +766,11 @@ def create_taf_trend_from_taf(taf, trend = None):
     Returns:
         TAFTrend: Updated TAFTrend object with copied attributes
     """
-    # Get all public attributes of the TAFTrend object
+    # Handle NIL TAFs
+    if not taf or getattr(taf, 'nil', False):
+        return None
 
+    # Get all public attributes of the TAFTrend object
     new_trend = TAFTrend(weather_change_type=trend.type if trend else None)
 
     trend_attrs =  ['validity', 'wind', 'visibility', 'cavok', 'probability', 'wind_shear','vertical_visibility']
