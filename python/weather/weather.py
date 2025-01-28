@@ -138,6 +138,8 @@ def initialize_database(db_name="metar_taf.db"):
 
 def parse_metar(metar_string):
     try: 
+        if "NIL=" in metar_string:
+            return None
         metar_string = re.sub(r'^(?:METAR COR|METAR)\s+', '', metar_string.strip())
         parser = MetarParser()
         metar = parser.parse(metar_string)
@@ -157,7 +159,7 @@ def parse_taf(taf_string):
         TAF object if parsing successful, None if NIL TAF or parsing fails
     """
     try:
-        if "NIL" in taf_string:
+        if "NIL=" in taf_string:
             return None
         parser = TAFParser()
         taf = parser.parse(taf_string)
@@ -466,9 +468,12 @@ def get_daily_reports(cursor, icao, datetime_input, show_category=False, runways
         current_taf = None
         for row in rows:
             if row[1] == "TAF":
-                print(f"\nTAF: {row[0]} {row[2]}")
                 current_taf = parse_taf(row[2])
+                if current_taf:
+                    print(f"\nTAF: {row[0]} {row[2]}")
             elif row[1] == "METAR":  # Process all METARs for runway winds
+                if "NIL=" in row[2]:
+                    continue
                 wx = get_metar_flight_category(row[2]) if show_category else {"metar": parse_metar(row[2])}
                 
                 # Print METAR line
