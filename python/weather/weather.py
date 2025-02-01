@@ -256,6 +256,8 @@ class WeatherReportOptions:
         self.runways = None
         self.comparison_mode = False
         self.visibility_in_sm = False  # New option for visibility units
+        self.summary_mode = False
+        self.show_hourly = False
 
 class WeatherReport:
     def __init__(self, db_name="metar_taf.db", debug=False, options=None):
@@ -337,26 +339,40 @@ class WeatherReport:
             data = WebFetcher().get_data(icao, datetime_input)
             self.db.store_reports(data)
         
-        # If no specific time provided (just a date), show all reports chronologically
-        if datetime_input.strftime('%H:%M') == '00:00':
-            reports = self.db.get_all_reports(icao, datetime_input)
-            self._display_chronological_results(reports)
+        # Get all reports for the day
+        reports = self.db.get_all_reports(icao, datetime_input)
+        
+        # Split reports into METAR and TAF
+        metar_data = [r for r in reports if r['report_type'] == 'METAR']
+        taf_data = [r for r in reports if r['report_type'] == 'TAF']
+        
+        # Create analysis object
+        analysis = WeatherAnalysis(metar_data, taf_data)
+        
+        # Display results based on options
+        if self.options.summary_mode:
+            WeatherDisplay.show_daily_summary(analysis.analysis)
+            if self.options.show_hourly:
+                WeatherDisplay.show_hourly_analysis(analysis.analysis)
         else:
-            # Get TAF data
-            taf_data = self.db.get_taf(icao, datetime_input)
-            if not taf_data and self.options.comparison_mode:
-                print("\nNo TAF found before the specified time.")
-                return
+            # If specific time provided, filter reports
+            if datetime_input.strftime('%H:%M') != '00:00':
+                # Get TAF data
+                taf_data = self.db.get_taf(icao, datetime_input)
+                if not taf_data and self.options.comparison_mode:
+                    print("\nNo TAF found before the specified time.")
+                    return
+                
+                # Get METAR data based on mode
+                if taf_data:
+                    metar_data = self.db.get_metars(icao, taf_data['report_datetime'], datetime_input)
+                else:
+                    metar_data = self.db.get_recent_metars(icao, datetime_input)
+                
+                reports = [taf_data] + metar_data if taf_data else metar_data
             
-            # Get METAR data based on mode
-            if taf_data:
-                metar_data = self.db.get_metars(icao, taf_data['report_datetime'], datetime_input)
-            else:
-                metar_data = self.db.get_recent_metars(icao, datetime_input)
-            
-            # Format and display results
-            self._display_chronological_results([taf_data]+metar_data)
-
+            # Show traditional chronological display
+            self._display_chronological_results(reports)
 
     def _format_metar_line(self, row):
         """Format a single METAR line with optional category and runway info"""
@@ -630,7 +646,7 @@ class WeatherReport:
                         
                         # Find relevant TAF sections
                         for trend in current_taf.trends:
-                            if self.is_time_in_validity_period(metar_time, trend.validity):
+                            if self._is_taf_valid_for_time({'report_data': str(trend)}, metar_time):
                                 if trend.type == WeatherChangeType.BECMG:
                                     new_prevailing = self.create_taf_trend_from_taf(prevailing, trend)
                                     if new_prevailing:
@@ -663,17 +679,22 @@ class WeatherReport:
                             
                             print(f"   {applicable_symbol}:   {comp_symbol} {self._format_taf_trend(trend, highlight)}")
 
-    def is_time_in_validity_period(self, check_time, validity):
+    def _is_taf_valid_for_time(self, taf, check_time):
         """
-        Check if a given time falls within a TAF validity period.
+        Check if a TAF is valid for a given time.
         
         Args:
+            taf: TAF report dictionary
             check_time: datetime object to check
-            validity: TAF validity object with start_day, start_hour, end_day, end_hour
-        
-        Returns:
-            bool: True if time falls within validity period, False otherwise
         """
+        # Parse the TAF
+        taf_obj = self._parse_taf(taf['report_data'])
+        if not taf_obj or getattr(taf_obj, 'nil', False):
+            return False
+            
+        # Get validity period
+        validity = taf_obj.validity
+        
         # Adjust for hour 24 -> 0 next day
         start_day = validity.start_day
         start_hour = validity.start_hour
@@ -727,16 +748,21 @@ class WeatherReport:
         Args:
             check_time: datetime object to check
             validity: TAF validity object with end_day, end_hour
-        
-        Returns:
-            bool: True if time is after validity end, False otherwise
         """
+        # Adjust for hour 24 -> 0 next day
+        end_day = validity.end_day
+        end_hour = validity.end_hour
+        
+        if end_hour == 24:
+            end_hour = 0
+            end_day += 1
+        
         # Create datetime object for trend end time
         trend_end = datetime(
             check_time.year,
             check_time.month,
-            validity.end_day,
-            validity.end_hour,
+            end_day,
+            end_hour,
             tzinfo=check_time.tzinfo
         )
         
@@ -971,6 +997,528 @@ class WebFetcher:
             }
             for row in data
         ]
+    
+class WeatherAnalysisElement:
+    def __init__(self, row):
+        self.row = row
+        self.time = datetime.strptime(row['report_datetime'], "%Y-%m-%d %H:%M:%S")
+        if row['report_type'] == 'METAR':
+            self.metar_obj = self._parse_metar(row['report_data'])
+            self.taf_obj = None
+        else:
+            self.taf_obj = self._parse_taf(row['report_data'])
+            self.metar_obj = None
+
+    def _parse_metar(self, metar_string):
+        """Parse METAR string using metar_taf_parser"""
+        try:
+            if "NIL=" in metar_string:
+                return None
+            metar_string = re.sub(r'^(?:METAR COR|METAR)\s+', '', metar_string.strip())
+            parser = MetarParser()
+            return parser.parse(metar_string)
+        except Exception as e:
+            print(f"Error parsing METAR: {e}")
+            return None
+
+    def _parse_taf(self, taf_string):
+        """Parse TAF string using metar_taf_parser"""
+        try:
+            if "NIL=" in taf_string:
+                return None
+            parser = TAFParser()
+            return parser.parse(taf_string)
+        except Exception as e:
+            print(f"Error parsing TAF: {e}")
+            return None
+
+class WeatherAnalysis:
+    def __init__(self, metar_data, taf_data=None):
+        # Filter out elements where metar_obj is None
+        self.metar_data = [elem for elem in [WeatherAnalysisElement(row) for row in metar_data] 
+                          if elem.metar_obj is not None]
+        
+        # Filter out elements where taf_obj is None
+        if taf_data:
+            self.taf_data = [elem for elem in [WeatherAnalysisElement(row) for row in taf_data] 
+                            if elem.taf_obj is not None]
+        else:
+            self.taf_data = []
+        
+        self.analysis = self._analyze_data()
+    
+    def _analyze_data(self):
+        """Analyze the relationship between METARs and TAFs"""
+        results = {
+            'total_metars': len(self.metar_data),
+            'metars_with_taf': 0,
+            'forecast_matches': 0,  # METAR matches TAF exactly
+            'forecast_acceptable': 0,  # METAR within 1 category of TAF
+            'worse_than_forecast': 0,
+            'better_than_forecast': 0,
+            'metar_categories': {'VFR': 0, 'MVFR': 0, 'IFR': 0, 'LIFR': 0},
+            'detailed_comparisons': []  # List of detailed METAR vs TAF comparisons
+        }
+        
+        if not self.taf_data:
+            # Just analyze METARs if no TAFs
+            for metar in self.metar_data:
+                self._analyze_single_metar(metar, results)
+            return results
+            
+        # Analyze METARs with TAF comparisons
+        for metar in self.metar_data:
+            metar_time = metar.time 
+            metar_obj = metar.metar_obj
+            if not metar_obj:
+                continue
+                
+            applicable_taf = self._find_applicable_taf(metar_time)
+            
+            if applicable_taf:
+                results['metars_with_taf'] += 1
+                comparison = self._compare_metar_to_taf(metar, applicable_taf)
+                results['detailed_comparisons'].append(comparison)
+                
+                # Update statistics based on comparison
+                if comparison['match_type'] == 'exact':
+                    results['forecast_matches'] += 1
+                elif comparison['match_type'] == 'acceptable':
+                    results['forecast_acceptable'] += 1
+                elif comparison['match_type'] == 'worse':
+                    results['worse_than_forecast'] += 1
+                elif comparison['match_type'] == 'better':
+                    results['better_than_forecast'] += 1
+                
+        
+        return results
+
+    def _find_applicable_taf(self, metar_time):
+        """Find the TAF valid for this METAR time"""
+        applicable_taf = None
+        for taf in self.taf_data:
+            if self._is_taf_valid_for_time(taf.taf_obj, metar_time):
+                if not applicable_taf or self._is_more_recent_taf(taf.taf_obj, applicable_taf.taf_obj, metar_time):
+                    applicable_taf = taf
+        return applicable_taf
+
+    def _compare_metar_to_taf(self, metar, taf):
+        """Compare a METAR to its applicable TAF section"""
+        if not taf:
+            return None
+            
+        comparison = {
+            'metar_time': metar.time,
+            'metar_category': self._get_weather_category(metar.metar_obj),
+            'taf_time': taf.time,
+            'taf_category': self._get_weather_category(taf.taf_obj),
+            'match_type': None,  # 'exact', 'acceptable', 'worse', 'better'
+            'details': {}  # Additional comparison details
+        }
+        
+        # Compare categories and determine match type
+        category_diff = self._compare_categories(
+            comparison['metar_category'], 
+            comparison['taf_category']
+        )
+        
+        if category_diff == 0:
+            comparison['match_type'] = 'exact'
+        elif abs(category_diff) == 1:
+            comparison['match_type'] = 'acceptable'
+        elif category_diff < 0:
+            comparison['match_type'] = 'worse'
+        else:
+            comparison['match_type'] = 'better'
+            
+        return comparison
+
+    def _is_more_recent_taf(self, taf1, taf2, check_time):
+        """
+        Check if taf1 is more recent than taf2 for a given time.
+        
+        Args:
+            taf1, taf2: TAF report dictionaries
+            check_time: datetime object to check against
+        """
+        return taf1.time > taf2.time
+
+  
+
+    def _parse_visibility(self, visibility):
+        """
+        Parse visibility value from METAR into statute miles.
+        
+        Args:
+            visibility: Visibility string from METAR parser
+            
+        Returns:
+            float: Visibility in statute miles, or None if parsing fails
+        """
+        if not visibility:
+            return None
+        
+        visibility_sm = None
+        
+        # Handle different visibility formats
+        if isinstance(visibility, (int, float)):
+            # Convert meters to statute miles
+            visibility_sm = visibility * 0.000621371
+        elif isinstance(visibility, str):
+            # Parse string visibility (e.g., "1/2SM", "2 1/2SM", "M1/4SM")
+            vis_str = visibility.upper().replace("SM", "").strip()
+            try:
+                if vis_str.startswith("M"):  # Less than
+                    vis_str = vis_str[1:]  # Remove 'M'
+                    visibility_sm = float(eval(vis_str)) * 0.99  # Slightly less than value
+                elif "/" in vis_str:  # Fraction
+                    if " " in vis_str:  # Mixed number (e.g., "2 1/2")
+                        whole, frac = vis_str.split()
+                        visibility_sm = float(whole) + float(eval(frac))
+                    else:  # Simple fraction
+                        visibility_sm = float(eval(vis_str))
+                else:  # Whole number
+                    visibility_sm = float(vis_str)
+            except (ValueError, SyntaxError, ZeroDivisionError) as e:
+                print(f"Error parsing visibility: {vis_str} - {str(e)}")
+                visibility_sm = None
+            
+        return visibility_sm
+
+    def _get_weather_category(self, metar_object):
+        """
+        Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
+        
+        Returns a dictionary containing:
+        - category: Flight category (VFR, MVFR, IFR, LIFR, Unknown)
+        - visibility_meters: Visibility in meters (None if not found)
+        - visibility_sm: Visibility in statute miles (None if not found)
+        - ceiling: Ceiling height in feet (None if not found)
+        """
+        metar = metar_object
+        
+        # Get visibility in meters and statute miles
+        visibility_meters = None
+        visibility_sm = None
+        if metar.visibility:
+            vis_str = metar.visibility.distance
+            # Remove any "greater than" prefix and strip whitespace
+            vis_str = vis_str.replace('>', '').strip()
+            
+            # Extract numeric value and unit
+            match = re.match(r'(\d+(?:\.\d+)?)\s*(SM|km|m)?', vis_str)
+            if match:
+                value = float(match.group(1))
+                unit = match.group(2) or 'm'  # Default to meters if no unit specified
+                
+                # Convert to meters first
+                if unit == 'SM':
+                    visibility_meters = int(value * 1609.34)
+                    visibility_sm = value
+                elif unit == 'km':
+                    visibility_meters = int(value * 1000)
+                    visibility_sm = visibility_meters * 0.000621371
+                else:  # meters
+                    visibility_meters = int(value)
+                    visibility_sm = visibility_meters * 0.000621371
+
+        # Get ceiling from cloud layers
+        ceiling = None
+        if metar.clouds:
+            for cloud in metar.clouds:
+                if cloud.quantity in [CloudQuantity.BKN, CloudQuantity.OVC] and (ceiling is None or cloud.height < ceiling):
+                    ceiling = cloud.height 
+        
+        if metar.cavok:
+            visibility_meters = 10000
+            visibility_sm = 6.21371
+            ceiling = None
+        
+        # Determine flight category
+        category = "Unknown"
+        if visibility_sm is not None or ceiling is not None:
+            # LIFR conditions
+            if (visibility_sm is not None and visibility_sm < 1) or (ceiling is not None and ceiling < 500):
+                category = "LIFR"
+            # IFR conditions
+            elif (visibility_sm is not None and 1 <= visibility_sm < 3) or (ceiling is not None and 500 <= ceiling < 1000):
+                category = "IFR"
+            # MVFR conditions
+            elif (visibility_sm is not None and 3 <= visibility_sm <= 5) or (ceiling is not None and 1000 <= ceiling <= 3000):
+                category = "MVFR"
+            # VFR conditions
+            else:
+                category = "VFR"
+        
+        return {
+            "category": category,
+            "visibility_meters": visibility_meters,
+            "visibility_sm": visibility_sm,
+            "ceiling": ceiling,
+            "metar": metar
+        }
+
+    def _get_runway_winds(self, metar, runways):
+        """Calculate runway wind components"""
+        if not metar or not metar.wind or metar.wind.speed is None:
+            return None
+        
+        wind_speed = metar.wind.speed
+        wind_dir = metar.wind.direction
+        
+        if wind_dir is None:
+            return None
+        
+        components = []
+        for rwy in runways:
+            try:
+                rwy_heading = int(rwy) * 10
+                wind_angle = abs(wind_dir - rwy_heading)
+                if wind_angle > 180:
+                    wind_angle = 360 - wind_angle
+                
+                # Calculate headwind/crosswind components
+                headwind = round(wind_speed * cos(radians(wind_angle)))
+                crosswind = round(wind_speed * sin(radians(wind_angle)))
+                
+                # Format the components
+                components.append(f"{rwy}:{headwind:+d}/{crosswind:+d}")
+            except ValueError:
+                continue
+        
+        return components
+
+    def _display_chronological_results(self, reports):
+        """Display all reports in chronological order"""
+        if not reports:
+            print("\nNo reports found for this date.")
+            return
+        
+        print("\nReports in chronological order:")
+        current_taf = None
+        for row in reports:
+            if row['report_type'] == 'TAF':
+                current_taf = self._parse_taf(row['report_data'])
+                print(f"\nTAF: {row['report_datetime']} {row['report_data']}")
+            else:  # METAR
+                self._format_metar_line(row)
+                if current_taf and self.options.comparison_mode:
+                    current_metar = self._parse_metar(row['report_data'])
+                    if not current_metar:
+                        continue
+                    metar_wx = self._get_weather_category(current_metar)
+                    metar_time = datetime.strptime(row['report_datetime'], "%Y-%m-%d %H:%M:%S")
+                    prevailing = self.create_taf_trend_from_taf(current_taf)
+                    if prevailing:  # Only proceed if we have valid prevailing conditions
+                        relevant = []
+                        
+                        # Find relevant TAF sections
+                        for trend in current_taf.trends:
+                            if self._is_taf_valid_for_time({'report_data': str(trend)}, metar_time):
+                                if trend.type == WeatherChangeType.BECMG:
+                                    new_prevailing = self.create_taf_trend_from_taf(prevailing, trend)
+                                    if new_prevailing:
+                                        prevailing = new_prevailing
+                                else:
+                                    relevant.append(trend)
+                            elif self.is_after_validity_end(metar_time, trend.validity):
+                                if trend.type == WeatherChangeType.BECMG:
+                                    new_prevailing = self.create_taf_trend_from_taf(prevailing, trend)
+                                    if new_prevailing:
+                                        prevailing = new_prevailing
+                        
+                        
+                        # Compare with prevailing conditions
+                        prevailing_wx = self._get_weather_category(prevailing)
+                        comp = self.compare_weather_categories(metar_wx, prevailing_wx)
+                        comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                        applicable_symbol = '*' if comp == 0 or comp == 1 else ' '
+
+                        print(f"TAF{applicable_symbol}:   {comp_symbol} {self._format_taf_trend(prevailing)}")
+                        
+                        # Compare with each relevant trend
+                        for trend in relevant:
+                            trend_wx = self._get_weather_category(trend)
+                            comp = self.compare_weather_categories(metar_wx, trend_wx)
+                            comp_symbol = '<' if comp < 0 else ('>' if comp > 0 else '=')
+                            highlight = comp == 0 or comp == 1
+                            applicable_symbol = '*' if comp == 0 or comp == 1 else ' '
+
+                            
+                            print(f"   {applicable_symbol}:   {comp_symbol} {self._format_taf_trend(trend, highlight)}")
+
+    def _analyze_single_metar(self, metar, results):
+        """Analyze a single METAR when no TAF is available"""
+        metar_obj = metar.metar_obj
+        if not metar_obj:
+            return
+            
+        wx_info = self._get_weather_category(metar_obj)
+        if not wx_info:
+            return
+            
+        # Update category statistics
+        category = wx_info['category']
+        if category in results['metar_categories']:
+            results['metar_categories'][category] += 1
+
+    def _compare_categories(self, wx1, wx2):
+        """
+        Compare two weather category dictionaries returned from get_flight_category.
+        
+        Args:
+            wx1: First weather category dictionary
+            wx2: Second weather category dictionary
+        
+        Returns:
+            int: -1 if wx1 < wx2, 0 if wx1 == wx2, 1 if wx1 > wx2
+            Categories are ordered from worst to best: LIFR < IFR < MVFR < VFR
+            For equal LIFR conditions, compares visibility and ceiling to determine worse conditions
+        """
+        # Define category order (from worst to best)
+        category_order = {
+            'LIFR': 0,
+            'IFR': 1,
+            'MVFR': 2,
+            'VFR': 3,
+            'Unknown': -1  # Place Unknown at the bottom
+        }
+        
+        cat1 = wx1['category']
+        cat2 = wx2['category']
+        
+        # Get numeric values for categories
+        val1 = category_order.get(cat1, -1)
+        val2 = category_order.get(cat2, -1)
+        
+        # If categories are different, compare them directly
+        if val1 != val2:
+            if val1 < val2:
+                return -1
+            else:
+                return 1
+        
+        # For equal LIFR conditions, compare visibility and ceiling
+        if cat1 == 'LIFR' and cat2 == 'LIFR':
+            # Convert visibility to meters if in statute miles
+            vis1 = wx1['visibility_meters']
+            vis2 = wx2['visibility_meters']
+            ceil1 = wx1['ceiling']
+            ceil2 = wx2['ceiling']
+            
+            # If either has worse visibility
+            if vis1 is not None and vis2 is not None and vis1 != vis2:
+                return -1 if vis1 < vis2 else 1
+                
+            # If visibilities are equal or unknown, check ceiling
+            if ceil1 is not None and ceil2 is not None and ceil1 != ceil2:
+                return -1 if ceil1 < ceil2 else 1
+        
+        # If we get here, conditions are equal
+        return 0
+
+    def _is_taf_valid_for_time(self, taf_obj, check_time):
+        """
+        Check if a TAF is valid for a given time.
+        
+        Args:
+            taf: TAF report dictionary
+            check_time: datetime object to check
+        """
+        if not taf_obj or getattr(taf_obj, 'nil', False):
+            return False
+            
+        # Get validity period
+        validity = taf_obj.validity
+        
+        # Adjust for hour 24 -> 0 next day
+        start_day = validity.start_day
+        start_hour = validity.start_hour
+        end_day = validity.end_day
+        end_hour = validity.end_hour
+        
+        if start_hour == 24:
+            start_hour = 0
+            start_day += 1
+        if end_hour == 24:
+            end_hour = 0
+            end_day += 1
+        
+        # Create datetime objects for trend start and end times
+        trend_start = datetime(
+            check_time.year,
+            check_time.month,
+            start_day,
+            start_hour,
+            tzinfo=check_time.tzinfo
+        )
+        trend_end = datetime(
+            check_time.year,
+            check_time.month,
+            end_day,
+            end_hour,
+            tzinfo=check_time.tzinfo
+        )
+        
+        # Handle case where trend ends in next month
+        if trend_end < trend_start:
+            if check_time < trend_start:
+                # If check_time is before start, move start back one month
+                if trend_start.month == 1:
+                    trend_start = trend_start.replace(year=trend_start.year-1, month=12)
+                else:
+                    trend_start = trend_start.replace(month=trend_start.month-1)
+            else:
+                # If check_time is after start, move end forward one month
+                if trend_end.month == 12:
+                    trend_end = trend_end.replace(year=trend_end.year+1, month=1)
+                else:
+                    trend_end = trend_end.replace(month=trend_end.month+1)
+        
+        return trend_start <= check_time <= trend_end
+
+    # Add other helper methods as needed...
+
+class WeatherDisplay:
+    """Handle different display formats for weather data"""
+    
+    @staticmethod
+    def show_daily_summary(analysis):
+        """Display daily summary of forecast accuracy"""
+        print("\nDaily Forecast Analysis:")
+        print(f"Total METARs: {analysis['total_metars']}")
+        print(f"METARs with TAF coverage: {analysis['metars_with_taf']}")
+        print("\nForecast Accuracy:")
+        print(f"Exact matches: {analysis['forecast_matches']} " +
+              f"({analysis['forecast_matches']/analysis['metars_with_taf']*100:.1f}%)")
+        print(f"Acceptable forecasts: {analysis['forecast_acceptable']} " +
+              f"({analysis['forecast_acceptable']/analysis['metars_with_taf']*100:.1f}%)")
+        print(f"Worse than forecast: {analysis['worse_than_forecast']} " +
+              f"({analysis['worse_than_forecast']/analysis['metars_with_taf']*100:.1f}%)")
+        print(f"Better than forecast: {analysis['better_than_forecast']} " +
+              f"({analysis['better_than_forecast']/analysis['metars_with_taf']*100:.1f}%)")
+
+    @staticmethod
+    def show_hourly_analysis(analysis):
+        """Display analysis broken down by hour"""
+        print("\nHourly Analysis:")
+        for hour, stats in sorted(analysis['hourly_analysis'].items()):
+            total = stats['total']
+            print(f"\nHour {hour}:00 (Total: {total})")
+            print(f"  Exact matches: {stats['matches']/total*100:.1f}%")
+            print(f"  Acceptable: {stats['acceptable']/total*100:.1f}%")
+            print(f"  Worse than forecast: {stats['worse']/total*100:.1f}%")
+            print(f"  Better than forecast: {stats['better']/total*100:.1f}%")
+
+    @staticmethod
+    def show_detailed_comparisons(analysis):
+        """Display detailed comparison of each METAR vs TAF"""
+        print("\nDetailed Comparisons:")
+        for comp in analysis['detailed_comparisons']:
+            print(f"\nMETAR {comp['metar_time']}:")
+            print(f"  METAR category: {comp['metar_category']}")
+            print(f"  TAF category: {comp['taf_category']}")
+            print(f"  Match type: {comp['match_type']}")
 
 # Example usage in main:
 if __name__ == "__main__":
@@ -983,6 +1531,9 @@ if __name__ == "__main__":
     parser.add_argument("--runway", "-r", type=str, help="Comma-separated list of runway numbers (e.g., '24,06')")
     parser.add_argument("--diff", "-d", action="store_true", help="Compare METARs with corresponding TAF sections")
     parser.add_argument("--statute-miles", "-sm", action="store_true", help="Display visibility in statute miles")
+    parser.add_argument("--summary", "-s", action="store_true", help="Show summary statistics instead of chronological display")
+    parser.add_argument("--hourly", "-hr", action="store_true",
+                       help="Include hourly breakdown in summary")
     # Positional arguments last
     parser.add_argument("icao", type=str, help="The ICAO code of the airport.")
     parser.add_argument("date", type=str, help="The date in 'YYYYMMDD' format")
@@ -1003,6 +1554,8 @@ if __name__ == "__main__":
     options.runways = args.runway.split(',') if args.runway else None 
     options.comparison_mode = args.diff
     options.visibility_in_sm = args.statute_miles
+    options.summary_mode = args.summary
+    options.show_hourly = args.hourly
 
     # Create WeatherReport with options
     weather = WeatherReport(debug=args.debug, options=options)
