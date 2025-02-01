@@ -280,7 +280,7 @@ class WeatherReport:
             return f"{visibility_sm:.1f}SM"
         else:
             visibility_m = wx_info['visibility_meters']
-            if visibility_m < 1000:
+            if visibility_m < 2000:
                 return f"{visibility_m:.0f}m"
             else:
                 return f"{(visibility_m/1000):.0f}km"
@@ -355,22 +355,8 @@ class WeatherReport:
                 metar_data = self.db.get_recent_metars(icao, datetime_input)
             
             # Format and display results
-            self._display_results(taf_data, metar_data)
+            self._display_chronological_results([taf_data]+metar_data)
 
-    def _display_results(self, taf_data, metar_data):
-        """Display formatted weather report results"""
-        # Show TAF unless we're doing daily reports
-        if taf_data and (self.options.comparison_mode or not self._is_daily_report(taf_data['report_datetime'])):
-            print("\nMost recent TAF:")
-            print(f"{taf_data['report_datetime']} {taf_data['report_data']}")
-        
-        if metar_data:
-            print(f"\n{'Comparison of ' if self.options.comparison_mode else ''}METARs{' with TAF' if self.options.comparison_mode else ''}:")
-            for row in metar_data:
-                if "METAR" in row['report_data']:
-                    self._format_metar_line(row)
-        else:
-            print("\nNo METARs found in the specified time range.")
 
     def _format_metar_line(self, row):
         """Format a single METAR line with optional category and runway info"""
@@ -688,19 +674,32 @@ class WeatherReport:
         Returns:
             bool: True if time falls within validity period, False otherwise
         """
+        # Adjust for hour 24 -> 0 next day
+        start_day = validity.start_day
+        start_hour = validity.start_hour
+        end_day = validity.end_day
+        end_hour = validity.end_hour
+        
+        if start_hour == 24:
+            start_hour = 0
+            start_day += 1
+        if end_hour == 24:
+            end_hour = 0
+            end_day += 1
+        
         # Create datetime objects for trend start and end times
         trend_start = datetime(
             check_time.year,
             check_time.month,
-            validity.start_day,
-            validity.start_hour,
+            start_day,
+            start_hour,
             tzinfo=check_time.tzinfo
         )
         trend_end = datetime(
             check_time.year,
             check_time.month,
-            validity.end_day,
-            validity.end_hour,
+            end_day,
+            end_hour,
             tzinfo=check_time.tzinfo
         )
         
