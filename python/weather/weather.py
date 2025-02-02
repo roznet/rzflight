@@ -289,6 +289,9 @@ class WeatherReportOptions:
         self.visibility_in_sm = False  # New option for visibility units
         self.summary_mode = False
         self.show_hourly = False
+        self.crosswind_limit = None  # Maximum acceptable crosswind
+        self.gust_limit = None # Maximum acceptable gust speed
+        self.analysis = None
 
 class WeatherReport:
     def __init__(self, db_name="metar_taf.db", debug=False, options=None):
@@ -316,8 +319,6 @@ class WeatherReport:
         # Display results based on options
         if self.options.summary_mode:
             WeatherDisplay.show_daily_summary(self.analysis.analysis)
-            if self.options.show_hourly:
-                WeatherDisplay.show_hourly_analysis(self.analysis.analysis)
         else:
             # If specific time provided, filter reports
             if datetime_input.strftime('%H:%M') != '00:00':
@@ -331,7 +332,7 @@ class WeatherReport:
                 # Get relevant METARs
                 if relevant_taf:
                     # Get METARs between TAF time and specified time
-                    reports = self.analysis.all_reports_between(relevant_taf['report_datetime'], datetime_input)
+                    reports = self.analysis.all_reports_between(relevant_taf.time, datetime_input)
                 else:
                     # Get recent METARs up to specified time
                     reports = self.analysis.all_reports_before(datetime_input)[-12:]
@@ -376,7 +377,7 @@ class WeatherReport:
                             else:
                                 comp_symbol = '?'
                                 
-                            print(f"   TAF:   {comp_symbol} {self._format_taf_trend(current_taf, trend, highlight)}")
+                            print(f"   TAF:   {comp_symbol} {self._format_taf_trend(current_taf, trend, highlight)} {trend.message}")
     
     def _format_metar_line(self, metar):
         """Format a single METAR line with optional category and runway info"""
@@ -387,8 +388,7 @@ class WeatherReport:
         metar_obj = metar.metar_obj
         wx_info = None
         if self.options.show_category:
-            if self.options.show_category:
-                wx_info = metar.get_weather_category()
+            wx_info = metar.get_weather_category()
 
         # Build the display line
         metar_line = []
@@ -430,30 +430,36 @@ class WeatherReport:
             else:
                 return f"{(visibility_m/1000):.0f}km"
 
-    def _format_weather_category(self, wx_info, runways=None, highlight=True):
-        """Format weather category info for display"""
-        if not wx_info:
-            return ""
-            
-        category = wx_info["category"]
+    def _category_color(self, category):
+        """Return the color for a given weather category"""
         colors = {
             "VFR": "\033[92m",    # Green
             "MVFR": "\033[94m",   # Blue
             "IFR": "\033[91m",    # Red
             "LIFR": "\033[95m"    # Magenta
         }
-        DIM = "\033[2m"
-        if highlight is False:
-            colors = {
-                "VFR": DIM,
-                "MVFR": DIM,
-                "IFR": DIM,
-                "LIFR": DIM
-            }
-        reset = "\033[0m"
+        return colors.get(category, '')
+
+    def _format_weather_category(self, wx_info, runways=None, color_override=None):
+        """
+        Format weather category info for display.
+        
+        Args:
+            wx_info: Weather category info dictionary
+            runways: Optional list of runways
+            color_override: Optional color to use instead of category color (default: None)
+        """
+        if not wx_info:
+            return ""
+            
+        category = wx_info["category"]
+        RESET = "\033[0m"
+        
+        # Get color - use override if provided, otherwise use category color
+        color = color_override if color_override is not None else self._category_color(category)
         
         # Basic category with color
-        result = f"{colors.get(category, '')}{category}{reset}"
+        result = f"{color}{category}{RESET}"
         
         # Add visibility and ceiling
         details = []
@@ -465,12 +471,16 @@ class WeatherReport:
             details += [f"ceil:{wx_info['ceiling']}ft"]
         
         if details:
-            result += f" {colors.get(category, '')}[{' '.join(details)}]{reset}"
+            result += f" {color}[{' '.join(details)}]{RESET}"
         
         return result
     
+    def _format_validity(self, validity):
+        """Format validity period in metar format DDHH/DDHH"""
+        fmt = f'{validity.start_day:02d}{validity.start_hour:02d}/{validity.end_day:02d}{validity.end_hour:02d}'
+        return fmt
 
-    def _format_taf_trend(self, taf, trend, highlight=False):
+    def _format_taf_trend(self, taf, trend, highlight=True):
         """
         Format a TAF trend into a readable string.
         
@@ -481,32 +491,39 @@ class WeatherReport:
         Returns:
             str: Formatted string with validity period and weather conditions
         """
-        BOLD = "\033[1m"
         DIM = "\033[2m"
         RESET = "\033[0m"
 
-        wrap = "" if highlight else DIM
-        
-        components = []
-        if trend.validity.start_day == trend.validity.end_day:
-            validity = f"{trend.validity.start_day:02d}/{trend.validity.start_hour:02d}:00-{trend.validity.end_hour:02d}:00"
+        if self.options.show_category:
+            wrap = "" if highlight else DIM
         else:
-            validity = f"{trend.validity.start_day:02d}/{trend.validity.start_hour:02d}:00-{trend.validity.end_day:02d}/{trend.validity.end_hour:02d}:00"
+            wrap = ""
+        components = []
+        validity = self._format_validity(trend.validity)
         validity = f"{wrap}{validity}{RESET}"
         components.append(validity)
-        if hasattr(trend, 'probability') and trend.probability:
-            probability = f"PROBA{trend.probability}"
-            probability = f"{wrap}{probability}{RESET}"
-            components.append(probability)
-        if hasattr(trend,'type') and trend.type:
-            type_str = trend.type.value
-            type_str = f"{wrap}{type_str}{RESET}"
-            components.append(type_str)
-        
-        # Get weather category if possible
-        wx = taf.get_trend_weather_category(trend)
-        category_str = self._format_weather_category(wx, highlight=highlight)
-        components.append(category_str)
+
+        if self.options.show_category:
+            wx_info = taf._get_weather_category(trend)
+            category_color = self._category_color(wx_info["category"]) if highlight else DIM
+            if hasattr(trend, 'probability') and trend.probability:
+                probability = f"PROBA{trend.probability}"
+                probability = f"{category_color}{probability}{RESET}"
+                components.append(probability)
+            if hasattr(trend,'type') and trend.type:
+                type_str = trend.type.value
+                type_str = f"{category_color}{type_str}{RESET}"
+                components.append(type_str)
+            
+            if wx_info:
+                # Use DIM color if not highlighted
+                color_override = "\033[2m" if not highlight else None
+                components.append(self._format_weather_category(wx_info, color_override=color_override))
+        if self.options.runways:
+            runway_wind = taf._get_runway_winds(trend.wind, self.options.runways)
+            wind_components = self._format_runway_winds_components(runway_wind)
+            if wind_components:
+                components.append(f"[{' '.join(wind_components)}]")
         
         result = " ".join(components)
         return result
@@ -519,6 +536,8 @@ class WeatherReport:
     def _format_runway_winds_components(self, wind_components):
         """Calculate runway wind components"""
         line_components = [] 
+        if not wind_components:
+            return []
         # Unicode arrows for different wind directions
         ARROWS = {
             'headwind': '↓',    # Down arrow for headwind
@@ -544,160 +563,6 @@ class WeatherReport:
 
                         
 
-    def __is_taf_valid_for_time(self, taf, check_time):
-        """
-        Check if a TAF is valid for a given time.
-        
-        Args:
-            taf: TAF report dictionary
-            check_time: datetime object to check
-        """
-        # Parse the TAF
-        taf_obj = self._parse_taf(taf['report_data'])
-        if not taf_obj or getattr(taf_obj, 'nil', False):
-            return False
-            
-        # Get validity period
-        validity = taf_obj.validity
-        
-        # Adjust for hour 24 -> 0 next day
-        start_day = validity.start_day
-        start_hour = validity.start_hour
-        end_day = validity.end_day
-        end_hour = validity.end_hour
-        
-        if start_hour == 24:
-            start_hour = 0
-            start_day += 1
-        if end_hour == 24:
-            end_hour = 0
-            end_day += 1
-        
-        # Create datetime objects for trend start and end times
-        trend_start = datetime(
-            check_time.year,
-            check_time.month,
-            start_day,
-            start_hour,
-            tzinfo=check_time.tzinfo
-        )
-        trend_end = datetime(
-            check_time.year,
-            check_time.month,
-            end_day,
-            end_hour,
-            tzinfo=check_time.tzinfo
-        )
-        
-        # Handle case where trend ends in next month
-        if trend_end < trend_start:
-            if check_time < trend_start:
-                # If check_time is before start, move start back one month
-                if trend_start.month == 1:
-                    trend_start = trend_start.replace(year=trend_start.year-1, month=12)
-                else:
-                    trend_start = trend_start.replace(month=trend_start.month-1)
-            else:
-                # If check_time is after start, move end forward one month
-                if trend_end.month == 12:
-                    trend_end = trend_end.replace(year=trend_end.year+1, month=1)
-                else:
-                    trend_end = trend_end.replace(month=trend_end.month+1)
-        
-        return trend_start <= check_time <= trend_end
-
-    def __is_after_validity_end(self, check_time, validity):
-        """
-        Check if a given time is after a TAF validity period end.
-        
-        Args:
-            check_time: datetime object to check
-            validity: TAF validity object with end_day, end_hour
-        """
-        # Adjust for hour 24 -> 0 next day
-        end_day = validity.end_day
-        end_hour = validity.end_hour
-        
-        if end_hour == 24:
-            end_hour = 0
-            end_day += 1
-        
-        # Create datetime object for trend end time
-        trend_end = datetime(
-            check_time.year,
-            check_time.month,
-            end_day,
-            end_hour,
-            tzinfo=check_time.tzinfo
-        )
-        
-        # Handle case where trend ends in next month
-        if trend_end.day < check_time.day:
-            if trend_end.month == 12:
-                trend_end = trend_end.replace(year=trend_end.year+1, month=1)
-            else:
-                trend_end = trend_end.replace(month=trend_end.month+1)
-        
-        return check_time > trend_end
-
-    def __create_taf_trend_from_taf(self, taf, trend = None):
-        """
-        Create a TAFTrend object from a TAF object by copying matching non-None attributes.
-        Only copies attributes that don't start with underscore.
-        
-        Args:
-            trend: Existing TAFTrend object to update
-            taf: TAF object from metar_taf_parser
-        
-        Returns:
-            TAFTrend: Updated TAFTrend object with copied attributes
-        """
-        # Handle NIL TAFs
-        if not taf or getattr(taf, 'nil', False):
-            return None
-
-        # Get all public attributes of the TAFTrend object
-        new_trend = TAFTrend(weather_change_type=trend.type if trend else None)
-
-        trend_attrs =  ['validity', 'wind', 'visibility', 'cavok', 'probability', 'wind_shear','vertical_visibility']
-        # For each public attribute in the trend
-        for attr_name in trend_attrs:
-            # Check if the TAF has the same attribute
-            if hasattr(taf, attr_name):
-                # Get the value from the TAF
-                taf_value = getattr(taf, attr_name)
-                # Only copy if the value is not None
-                if taf_value is not None:
-                    setattr(new_trend, attr_name, taf_value)
-            # if trend overrides the TAF value, use the trend value
-            if trend: 
-                trend_attr = getattr(trend, attr_name)
-                if trend_attr is not None:
-                    setattr(new_trend, attr_name, trend_attr)
-
-        add_attrs = ["cloud", "icing", "turbulence", "weather_condition"]
-        for attr_name in add_attrs:
-            copy_from = taf
-            attr_get = f'{attr_name}s' if attr_name != 'turbulence' else 'turbulence'
-            attr_add = f'add_{attr_name}'
-            # if trend overrides the TAF value, use the trend value
-            if trend and getattr(trend, attr_get):
-                copy_from = trend
-            if hasattr(copy_from, attr_get):
-                taf_value = getattr(copy_from, attr_get)
-                if taf_value:
-                    for item in taf_value:
-                        getattr(new_trend, attr_add)(item)
-        if False:
-            print("----------")
-            print(f"From: {taf}")
-            print(f"With: {trend}")
-            print(f"To: {new_trend}")
-        return new_trend
-
-    
-
-    # Add other helper methods as needed...
 
 class WebFetcher:
     def __init__(self):
@@ -813,6 +678,7 @@ class WeatherAnalysisElement:
     def __init__(self, row):
         self.row = row
         self.time = datetime.strptime(row['report_datetime'], "%Y-%m-%d %H:%M:%S")
+        self.message = row['report_data']
         if row['report_type'] == 'METAR':
             self.metar_obj = self._parse_metar(row['report_data'])
             self.taf_obj = None
@@ -821,11 +687,6 @@ class WeatherAnalysisElement:
             self.taf_obj = self._parse_taf(row['report_data'])
             self.metar_obj = None
             self.taf_trends = self._generate_trends()
-
-
-    @property
-    def message(self):
-        return self.row['report_data']
     
     def applicable_trends(self, metar_time):
         """Get all applicable trends for a given METAR time"""
@@ -1014,7 +875,8 @@ class WeatherAnalysisElement:
                     'runway_num': {
                         'headwind': int,     # Headwind component in knots (positive = headwind)
                         'crosswind': int,    # Crosswind component in knots 
-                        'wind_dir_relative': int  # Wind direction relative to runway heading (0-359)
+                        'wind_dir_relative': int,  # Wind direction relative to runway heading (0-359)
+                        'max_crosswind': int  # Maximum crosswind considering variations
                     }
                 }
             Returns None if wind information is invalid
@@ -1028,24 +890,57 @@ class WeatherAnalysisElement:
         if wind_dir is None:
             return None
         
-        components = {
-        }
+        components = {}
         for rwy in runways:
             try:
                 rwy_heading = int(rwy) * 10
+                
+                # Calculate basic wind components
                 wind_angle = abs(wind_dir - rwy_heading)
                 if wind_angle > 180:
                     wind_angle = 360 - wind_angle
                 
-                # Calculate headwind/crosswind components
                 headwind = round(wind_speed * cos(radians(wind_angle)))
                 crosswind = round(wind_speed * sin(radians(wind_angle)))
+                max_crosswind = abs(crosswind)
+                
+                # If we have wind variation, calculate worst-case crosswind
+                if hasattr(wind_obj, 'min_variation') and hasattr(wind_obj, 'max_variation'):
+                    if wind_obj.min_variation is not None and wind_obj.max_variation is not None:
+                        min_dir = wind_dir + wind_obj.min_variation
+                        max_dir = wind_dir + wind_obj.max_variation
+                        
+                        # The maximum crosswind occurs when the wind direction is perpendicular
+                        perp1 = (rwy_heading + 90) % 360
+                        perp2 = (rwy_heading + 270) % 360
+                        
+                        # Normalize the range to handle cases crossing 360°
+                        if max_dir < min_dir:
+                            max_dir += 360
+                        
+                        # Check if either perpendicular angle falls within our range
+                        for perp in [perp1, perp2]:
+                            norm_perp = perp
+                            if norm_perp < min_dir:
+                                norm_perp += 360
+                            if min_dir <= norm_perp <= max_dir:
+                                max_crosswind = abs(wind_speed)
+                                break
+                            else:
+                                # If not, worst case is at the extremes
+                                for test_dir in [min_dir, max_dir]:
+                                    angle = abs(test_dir % 360 - rwy_heading)
+                                    if angle > 180:
+                                        angle = 360 - angle
+                                    test_crosswind = abs(wind_speed * sin(radians(angle)))
+                                    max_crosswind = max(max_crosswind, test_crosswind)
                 
                 wind_dir_relative = (wind_dir - rwy_heading) % 360
                 components[rwy] = {
                     'headwind': headwind,
                     'crosswind': crosswind,
-                    'wind_dir_relative': wind_dir_relative
+                    'wind_dir_relative': wind_dir_relative,
+                    'max_crosswind': max_crosswind
                 }
                 
             except ValueError:
@@ -1107,12 +1002,18 @@ class WeatherAnalysisElement:
         """Generate trends from TAF"""
         if not self.taf_obj:
             return []
+        
+        taf_message_lines = self.taf_obj.message.split("\n")
         prevailing = self._create_taf_trend_from_taf(self.taf_obj)
         if not prevailing:
             return []
+        prevailing.message = taf_message_lines.pop(0).strip() 
         trends = [prevailing]
         for trend in self.taf_obj.trends:
-            trends.append(self._create_taf_trend_from_taf(prevailing, trend))
+            new_trend = self._create_taf_trend_from_taf(prevailing, trend)
+            if new_trend:
+                new_trend.message = taf_message_lines.pop(0).strip()
+                trends.append(new_trend)
         return trends
     def _parse_metar(self, metar_string):
         """Parse METAR string using metar_taf_parser"""
@@ -1558,10 +1459,10 @@ if __name__ == "__main__":
     parser.add_argument("--category", "-c", action="store_true", help="Show flight category for METAR reports")
     parser.add_argument("--runway", "-r", type=str, help="Comma-separated list of runway numbers (e.g., '24,06')")
     parser.add_argument("--diff", "-d", action="store_true", help="Compare METARs with corresponding TAF sections")
-    parser.add_argument("--statute-miles", "-sm", action="store_true", help="Display visibility in statute miles")
+    parser.add_argument("--statute-miles", action="store_true", help="Display visibility in statute miles")
     parser.add_argument("--summary", "-s", action="store_true", help="Show summary statistics instead of chronological display")
-    parser.add_argument("--hourly", "-hr", action="store_true",
-                       help="Include hourly breakdown in summary")
+    parser.add_argument("--xwind-limit", "-x", type=int, help="Maximum acceptable crosswind in knots")
+    parser.add_argument("--gust-limit", "-g", type=int, help="Maximum acceptable gust speed in knots")
     # Positional arguments last
     parser.add_argument("icao", type=str, help="The ICAO code of the airport.")
     parser.add_argument("date", type=str, help="The date in 'YYYYMMDD' format")
@@ -1583,7 +1484,8 @@ if __name__ == "__main__":
     options.comparison_mode = args.diff
     options.visibility_in_sm = args.statute_miles
     options.summary_mode = args.summary
-    options.show_hourly = args.hourly
+    options.crosswind_limit = args.xwind_limit
+    options.gust_limit = args.gust_limit
 
     # Create WeatherReport with options
     weather = WeatherReport(debug=args.debug, options=options)
