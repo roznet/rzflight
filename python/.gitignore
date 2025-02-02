@@ -5,3 +5,4 @@ aip.db
 metar_taf.db
 cache
 *.kml
+.vscode
