@@ -409,6 +409,43 @@ class WeatherReport:
             # Show traditional chronological display
             self._display_chronological_results(reports)
 
+    def _display_chronological_results(self, reports):
+        """Display all reports in chronological order. Reports is an array of WeatherAnalysisElement objects"""
+        if not reports:
+            print("\nNo reports found for this date.")
+            return
+        
+        print("\nReports in chronological order:")
+        current_taf = None
+        for report in reports:
+            if report.taf_obj:  # TAF report
+                current_taf = report
+                print(f"\nTAF: {report.time} {report.message}")
+            elif report.metar_obj:  # METAR report
+                self._format_metar_line(report)
+                wx = report.get_weather_category()
+                if current_taf:
+                    trends = current_taf.applicable_trends(report.time)
+                    if trends:
+                        for trend in trends:
+                            trend_wx = current_taf._get_weather_category(trend)
+                            wx_comparison = report.compare_weather_categories(wx, trend_wx)
+                            
+                            comp_symbol = ' '
+                            highlight = False
+                            if wx_comparison == FlightCategoryComparison.EXACT:
+                                comp_symbol = 'M'
+                                highlight = True
+                            elif wx_comparison == FlightCategoryComparison.BETTER:
+                                comp_symbol = 'B'
+                                highlight = True
+                            elif wx_comparison == FlightCategoryComparison.WORSE:
+                                comp_symbol = 'W'
+                            else:
+                                comp_symbol = '?'
+                                
+                            print(f"   TAF:   {comp_symbol} {self._format_taf_trend(current_taf, trend, highlight)}")
+    
     def _format_metar_line(self, metar):
         """Format a single METAR line with optional category and runway info"""
         if not metar:
@@ -419,7 +456,7 @@ class WeatherReport:
         wx_info = None
         if self.options.show_category or self.options.runways:
             if self.options.show_category:
-                wx_info = self._get_weather_category(metar_obj)
+                wx_info = metar.get_weather_category()
 
         # Build the display line
         metar_line = f"{metar.time}"
@@ -435,7 +472,7 @@ class WeatherReport:
         print(metar_line)
 
 
-    def _format_taf_trend(self, trend, highlight=False):
+    def _format_taf_trend(self, taf, trend, highlight=False):
         """
         Format a TAF trend into a readable string.
         
@@ -469,7 +506,7 @@ class WeatherReport:
             components.append(type_str)
         
         # Get weather category if possible
-        wx = self._get_weather_category(trend)
+        wx = taf.get_trend_weather_category(trend)
         category_str = self._format_weather_category(wx, highlight=highlight)
         components.append(category_str)
         
@@ -481,7 +518,7 @@ class WeatherReport:
         dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
         return dt.strftime('%H:%M') == '00:00'
 
-    def _parse_metar(self, metar_string):
+    def __parse_metar(self, metar_string):
         """Parse METAR string using metar_taf_parser"""
         try:
             if "NIL=" in metar_string:
@@ -493,7 +530,7 @@ class WeatherReport:
             print(f"Error parsing METAR: {e}")
             return None
 
-    def _parse_taf(self,taf_string):
+    def __parse_taf(self,taf_string):
         """
         Parse a TAF string using metar_taf_parser.
         
@@ -513,7 +550,7 @@ class WeatherReport:
             print(f"Error parsing TAF: {e}")
             return None
 
-    def _parse_visibility(self, visibility):
+    def __parse_visibility(self, visibility):
         """
         Parse visibility value from METAR into statute miles.
         
@@ -553,7 +590,7 @@ class WeatherReport:
             
         return visibility_sm
 
-    def _get_weather_category(self, metar_object):
+    def __get_weather_category(self, metar_object):
         """
         Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
         
@@ -656,40 +693,6 @@ class WeatherReport:
         
         return components
 
-    def _display_chronological_results(self, reports):
-        """Display all reports in chronological order. Reports is an array of WeatherAnalysisElement objects"""
-        if not reports:
-            print("\nNo reports found for this date.")
-            return
-        
-        print("\nReports in chronological order:")
-        current_taf = None
-        for report in reports:
-            if report.taf_obj:  # TAF report
-                current_taf = report
-                print(f"\nTAF: {report.time} {report.message}")
-            elif report.metar_obj:  # METAR report
-                self._format_metar_line(report)
-                wx = report.get_weather_category()
-                if current_taf:
-                    trends = current_taf.applicable_trends(report.time)
-                    if trends:
-                        for trend in trends:
-                            trend_wx = current_taf._get_weather_category(trend)
-                            wx_comparison = report.compare_weather_categories(trend_wx, wx)
-                            
-                            comp_symbol = ' '
-                            highlight = False
-                            if wx_comparison == FlightCategoryComparison.EXACT:
-                                comp_symbol = 'M'
-                                highlight = True
-                            elif wx_comparison == FlightCategoryComparison.BETTER:
-                                comp_symbol = 'B'
-                                highlight = True
-                            elif wx_comparison == FlightCategoryComparison.WORSE:
-                                comp_symbol = ' '
-                                
-                            print(f"   TAF:   {comp_symbol} {self._format_taf_trend(trend, highlight)}")
                         
 
     def _is_taf_valid_for_time(self, taf, check_time):
@@ -1002,6 +1005,10 @@ class WeatherAnalysisElement:
     
     def get_weather_category(self):
         return self._get_weather_category(self.metar_obj if self.metar_obj else self.taf_obj)
+    
+    def get_trend_weather_category(self, trend):
+        return self._get_weather_category(trend)
+    
     def _get_weather_category(self, metar_obj):
         """
         Determine flight category (VFR, MVFR, IFR, LIFR) from METAR string using metar_taf_parser
@@ -1111,11 +1118,12 @@ class WeatherAnalysisElement:
             # If categories are different, compare them directly
             if val1 != val2:
                 if val1 < val2:
-                    return -1
+                    return FlightCategoryComparison.WORSE
                 else:
-                    return 1
+                    return FlightCategoryComparison.BETTER
             
             # For equal LIFR conditions, compare visibility and ceiling
+            # for a match we need to have same or better visibility and same or better ceiling
             if cat1 == 'LIFR' and cat2 == 'LIFR':
                 # Convert visibility to meters if in statute miles
                 vis1 = wx1['visibility_meters']
@@ -1125,11 +1133,11 @@ class WeatherAnalysisElement:
                 
                 # If either has worse visibility
                 if vis1 is not None and vis2 is not None and vis1 != vis2:
-                    return FlightCategoryComparison.WORSE if vis1 < vis2 else FlightCategoryComparison.BETTER
+                    return FlightCategoryComparison.WORSE if vis1 < vis2 else FlightCategoryComparison.EXACT
                     
                 # If visibilities are equal or unknown, check ceiling
                 if ceil1 is not None and ceil2 is not None and ceil1 != ceil2:
-                    return FlightCategoryComparison.WORSE if ceil1 < ceil2 else FlightCategoryComparison.BETTER
+                    return FlightCategoryComparison.WORSE if ceil1 < ceil2 else FlightCategoryComparison.EXACT
             
             # If we get here, conditions are equal
             return FlightCategoryComparison.EXACT
