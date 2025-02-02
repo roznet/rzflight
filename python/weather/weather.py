@@ -669,10 +669,18 @@ class WeatherReport:
             return None
         
         wind_speed = metar.wind.speed
-        wind_dir = metar.wind.direction
+        wind_dir = metar.wind.degrees
         
         if wind_dir is None:
             return None
+        
+        # Unicode arrows for different wind directions
+        ARROWS = {
+            'headwind': '↓',    # Down arrow for headwind
+            'tailwind': '↑',    # Up arrow for tailwind
+            'crosswind_right': '→',  # Right arrow for right crosswind
+            'crosswind_left': '←'    # Left arrow for left crosswind
+        }
         
         components = []
         for rwy in runways:
@@ -686,8 +694,13 @@ class WeatherReport:
                 headwind = round(wind_speed * cos(radians(wind_angle)))
                 crosswind = round(wind_speed * sin(radians(wind_angle)))
                 
-                # Format the components
-                components.append(f"{rwy}:{headwind:+d}/{crosswind:+d}")
+                # Determine wind direction relative to runway
+                wind_dir_relative = (wind_dir - rwy_heading) % 360
+                crosswind_dir = ARROWS['crosswind_right'] if wind_dir_relative < 180 else ARROWS['crosswind_left']
+                
+                # Format with arrows
+                head_tail = ARROWS['headwind'] if headwind >= 0 else ARROWS['tailwind']
+                components.append(f"{rwy}:{head_tail}{abs(headwind)}{crosswind_dir}{abs(crosswind)}")
             except ValueError:
                 continue
         
@@ -1493,10 +1506,18 @@ class WeatherAnalysis:
             return None
         
         wind_speed = metar.wind.speed
-        wind_dir = metar.wind.direction
+        wind_dir = metar.wind.degrees
         
         if wind_dir is None:
             return None
+        
+        # Unicode arrows for different wind directions
+        ARROWS = {
+            'headwind': '↓',    # Down arrow for headwind
+            'tailwind': '↑',    # Up arrow for tailwind
+            'crosswind_right': '→',  # Right arrow for right crosswind
+            'crosswind_left': '←'    # Left arrow for left crosswind
+        }
         
         components = []
         for rwy in runways:
@@ -1510,8 +1531,13 @@ class WeatherAnalysis:
                 headwind = round(wind_speed * cos(radians(wind_angle)))
                 crosswind = round(wind_speed * sin(radians(wind_angle)))
                 
-                # Format the components
-                components.append(f"{rwy}:{headwind:+d}/{crosswind:+d}")
+                # Determine wind direction relative to runway
+                wind_dir_relative = (wind_dir - rwy_heading) % 360
+                crosswind_dir = ARROWS['crosswind_right'] if wind_dir_relative < 180 else ARROWS['crosswind_left']
+                
+                # Format with arrows
+                head_tail = ARROWS['headwind'] if headwind >= 0 else ARROWS['tailwind']
+                components.append(f"{rwy}:{head_tail}{abs(headwind)}/{crosswind_dir}{abs(crosswind)}")
             except ValueError:
                 continue
         
