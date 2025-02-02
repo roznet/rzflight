@@ -399,7 +399,7 @@ class WeatherReport:
         for report in reports:
             if report.taf_obj:  # TAF report
                 current_taf = report
-                print(f"\nTAF: {report.time} {report.message}")
+                print(f"\n{self._format_time(report.time)} {report.message}\n")
             elif report.metar_obj:  # METAR report
                 self._format_metar_line(report)
                 wx = report.get_weather_category()
@@ -423,7 +423,7 @@ class WeatherReport:
                             else:
                                 comp_symbol = '?'
                                 
-                            print(f"   TAF:   {comp_symbol} {self._format_taf_trend(current_taf, trend, highlight)} {trend.message}")
+                            print(f"   {self._format_taf_trend(current_taf, trend, comp_symbol, highlight)}")
     
     def _format_metar_line(self, metar):
         """Format a single METAR line with optional category and runway info"""
@@ -438,7 +438,7 @@ class WeatherReport:
 
         # Build the display line
         metar_line = []
-        metar_line.append(f"{metar.time}")
+        metar_line.append(f"{self._format_time(metar.time)}")
         
         if self.options.show_category:
             wx_info = metar.get_weather_category()
@@ -525,8 +525,12 @@ class WeatherReport:
         """Format validity period in metar format DDHH/DDHH"""
         fmt = f'{validity.start_day:02d}{validity.start_hour:02d}/{validity.end_day:02d}{validity.end_hour:02d}'
         return fmt
+    
+    def _format_time(self, time):
+        """Format time in metar forbat"""
+        return time.strftime('%d%H%M')
 
-    def _format_taf_trend(self, taf, trend, highlight=True):
+    def _format_taf_trend(self, taf, trend, comp_symbol, highlight=True):
         """
         Format a TAF trend into a readable string.
         
@@ -548,6 +552,8 @@ class WeatherReport:
         validity = self._format_validity(trend.validity)
         validity = f"{wrap}{validity}{RESET}"
         components.append(validity)
+        if comp_symbol:
+            components.append(f"{wrap}{comp_symbol}{RESET}")
 
         if self.options.show_category:
             wx_info = taf._get_weather_category(trend)
@@ -571,6 +577,8 @@ class WeatherReport:
             if wind_components:
                 components.append(f"[{' '.join(wind_components)}]")
         
+        if trend.message:
+            components.append(f'{wrap}{trend.message}{RESET}')
         result = " ".join(components)
         return result
 
@@ -591,6 +599,9 @@ class WeatherReport:
             'crosswind_right': '→',  # Right arrow for right crosswind
             'crosswind_left': '←'    # Left arrow for left crosswind
         }
+        RED = "\033[91m"
+        GREEN = "\033[92m"
+        RESET = "\033[0m"
         for rwy, wind in wind_components.items():
             try:
                 headwind = wind['headwind']
@@ -609,8 +620,22 @@ class WeatherReport:
                 crosswind_str = str(abs(crosswind))
                 if 'gust_crosswind' in wind:
                     crosswind_str = f"{abs(crosswind)}G{abs(wind['gust_crosswind'])}"
-                
-                line_components.append(f"{rwy}:{head_tail}{headwind_str}{crosswind_dir}{crosswind_str}")
+                within_limit = True
+                if self.options.crosswind_limit:
+                    if wind['crosswind'] > self.options.crosswind_limit:
+                        within_limit = False
+                    if 'gust_crosswind' in wind and wind['gust_crosswind'] > self.options.crosswind_limit:
+                        within_limit = False
+
+                if self.options.gust_limit:
+                    if 'gust_headwind' in wind and wind['gust_headwind'] > self.options.gust_limit:
+                        within_limit = False
+                wind_str = f"{rwy}:{head_tail}{headwind_str}{crosswind_dir}{crosswind_str}"
+                if not within_limit:
+                    wind_str = f"{RED}{wind_str}{RESET}"
+                elif self.options.gust_limit or self.options.crosswind_limit:
+                    wind_str = f"{GREEN}{wind_str}{RESET}"
+                line_components.append(wind_str)
             except ValueError:
                 continue
         
@@ -913,7 +938,7 @@ class WeatherAnalysisElement:
             return False
         validity = trend.validity
         return self._validity_period_contains(validity, check_time)
-    
+
     def get_runway_winds(self, runways):
         return self._get_runway_winds(self.metar_obj.wind if self.metar_obj else self.taf_obj.wind, runways)
 
@@ -1168,7 +1193,7 @@ class WeatherAnalysisElement:
         return new_trend
 
 class WeatherAnalysis:
-    def __init__(self, metar_data, taf_data=None):
+    def __init__(self, metar_data, taf_data=None, runways=None):
         # Filter out elements where metar_obj is None
         self.metar_data = [elem for elem in [WeatherAnalysisElement(row) for row in metar_data] 
                           if elem.metar_obj is not None]
@@ -1179,8 +1204,9 @@ class WeatherAnalysis:
                             if elem.taf_obj is not None]
         else:
             self.taf_data = []
-        
+        self.runways = runways
         self.analysis = self._analyze_data()
+
     def first_taf_preceding(self, datetime_input):
         """Find the first TAF preceding the specified time"""
         for taf in sorted(self.taf_data, key=lambda x: x.time, reverse=True):
@@ -1212,7 +1238,6 @@ class WeatherAnalysis:
             'total_metars': len(self.metar_data),
             'total_taf': len(self.taf_data),
             'metars_with_taf': 0,
-            'forecast_matches': 0,  # METAR matches TAF exactly
             'forecast' : {
                 FlightCategoryComparison.EXACT: 0,
                 FlightCategoryComparison.WORSE: 0,
@@ -1260,7 +1285,20 @@ class WeatherAnalysis:
                     applicable_taf = taf
         return applicable_taf 
     
-    
+    def is_wind_within_limits(self, wind, crosswind_limit, gust_limit = None):
+        """Check if wind is within limits"""
+        within_limit = True
+        if crosswind_limit:
+            if wind['crosswind'] > crosswind_limit:
+                within_limit = False
+            if 'gust_crosswind' in wind and wind['gust_crosswind'] > crosswind_limit:
+                within_limit = False
+
+        if gust_limit:
+            if 'gust_headwind' in wind and wind['gust_headwind'] > gust_limit:
+                within_limit = False
+        return within_limit
+
     def _compare_metar_to_taf(self, metar, taf):
         """
         Compare a METAR to all applicable TAF trends.
@@ -1276,12 +1314,24 @@ class WeatherAnalysis:
             return None
 
         metar_wx = metar.get_weather_category()
+        if self.runways:
+            metar_wind = self._get_runway_winds(metar, self.runways)
         comparison = {
             'metar_time': metar.time,
             'metar_category': metar_wx,
             'taf_time': taf.time,
             'applicable_trends': [],
             'summary': {
+                'exact': 0,
+                'worse': 0,
+                'better': 0
+            },
+            'headwind': {
+                'exact': 0,
+                'worse': 0,
+                'better': 0
+            },
+            'crosswind': {
                 'exact': 0,
                 'worse': 0,
                 'better': 0
@@ -1313,7 +1363,12 @@ class WeatherAnalysis:
                 summary_match_types = category_diff
             else:
                 summary_match_types = summary_match_types.compare(category_diff)
+
+            if self.runways:
+                trend_wind = self._get_runway_winds(trend, self.runways)
         comparison['match_type'] = summary_match_types
+
+
         return comparison
 
     def _is_more_recent_taf(self, taf1, taf2, check_time):
@@ -1483,6 +1538,62 @@ class WeatherAnalysis:
         
         # If we get here, conditions are equal
         return FlightCategoryComparison.EXACT
+
+    def worst_runway_winds(self, wind):
+        """Return the worst runway winds for a given wind object
+            the return value will be of the form:
+            {
+                'headwind': int,     # max headwind component in knots (positive = headwind)
+                'crosswind': int,    # max crosswind component in knots 
+                'max_crosswind': int,  # max crosswind considering variations
+                'gust_headwind': int,  # max gust headwind component in knots (positive = headwind)
+                'gust_crosswind': int,  # max gust crosswind component in knots 
+                'gust_max_crosswind': int,  # max gust crosswind considering variations
+            }
+        """
+        if not wind:
+            return None
+        
+        result = {
+            'headwind': None,
+            'crosswind': None,
+            'max_crosswind': None,
+            'gust_headwind': None,
+            'gust_crosswind': None,
+            'gust_max_crosswind': None
+        }
+        
+        # Find worst conditions across all runways
+        for rwy_data in wind.values():
+            # only look at runway with best wind
+            if rwy_data['headwind'] < 0:
+                continue
+                    
+            if result['headwind'] is None or abs(rwy_data['headwind']) > abs(result['headwind']):
+                result['headwind'] = rwy_data['headwind']
+            if result['crosswind'] is None or abs(rwy_data['crosswind']) > abs(result['crosswind']):
+                result['crosswind'] = rwy_data['crosswind']
+            if result['max_crosswind'] is None or rwy_data['max_crosswind'] > result['max_crosswind']:
+                result['max_crosswind'] = rwy_data['max_crosswind']
+            
+            # Update gust components if available
+            if 'gust_headwind' in rwy_data:
+                if result['gust_headwind'] is None or abs(rwy_data['gust_headwind']) > abs(result['gust_headwind']):
+                    result['gust_headwind'] = rwy_data['gust_headwind']
+            if 'gust_crosswind' in rwy_data:
+                if result['gust_crosswind'] is None or abs(rwy_data['gust_crosswind']) > abs(result['gust_crosswind']):
+                    result['gust_crosswind'] = rwy_data['gust_crosswind']
+            if 'gust_max_crosswind' in rwy_data:
+                if result['gust_max_crosswind'] is None or rwy_data['gust_max_crosswind'] > result['gust_max_crosswind']:
+                    result['gust_max_crosswind'] = rwy_data['gust_max_crosswind']
+        
+        return result
+
+    def compare_runway_winds(self, wind1, wind2):
+        worst1 = self.worst_runway_winds(wind1)
+        worst2 = self.worst_runway_winds(wind2)
+
+        return worst1['crosswind'] > worst2['crosswind']
 
 
 
