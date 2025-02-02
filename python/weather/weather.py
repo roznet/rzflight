@@ -552,10 +552,19 @@ class WeatherReport:
                 wind_dir_relative = wind['wind_dir_relative']
                 
                 crosswind_dir = ARROWS['crosswind_right'] if wind_dir_relative < 180 else ARROWS['crosswind_left']
-                
-                # Format with arrows
                 head_tail = ARROWS['headwind'] if headwind >= 0 else ARROWS['tailwind']
-                line_components.append(f"{rwy}:{head_tail}{abs(headwind)}{crosswind_dir}{abs(crosswind)}")
+                
+                # Format headwind with gusts if available
+                headwind_str = str(abs(headwind))
+                if 'gust_headwind' in wind:
+                    headwind_str = f"{abs(headwind)}G{abs(wind['gust_headwind'])}"
+                
+                # Format crosswind with gusts if available
+                crosswind_str = str(abs(crosswind))
+                if 'gust_crosswind' in wind:
+                    crosswind_str = f"{abs(crosswind)}G{abs(wind['gust_crosswind'])}"
+                
+                line_components.append(f"{rwy}:{head_tail}{headwind_str}{crosswind_dir}{crosswind_str}")
             except ValueError:
                 continue
         
@@ -876,7 +885,10 @@ class WeatherAnalysisElement:
                         'headwind': int,     # Headwind component in knots (positive = headwind)
                         'crosswind': int,    # Crosswind component in knots 
                         'wind_dir_relative': int,  # Wind direction relative to runway heading (0-359)
-                        'max_crosswind': int  # Maximum crosswind considering variations
+                        'max_crosswind': int,  # Maximum crosswind considering variations
+                        'gust_headwind': int,  # Headwind component with gusts (if available)
+                        'gust_crosswind': int,  # Crosswind component with gusts (if available)
+                        'gust_max_crosswind': int  # Maximum crosswind with gusts considering variations
                     }
                 }
             Returns None if wind information is invalid
@@ -884,67 +896,83 @@ class WeatherAnalysisElement:
         if not wind_obj or wind_obj.speed is None:
             return None
         
-        wind_speed = wind_obj.speed
         wind_dir = wind_obj.degrees
-        
         if wind_dir is None:
             return None
+
+        def calculate_components(speed):
+            """Calculate wind components for a given speed"""
+            components = {}
+            for rwy in runways:
+                try:
+                    rwy_heading = int(rwy) * 10
+                    
+                    # Calculate basic wind components
+                    wind_angle = abs(wind_dir - rwy_heading)
+                    if wind_angle > 180:
+                        wind_angle = 360 - wind_angle
+                    
+                    headwind = round(speed * cos(radians(wind_angle)))
+                    crosswind = round(speed * sin(radians(wind_angle)))
+                    max_crosswind = abs(crosswind)
+                    
+                    # If we have wind variation, calculate worst-case crosswind
+                    if hasattr(wind_obj, 'min_variation') and hasattr(wind_obj, 'max_variation'):
+                        if wind_obj.min_variation is not None and wind_obj.max_variation is not None:
+                            min_dir = wind_dir + wind_obj.min_variation
+                            max_dir = wind_dir + wind_obj.max_variation
+                            
+                            # The maximum crosswind occurs when the wind direction is perpendicular
+                            perp1 = (rwy_heading + 90) % 360
+                            perp2 = (rwy_heading + 270) % 360
+                            
+                            # Normalize the range to handle cases crossing 360°
+                            if max_dir < min_dir:
+                                max_dir += 360
+                            
+                            # Check if either perpendicular angle falls within our range
+                            for perp in [perp1, perp2]:
+                                norm_perp = perp
+                                if norm_perp < min_dir:
+                                    norm_perp += 360
+                                if min_dir <= norm_perp <= max_dir:
+                                    max_crosswind = abs(speed)
+                                    break
+                                else:
+                                    # If not, worst case is at the extremes
+                                    for test_dir in [min_dir, max_dir]:
+                                        angle = abs(test_dir % 360 - rwy_heading)
+                                        if angle > 180:
+                                            angle = 360 - angle
+                                        test_crosswind = abs(speed * sin(radians(angle)))
+                                        max_crosswind = max(max_crosswind, test_crosswind)
+                    
+                    wind_dir_relative = (wind_dir - rwy_heading) % 360
+                    components[rwy] = {
+                        'headwind': headwind,
+                        'crosswind': crosswind,
+                        'wind_dir_relative': wind_dir_relative,
+                        'max_crosswind': max_crosswind
+                    }
+                    
+                except ValueError:
+                    continue
+            return components
+
+        # Calculate components for regular wind speed
+        components = calculate_components(wind_obj.speed)
         
-        components = {}
-        for rwy in runways:
-            try:
-                rwy_heading = int(rwy) * 10
-                
-                # Calculate basic wind components
-                wind_angle = abs(wind_dir - rwy_heading)
-                if wind_angle > 180:
-                    wind_angle = 360 - wind_angle
-                
-                headwind = round(wind_speed * cos(radians(wind_angle)))
-                crosswind = round(wind_speed * sin(radians(wind_angle)))
-                max_crosswind = abs(crosswind)
-                
-                # If we have wind variation, calculate worst-case crosswind
-                if hasattr(wind_obj, 'min_variation') and hasattr(wind_obj, 'max_variation'):
-                    if wind_obj.min_variation is not None and wind_obj.max_variation is not None:
-                        min_dir = wind_dir + wind_obj.min_variation
-                        max_dir = wind_dir + wind_obj.max_variation
-                        
-                        # The maximum crosswind occurs when the wind direction is perpendicular
-                        perp1 = (rwy_heading + 90) % 360
-                        perp2 = (rwy_heading + 270) % 360
-                        
-                        # Normalize the range to handle cases crossing 360°
-                        if max_dir < min_dir:
-                            max_dir += 360
-                        
-                        # Check if either perpendicular angle falls within our range
-                        for perp in [perp1, perp2]:
-                            norm_perp = perp
-                            if norm_perp < min_dir:
-                                norm_perp += 360
-                            if min_dir <= norm_perp <= max_dir:
-                                max_crosswind = abs(wind_speed)
-                                break
-                            else:
-                                # If not, worst case is at the extremes
-                                for test_dir in [min_dir, max_dir]:
-                                    angle = abs(test_dir % 360 - rwy_heading)
-                                    if angle > 180:
-                                        angle = 360 - angle
-                                    test_crosswind = abs(wind_speed * sin(radians(angle)))
-                                    max_crosswind = max(max_crosswind, test_crosswind)
-                
-                wind_dir_relative = (wind_dir - rwy_heading) % 360
-                components[rwy] = {
-                    'headwind': headwind,
-                    'crosswind': crosswind,
-                    'wind_dir_relative': wind_dir_relative,
-                    'max_crosswind': max_crosswind
-                }
-                
-            except ValueError:
-                continue
+        # If we have gusts, calculate components for gust speed
+        if hasattr(wind_obj, 'gust') and wind_obj.gust is not None:
+            gust_components = calculate_components(wind_obj.gust)
+            # Add gust components to the result
+            for rwy in components:
+                if rwy in gust_components:
+                    components[rwy].update({
+                        'gust_headwind': gust_components[rwy]['headwind'],
+                        'gust_crosswind': gust_components[rwy]['crosswind'],
+                        'gust_max_crosswind': gust_components[rwy]['max_crosswind']
+                    })
         
         return components
 
@@ -1030,7 +1058,7 @@ class WeatherAnalysisElement:
     def _parse_taf(self, taf_string):
         """Parse TAF string using metar_taf_parser"""
         try:
-            if "NIL=" in taf_string:
+            if "NIL=" in taf_string or "CNL=" in taf_string:
                 return None
             parser = TAFParser()
             return parser.parse(taf_string)
