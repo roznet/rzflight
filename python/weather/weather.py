@@ -293,6 +293,52 @@ class WeatherReportOptions:
         self.gust_limit = None # Maximum acceptable gust speed
         self.analysis = None
 
+class WeatherDisplay:
+    """Handle different display formats for weather data"""
+    
+    @staticmethod
+    def show_daily_summary(analysis):
+        """Display daily summary of forecast accuracy"""
+        print("\nDaily Forecast Analysis:")
+        print(f"Total METARs: {analysis['total_metars']}")
+        print(f"Total TAFs: {analysis['total_taf']}")
+        print(f"METARs with TAF coverage: {analysis['metars_with_taf']}")
+
+        print("\nMETAR Categories:")
+        total_metars = analysis['total_metars']
+        for category, count in analysis['metar_categories'].items():
+            percentage = (count / total_metars * 100) if total_metars > 0 else 0
+            print(f"{category}: {count} ({percentage:.1f}%)")
+
+        print("\nForecast Accuracy:")
+        print(f"Exact matches: {analysis['forecast'][FlightCategoryComparison.EXACT]} " +
+              f"({analysis['forecast'][FlightCategoryComparison.EXACT]/analysis['metars_with_taf']*100:.1f}%)")
+        print(f"Worse than forecast: {analysis['forecast'][FlightCategoryComparison.WORSE]} " +
+              f"({analysis['forecast'][FlightCategoryComparison.WORSE]/analysis['metars_with_taf']*100:.1f}%)")
+        print(f"Better than forecast: {analysis['forecast'][FlightCategoryComparison.BETTER]} " +
+              f"({analysis['forecast'][FlightCategoryComparison.BETTER]/analysis['metars_with_taf']*100:.1f}%)")
+
+    @staticmethod
+    def show_hourly_analysis(analysis):
+        """Display analysis broken down by hour"""
+        print("\nHourly Analysis:")
+        for hour, stats in sorted(analysis['hourly_analysis'].items()):
+            total = stats['total']
+            print(f"\nHour {hour}:00 (Total: {total})")
+            print(f"  Exact matches: {stats['matches']/total*100:.1f}%")
+            print(f"  Acceptable: {stats['acceptable']/total*100:.1f}%")
+            print(f"  Worse than forecast: {stats['worse']/total*100:.1f}%")
+            print(f"  Better than forecast: {stats['better']/total*100:.1f}%")
+
+    @staticmethod
+    def show_detailed_comparisons(analysis):
+        """Display detailed comparison of each METAR vs TAF"""
+        print("\nDetailed Comparisons:")
+        for comp in analysis['detailed_comparisons']:
+            print(f"\nMETAR {comp['metar_time']}:")
+            print(f"  METAR category: {comp['metar_category']}")
+            print(f"  TAF category: {comp['taf_category']}")
+            print(f"  Match type: {comp['match_type']}")
 class WeatherReport:
     def __init__(self, db_name="metar_taf.db", debug=False, options=None):
         self.db = WeatherDatabase(db_name, debug=debug)
@@ -1188,6 +1234,9 @@ class WeatherAnalysis:
             metar_obj = metar.metar_obj
             if not metar_obj:
                 continue
+            wx_info = metar.get_weather_category()
+            category = wx_info['category']
+            results['metar_categories'][category] += 1
                 
             applicable_taf = self._find_applicable_taf(metar_time)
             
@@ -1437,45 +1486,6 @@ class WeatherAnalysis:
 
 
 
-class WeatherDisplay:
-    """Handle different display formats for weather data"""
-    
-    @staticmethod
-    def show_daily_summary(analysis):
-        """Display daily summary of forecast accuracy"""
-        print("\nDaily Forecast Analysis:")
-        print(f"Total METARs: {analysis['total_metars']}")
-        print(f"Total TAFs: {analysis['total_taf']}")
-        print(f"METARs with TAF coverage: {analysis['metars_with_taf']}")
-        print("\nForecast Accuracy:")
-        print(f"Exact matches: {analysis['forecast'][FlightCategoryComparison.EXACT]} " +
-              f"({analysis['forecast'][FlightCategoryComparison.EXACT]/analysis['metars_with_taf']*100:.1f}%)")
-        print(f"Worse than forecast: {analysis['forecast'][FlightCategoryComparison.WORSE]} " +
-              f"({analysis['forecast'][FlightCategoryComparison.WORSE]/analysis['metars_with_taf']*100:.1f}%)")
-        print(f"Better than forecast: {analysis['forecast'][FlightCategoryComparison.BETTER]} " +
-              f"({analysis['forecast'][FlightCategoryComparison.BETTER]/analysis['metars_with_taf']*100:.1f}%)")
-
-    @staticmethod
-    def show_hourly_analysis(analysis):
-        """Display analysis broken down by hour"""
-        print("\nHourly Analysis:")
-        for hour, stats in sorted(analysis['hourly_analysis'].items()):
-            total = stats['total']
-            print(f"\nHour {hour}:00 (Total: {total})")
-            print(f"  Exact matches: {stats['matches']/total*100:.1f}%")
-            print(f"  Acceptable: {stats['acceptable']/total*100:.1f}%")
-            print(f"  Worse than forecast: {stats['worse']/total*100:.1f}%")
-            print(f"  Better than forecast: {stats['better']/total*100:.1f}%")
-
-    @staticmethod
-    def show_detailed_comparisons(analysis):
-        """Display detailed comparison of each METAR vs TAF"""
-        print("\nDetailed Comparisons:")
-        for comp in analysis['detailed_comparisons']:
-            print(f"\nMETAR {comp['metar_time']}:")
-            print(f"  METAR category: {comp['metar_category']}")
-            print(f"  TAF category: {comp['taf_category']}")
-            print(f"  Match type: {comp['match_type']}")
 
 # Example usage in main:
 if __name__ == "__main__":
