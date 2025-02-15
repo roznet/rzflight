@@ -75,7 +75,19 @@ def haversine(lat1, lon1, lat2, lon2):
     
     return bearing, distance
 
+def decimal_to_dms(decimal_degrees):
+    """Convert decimal degrees to degrees, minutes, seconds format"""
+    degrees = int(decimal_degrees)
+    decimal_minutes = abs(decimal_degrees - degrees) * 60
+    minutes = int(decimal_minutes)
+    seconds = round((decimal_minutes - minutes) * 60, 2)
+    return f"{degrees}° {minutes}' {seconds}\""
 
+def decimal_to_dm(decimal_degrees):
+    """Convert decimal degrees to degrees, decimal minutes format"""
+    degrees = int(decimal_degrees)
+    minutes = round(abs(decimal_degrees - degrees) * 60, 2)
+    return f"{degrees}° {minutes}'"
 
 class Command:
 
@@ -109,6 +121,23 @@ class Command:
         excel_file_path = f'{self.name}_updated.xlsx'
         with pd.ExcelWriter(excel_file_path) as writer:
             for sheet,df in self.dfs.items():
+                if sheet == 'navdata':
+                    # Add new columns for DMS and DM formats
+                    df['Latitude_DMS'] = df['Latitude'].apply(decimal_to_dms)
+                    df['Longitude_DMS'] = df['Longitude'].apply(decimal_to_dms)
+                    df['Latitude_DM'] = df['Latitude'].apply(decimal_to_dm)
+                    df['Longitude_DM'] = df['Longitude'].apply(decimal_to_dm)
+                    
+                    # Get all columns except Description and the new ones
+                    existing_cols = [col for col in df.columns if col != 'Description' 
+                                   and col not in ['Latitude_DMS', 'Longitude_DMS', 'Latitude_DM', 'Longitude_DM']]
+                    
+                    # Create final column order
+                    columns = (existing_cols + 
+                             ['Latitude_DMS', 'Longitude_DMS',
+                              'Latitude_DM', 'Longitude_DM',
+                              'Description'])
+                    df = df[columns]
                 df.to_excel(writer, sheet_name=sheet, index=False)
 
 
