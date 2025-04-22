@@ -1,0 +1,107 @@
+Metadata-Version: 2.4
+Name: euro_aip
+Version: 0.1.0
+Summary: A library for parsing and managing European AIP (Aeronautical Information Publication) data
+Home-page: https://github.com/brice/euro_aip
+Author: Brice Rosenzweig
+Author-email: brice@rosenzweig.io
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.25.1
+Requires-Dist: pandas>=1.2.0
+Requires-Dist: camelot-py>=0.10.1
+Requires-Dist: sqlalchemy>=1.4.0
+Requires-Dist: python-dateutil>=2.8.1
+Provides-Extra: dev
+Requires-Dist: pytest>=6.0; extra == "dev"
+Requires-Dist: black>=21.0; extra == "dev"
+Requires-Dist: mypy>=0.900; extra == "dev"
+Requires-Dist: flake8>=3.9.0; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Euro AIP
+
+A Python library for parsing and managing European AIP (Aeronautical Information Publication) data.
+
+## Features
+
+- Parse AIP documents from various European sources
+- Extract airport information, procedures, and runway data
+- Store data with versioning and historical tracking
+- Query data as of specific dates
+- Support for multiple data sources and storage backends
+
+## Installation
+
+```bash
+pip install euro_aip
+```
+
+## Quick Start
+
+```python
+from euro_aip import EuroAIP
+from euro_aip.storage import SQLiteStorage
+from euro_aip.sources import AutorouterSource
+
+# Initialize
+storage = SQLiteStorage("airports.db")
+source = AutorouterSource(api_key="your_key")
+aip = EuroAIP(storage, source)
+
+# Get current data
+airport = aip.get_airport("EGLL")
+
+# Get historical data
+airport_2020 = aip.get_airport("EGLL", as_of=datetime(2020, 1, 1))
+
+# Update data
+aip.update_airport("EGLL")
+```
+
+## Development
+
+To set up the development environment:
+
+```bash
+# Clone the repository
+git clone https://github.com/brice/euro_aip.git
+cd euro_aip
+
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -e ".[dev]"
+```
+
+## Running Tests
+
+```bash
+pytest
+```
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

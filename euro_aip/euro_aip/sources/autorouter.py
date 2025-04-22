@@ -1,0 +1,199 @@
+import requests
+import logging
+from typing import Dict, List, Any, Optional
+from pathlib import Path
+import json
+import re
+import os
+from datetime import datetime
+
+from .cached import CachedSource
+from ..utils.autorouter_credentials import AutorouterCredentialManager
+
+logger = logging.getLogger(__name__)
+
+class AutorouterSource(CachedSource):
+    """Source implementation for the Autorouter API."""
+    
+    def __init__(self, cache_dir: str, username: Optional[str] = None, password: Optional[str] = None):
+        """
+        Initialize the Autorouter source.
+        
+        Args:
+            cache_dir: Base directory for caching
+            username: Optional username for API authentication
+            password: Optional password for API authentication
+        """
+        super().__init__(cache_dir)
+        self.credential_manager = AutorouterCredentialManager(cache_dir)
+        if username is not None or password is not None:
+            self.credential_manager.set_credentials(username, password)
+        self.base_url = "https://api.autorouter.aero/v1.0/pams"
+
+    def _get_headers(self) -> Dict[str, str]:
+        """Get headers for API requests."""
+        return {
+            "Authorization": f"Bearer {self.credential_manager.get_token()}",
+            "Accept": "application/json"
+        }
+
+    def _extract_airport_doc_list(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract airport document list from API response."""
+        if not data:
+            return []
+        
+        rv = []
+        for info in data:
+            icao = info['icao']
+            airport = info['Airport']
+            
+            for one in airport:
+                if one['section'] == 'AD 2':
+                    filename = one['filename']
+                    basename, ext = os.path.splitext(filename)
+                    one['doccachefilename'] = f'docs/{basename}'
+                    one['aipcachefilename'] = f'aip/{icao}'
+                    one['icao'] = icao
+                    rv.append(one)
+                    break
+        return rv
+
+    def fetch_airport(self, icao: str) -> Dict[str, Any]:
+        """
+        Fetch airport data from Autorouter API.
+        
+        Args:
+            icao: ICAO airport code
+            
+        Returns:
+            Dictionary containing airport data
+        """
+        url = f"{self.base_url}/airport/{icao}"
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Error fetching airport data for {icao}: {e}")
+            raise
+
+    def fetch_procedures(self, icao: str) -> List[Dict[str, Any]]:
+        """
+        Fetch procedures data from Autorouter API.
+        
+        Args:
+            icao: ICAO airport code
+            
+        Returns:
+            List of dictionaries containing procedures data
+        """
+        url = f"{self.base_url}/procedures/{icao}"
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Error fetching procedures for {icao}: {e}")
+            raise
+
+    def fetch_document(self, doc_id: str) -> bytes:
+        """
+        Fetch a document from Autorouter API.
+        
+        Args:
+            doc_id: Document ID
+            
+        Returns:
+            Document content as bytes
+        """
+        url = f"{self.base_url}/id/{doc_id}"
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as e:
+            logger.error(f"Error fetching document {doc_id}: {e}")
+            raise
+
+    def get_airport_data(self, icao: str, max_age_days: int = 7) -> Dict[str, Any]:
+        """
+        Get airport data from cache or fetch it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            Dictionary containing airport data
+        """
+        return self.get_data('airport', 'json', icao, max_age_days=max_age_days)
+
+    def get_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+        """
+        Get procedures data from cache or fetch it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            List of dictionaries containing procedures data
+        """
+        return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
+
+    def get_document(self, doc_id: str, icao: str, max_age_days: int = 30) -> bytes:
+        """
+        Get document from cache or fetch it if not available.
+        
+        Args:
+            doc_id: Document ID
+            icao: ICAO airport code (used as cache parameter)
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            Document content as bytes
+        """
+        return self.get_data('document', 'pdf', doc_id, cache_param=icao, max_age_days=max_age_days)
+
+    def get_airport_documents(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+        """
+        Get airport documents list from cache or fetch it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            List of dictionaries containing document information
+        """
+        data = self.get_airport_data(icao, max_age_days)
+        return self._extract_airport_doc_list(data)
+
+    def get_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+        """
+        Get airport AIP data from cache or fetch and parse it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            Dictionary containing parsed AIP data or None if not available
+        """
+        docs = self.get_airport_documents(icao, max_age_days)
+        if not docs:
+            return None
+            
+        for doc in docs:
+            if doc.get('section') == 'AD 2':
+                doc_id = doc['docid']
+                pdf_data = self.get_document(doc_id, icao, max_age_days)
+                # Here we would parse the PDF data based on the authority
+                # This would be implemented in a separate parser class
+                return {
+                    'icao': icao,
+                    'authority': doc.get('authority'),
+                    'pdf_data': pdf_data,
+                    'parsed_data': None  # To be filled by parser
+                }
+        return None

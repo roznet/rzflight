@@ -75,19 +75,51 @@ def haversine(lat1, lon1, lat2, lon2):
     
     return bearing, distance
 
-def decimal_to_dms(decimal_degrees):
+def decimal_to_dms(decimal_degrees, is_longitude=False):
     """Convert decimal degrees to degrees, minutes, seconds format"""
+    # Determine direction
+    direction = ''
+    if isinstance(decimal_degrees, (int, float)):
+        if is_longitude:
+            direction = 'E' if decimal_degrees >= 0 else 'W'
+        else:
+            direction = 'N' if decimal_degrees >= 0 else 'S'
+    
+    # Convert to positive for calculation
+    decimal_degrees = abs(decimal_degrees)
     degrees = int(decimal_degrees)
-    decimal_minutes = abs(decimal_degrees - degrees) * 60
+    decimal_minutes = (decimal_degrees - degrees) * 60
     minutes = int(decimal_minutes)
     seconds = round((decimal_minutes - minutes) * 60, 2)
-    return f"{degrees}° {minutes}' {seconds}\""
+    return f"{degrees}° {minutes}' {seconds}\" {direction}"
 
-def decimal_to_dm(decimal_degrees):
+def decimal_to_dm(decimal_degrees, is_longitude=False):
     """Convert decimal degrees to degrees, decimal minutes format"""
+    # Determine direction
+    direction = ''
+    if isinstance(decimal_degrees, (int, float)):
+        if is_longitude:
+            direction = 'E' if decimal_degrees >= 0 else 'W'
+        else:
+            direction = 'N' if decimal_degrees >= 0 else 'S'
+    
+    # Convert to positive for calculation
+    decimal_degrees = abs(decimal_degrees)
     degrees = int(decimal_degrees)
-    minutes = round(abs(decimal_degrees - degrees) * 60, 2)
-    return f"{degrees}° {minutes}'"
+    minutes = round((decimal_degrees - degrees) * 60, 2)
+    return f"{degrees}° {minutes}' {direction}"
+
+def coord_to_dms(lat, lon):
+    """Convert latitude and longitude to DMS format"""
+    lat_dms = decimal_to_dms(lat, is_longitude=False)
+    lon_dms = decimal_to_dms(lon, is_longitude=True)
+    return lat_dms, lon_dms
+
+def coord_to_dm(lat, lon):
+    """Convert latitude and longitude to DM format"""
+    lat_dm = decimal_to_dm(lat, is_longitude=False)
+    lon_dm = decimal_to_dm(lon, is_longitude=True)
+    return lat_dm, lon_dm
 
 class Command:
 
@@ -122,11 +154,14 @@ class Command:
         with pd.ExcelWriter(excel_file_path) as writer:
             for sheet,df in self.dfs.items():
                 if sheet == 'navdata':
-                    # Add new columns for DMS and DM formats
-                    df['Latitude_DMS'] = df['Latitude'].apply(decimal_to_dms)
-                    df['Longitude_DMS'] = df['Longitude'].apply(decimal_to_dms)
-                    df['Latitude_DM'] = df['Latitude'].apply(decimal_to_dm)
-                    df['Longitude_DM'] = df['Longitude'].apply(decimal_to_dm)
+                    # Add new columns for DMS and DM formats using the new coordinate functions
+                    lat_dms, lon_dms = zip(*df.apply(lambda row: coord_to_dms(row['Latitude'], row['Longitude']), axis=1))
+                    lat_dm, lon_dm = zip(*df.apply(lambda row: coord_to_dm(row['Latitude'], row['Longitude']), axis=1))
+                    
+                    df['Latitude_DMS'] = lat_dms
+                    df['Longitude_DMS'] = lon_dms
+                    df['Latitude_DM'] = lat_dm
+                    df['Longitude_DM'] = lon_dm
                     
                     # Get all columns except Description and the new ones
                     existing_cols = [col for col in df.columns if col != 'Description' 
