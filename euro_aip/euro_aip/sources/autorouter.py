@@ -139,7 +139,22 @@ class AutorouterSource(CachedSource):
         Returns:
             List of dictionaries containing procedures data
         """
-        return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
+        # Get airport data
+        data = self.get_airport_data(icao, max_age_days)
+        if not data:
+            return []
+            
+        # Extract procedures from airport data
+        rv = []
+        for info in data:
+            for section in ['Arrival','Departure','Approach']:
+                lst = info[section]
+                for x in lst: 
+                    proc = {'airport':icao,'type':section.lower()}
+                    for field in ['heading']:
+                        proc[field] = x[field]
+                    rv.append(proc)
+        return rv
 
     def get_document(self, doc_id: str, icao: str, max_age_days: int = 30) -> bytes:
         """

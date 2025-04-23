@@ -8,7 +8,7 @@
             "name": "Python Debugger: Download EGKB",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "newinfo.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
