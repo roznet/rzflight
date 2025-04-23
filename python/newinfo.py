@@ -5,7 +5,7 @@ import argparse
 import logging
 from pathlib import Path
 from typing import List, Optional
-
+from pprint import pprint
 from euro_aip import EuroAIP
 from euro_aip.sources import AutorouterSource
 from euro_aip.parsers import ParserFactory
@@ -66,6 +66,7 @@ class Command:
                             parser = ParserFactory.get_parser(authority)
                             parsed_data = parser.parse(aip_data['pdf_data'], airport)
                             logger.info(f'Successfully parsed AIP for {airport}')
+                            pprint(parsed_data)
                         except ValueError as e:
                             logger.warning(f'No parser available for authority {authority}: {e}')
                 else:

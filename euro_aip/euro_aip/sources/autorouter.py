@@ -188,12 +188,19 @@ class AutorouterSource(CachedSource):
             if doc.get('section') == 'AD 2':
                 doc_id = doc['docid']
                 pdf_data = self.get_document(doc_id, icao, max_age_days)
-                # Here we would parse the PDF data based on the authority
-                # This would be implemented in a separate parser class
+                
+                # Get the appropriate parser using the factory
+                authority = doc.get('authority')
+                from ..parsers.factory import ParserFactory
+                parser = ParserFactory.get_parser(authority)
+                
+                # Parse the PDF data
+                parsed_data = parser.parse(pdf_data, icao)
+                
                 return {
                     'icao': icao,
-                    'authority': doc.get('authority'),
+                    'authority': authority,
                     'pdf_data': pdf_data,
-                    'parsed_data': None  # To be filled by parser
+                    'parsed_data': parsed_data
                 }
         return None

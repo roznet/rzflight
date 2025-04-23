@@ -1,6 +1,9 @@
 from typing import Dict, Type, List
 from .base import AIPParser
 
+# Constants for authority codes
+DEFAULT_AUTHORITY = 'DEFAULT'
+
 class ParserFactory:
     """Factory for creating AIP parsers based on authority code."""
     
@@ -33,7 +36,10 @@ class ParserFactory:
         """
         parser_class = cls._parsers.get(authority)
         if parser_class is None:
-            raise ValueError(f"No parser registered for authority: {authority}")
+            # If no specific parser is found, use the default parser
+            parser_class = cls._parsers.get(DEFAULT_AUTHORITY)
+            if parser_class is None:
+                raise ValueError(f"No parser registered for authority: {authority} and no default parser available")
         return parser_class()
     
     @classmethod
