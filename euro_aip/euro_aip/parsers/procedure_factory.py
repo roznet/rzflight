@@ -1,16 +1,16 @@
 from typing import Dict, Type, List
-from .base import AIPParser
+from .procedure import ProcedureParser
 
 # Constants for authority codes
 DEFAULT_AUTHORITY = 'DEFAULT'
 
-class ParserFactory:
-    """Factory for creating AIP parsers based on authority code."""
+class ProcedureParserFactory:
+    """Factory for creating procedure parsers based on authority code."""
     
-    _parsers: Dict[str, Type[AIPParser]] = {}
+    _parsers: Dict[str, Type[ProcedureParser]] = {}
     
     @classmethod
-    def register_parser(cls, authority: str, parser_class: Type[AIPParser]) -> None:
+    def register_parser(cls, authority: str, parser_class: Type[ProcedureParser]) -> None:
         """
         Register a parser for a specific authority.
         
@@ -21,7 +21,7 @@ class ParserFactory:
         cls._parsers[authority] = parser_class
     
     @classmethod
-    def get_parser(cls, authority: str) -> AIPParser:
+    def get_parser(cls, authority: str) -> ProcedureParser:
         """
         Get a parser for a specific authority.
         
@@ -29,7 +29,7 @@ class ParserFactory:
             authority: Authority code
             
         Returns:
-            AIPParser instance
+            ProcedureParser instance
             
         Raises:
             ValueError: If no parser is registered for the authority

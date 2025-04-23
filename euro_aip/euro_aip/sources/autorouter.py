@@ -153,6 +153,15 @@ class AutorouterSource(CachedSource):
                     proc = {'airport':icao,'type':section.lower()}
                     for field in ['heading']:
                         proc[field] = x[field]
+                    
+                    # Parse the procedure name if it's an approach
+                    if section == 'Approach':
+                        from ..parsers.procedure_factory import ProcedureParserFactory
+                        parser = ProcedureParserFactory.get_parser(info.get('authority', 'DEFAULT'))
+                        parsed = parser.parse(proc['heading'], icao)
+                        if parsed:
+                            proc.update(parsed)
+                    
                     rv.append(proc)
         return rv
 
@@ -206,8 +215,8 @@ class AutorouterSource(CachedSource):
                 
                 # Get the appropriate parser using the factory
                 authority = doc.get('authority')
-                from ..parsers.factory import ParserFactory
-                parser = ParserFactory.get_parser(authority)
+                from ..parsers.aip_factory import AIPParserFactory
+                parser = AIPParserFactory.get_parser(authority)
                 
                 # Parse the PDF data
                 parsed_data = parser.parse(pdf_data, icao)

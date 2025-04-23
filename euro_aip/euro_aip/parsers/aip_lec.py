@@ -4,7 +4,7 @@ from io import StringIO
 from typing import List, Dict, Any
 from .base import AIPParser
 
-class LECParser(AIPParser):
+class LECAIPParser(AIPParser):
     """Parser for LEC (France) AIP format."""
     
     def get_supported_authorities(self) -> List[str]:

@@ -8,7 +8,7 @@ from typing import List, Optional
 from pprint import pprint
 from euro_aip import EuroAIP
 from euro_aip.sources import AutorouterSource
-from euro_aip.parsers import ParserFactory
+from euro_aip.parsers import AIPParserFactory
 
 # Configure logging
 logging.basicConfig(
@@ -63,7 +63,7 @@ class Command:
                     authority = aip_data.get('authority')
                     if authority:
                         try:
-                            parser = ParserFactory.get_parser(authority)
+                            parser = AIPParserFactory.get_parser(authority)
                             parsed_data = parser.parse(aip_data['pdf_data'], airport)
                             logger.info(f'Successfully parsed AIP for {airport}')
                             pprint(parsed_data)

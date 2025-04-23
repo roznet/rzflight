@@ -4,11 +4,11 @@ import os
 import logging
 from typing import List, Dict, Any
 from .base import AIPParser
-from .factory import DEFAULT_AUTHORITY
+from .aip_factory import DEFAULT_AUTHORITY
 
 logger = logging.getLogger(__name__)
 
-class DefaultParser(AIPParser):
+class DefaultAIPParser(AIPParser):
     """Parser for default AIP format (used when authority is not known or specialized)."""
     
     def get_supported_authorities(self) -> List[str]:
@@ -34,7 +34,7 @@ class DefaultParser(AIPParser):
                 temp_file.flush()
                 
                 # Parse the PDF
-                tables = camelot.read_pdf(temp_file.name, pages='1-2', backend='poppler')
+                tables = camelot.read_pdf(temp_file.name, pages='1-2')
                 
                 if len(tables) > 1:
                     admin = tables[0].df.to_dict('records')

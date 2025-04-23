@@ -1,9 +1,22 @@
-from .factory import ParserFactory, DEFAULT_AUTHORITY
-from .lec import LECParser
-from .default import DefaultParser
+from .aip_factory import AIPParserFactory, DEFAULT_AUTHORITY as AIP_DEFAULT_AUTHORITY
+from .aip_lec import LECAIPParser
+from .aip_default import DefaultAIPParser
+from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
+from .procedure_default import DefaultProcedureParser
 
-# Register the parsers
-ParserFactory.register_parser('LEC', LECParser)
-ParserFactory.register_parser(DEFAULT_AUTHORITY, DefaultParser)
+# Register the AIP parsers
+AIPParserFactory.register_parser('LEC', LECAIPParser)
+AIPParserFactory.register_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
 
-__all__ = ['ParserFactory', 'DEFAULT_AUTHORITY', 'LECParser', 'DefaultParser']
+# Register the procedure parsers
+ProcedureParserFactory.register_parser(PROCEDURE_DEFAULT_AUTHORITY, DefaultProcedureParser)
+
+__all__ = [
+    'AIPParserFactory',
+    'AIP_DEFAULT_AUTHORITY',
+    'LECAIPParser',
+    'DefaultAIPParser',
+    'ProcedureParserFactory',
+    'PROCEDURE_DEFAULT_AUTHORITY',
+    'DefaultProcedureParser'
+]
