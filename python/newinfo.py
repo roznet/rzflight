@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List, Optional
 from pprint import pprint
 from euro_aip import EuroAIP
-from euro_aip.sources import AutorouterSource
+from euro_aip.sources import AutorouterSource, FranceEAIPSource
 from euro_aip.parsers import AIPParserFactory
 
 # Configure logging
@@ -31,12 +31,17 @@ class Command:
         self.cache_dir = Path(args.cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize the source with optional credentials
-        self.source = AutorouterSource(
-            cache_dir=str(self.cache_dir),
-            username=args.username,
-            password=args.password
-        )
+        # Initialize the appropriate source based on command
+        if args.command == 'download':
+            self.source = AutorouterSource(
+                cache_dir=str(self.cache_dir),
+                username=args.username,
+                password=args.password
+            )
+        elif args.command == 'france_eaip':
+            self.source = FranceEAIPSource(
+                root_dir=args.root_dir
+            )
 
     def run_download(self):
         """Download AIPs and procedures for specified airports."""
@@ -71,17 +76,48 @@ class Command:
                     import traceback
                     traceback.print_exc()
 
+    def run_france_eaip(self):
+        """Parse France eAIP data from local directories."""
+        logger.info(f"Using root directory: {self.args.root_dir}")
+        
+        for airport in self.args.airports:
+            airport = airport.strip()
+            logger.info(f'Processing {airport}')
+            
+            try:
+                # Get airport data
+                airport_data = self.source.get_airport_aip(airport)
+                if airport_data:
+                    logger.info(f'Successfully parsed {len(airport_data["parsed_data"])} items in AIP for {airport}')
+                else:
+                    logger.warning(f'No AIP document found for {airport}')
+                    continue
+                
+                # Get procedures
+                procedures = self.source.get_procedures(airport)
+                if procedures:
+                    logger.info(f'Successfully parsed {len(procedures)} procedures for {airport}')
+                else:
+                    logger.warning(f'No procedures found for {airport}')
+                    
+            except Exception as e:
+                logger.error(f'Error processing {airport}: {e}')
+                if self.args.verbose:
+                    import traceback
+                    traceback.print_exc()
+
     def run(self):
         """Run the specified command."""
         getattr(self, f'run_{self.args.command}')()
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['download'])
+    parser.add_argument('command', help='Command to execute', choices=['download', 'france_eaip'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
     parser.add_argument('-p', '--password', help='Autorouter password')
+    parser.add_argument('-r', '--root-dir', help='Root directory for France eAIP data', default='.')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     
     args = parser.parse_args()

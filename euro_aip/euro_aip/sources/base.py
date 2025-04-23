@@ -5,7 +5,7 @@ class SourceInterface(ABC):
     """Base interface for data sources."""
     
     @abstractmethod
-    def get_airport_data(self, icao: str) -> Dict[str, Any]:
+    def get_airport_aip(self, icao: str) -> Dict[str, Any]:
         """
         Get raw airport data from source.
         

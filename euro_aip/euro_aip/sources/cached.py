@@ -145,7 +145,7 @@ class CachedSource(ABC):
         return data
 
     @abstractmethod
-    def fetch_airport(self, icao: str) -> Dict[str, Any]:
+    def fetch_airport_aip(self, icao: str) -> Dict[str, Any]:
         """Fetch airport data from the source."""
         pass
 
