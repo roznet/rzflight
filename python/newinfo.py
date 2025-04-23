@@ -53,22 +53,15 @@ class Command:
                 
                 # Get procedures
                 procedures = self.source.get_procedures(airport)
-                if not procedures:
+                if procedures:
+                    logger.info(f'Successfully fetched {len(procedures)} procedures for {airport}')
+                else:
                     logger.warning(f'No procedures found for {airport}')
                 
                 # Get AIP document
                 aip_data = self.source.get_airport_aip(airport)
                 if aip_data:
-                    # Parse the AIP data if we have a parser for this authority
-                    authority = aip_data.get('authority')
-                    if authority:
-                        try:
-                            parser = AIPParserFactory.get_parser(authority)
-                            parsed_data = parser.parse(aip_data['pdf_data'], airport)
-                            logger.info(f'Successfully parsed AIP for {airport}')
-                            pprint(parsed_data)
-                        except ValueError as e:
-                            logger.warning(f'No parser available for authority {authority}: {e}')
+                    logger.info(f'Successfully parsed {len(aip_data["parsed_data"])} items in AIP for {airport}')
                 else:
                     logger.warning(f'No AIP document found for {airport}')
                     

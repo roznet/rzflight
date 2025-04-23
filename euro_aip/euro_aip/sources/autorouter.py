@@ -77,24 +77,6 @@ class AutorouterSource(CachedSource):
             logger.error(f"Error fetching airport data for {icao}: {e}")
             raise
 
-    def fetch_procedures(self, icao: str) -> List[Dict[str, Any]]:
-        """
-        Fetch procedures data from Autorouter API.
-        
-        Args:
-            icao: ICAO airport code
-            
-        Returns:
-            List of dictionaries containing procedures data
-        """
-        url = f"{self.base_url}/procedures/{icao}"
-        try:
-            response = requests.get(url, headers=self._get_headers())
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            logger.error(f"Error fetching procedures for {icao}: {e}")
-            raise
 
     def fetch_document(self, doc_id: str) -> bytes:
         """
@@ -128,7 +110,7 @@ class AutorouterSource(CachedSource):
         """
         return self.get_data('airport', 'json', icao, max_age_days=max_age_days)
 
-    def get_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+    def fetch_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
         """
         Get procedures data from cache or fetch it if not available.
         
@@ -165,6 +147,19 @@ class AutorouterSource(CachedSource):
                     rv.append(proc)
         return rv
 
+    def get_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+        """
+        Get procedures data from cache or fetch it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+
+        Returns:
+            List of dictionaries containing procedures data
+        """
+        return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
+    
     def get_document(self, doc_id: str, icao: str, max_age_days: int = 30) -> bytes:
         """
         Get document from cache or fetch it if not available.
@@ -193,7 +188,7 @@ class AutorouterSource(CachedSource):
         data = self.get_airport_data(icao, max_age_days)
         return self._extract_airport_doc_list(data)
 
-    def get_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+    def fetch_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
         """
         Get airport AIP data from cache or fetch and parse it if not available.
         
@@ -224,7 +219,20 @@ class AutorouterSource(CachedSource):
                 return {
                     'icao': icao,
                     'authority': authority,
-                    'pdf_data': pdf_data,
                     'parsed_data': parsed_data
                 }
         return None
+    
+    def get_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+        """
+        Get airport AIP data from cache or fetch and parse it if not available.
+        
+        Args:
+            icao: ICAO airport code
+            max_age_days: Maximum age of cache in days
+            
+        Returns:
+            Dictionary containing parsed AIP data or None if not available
+        """
+        return self.get_data('airport_aip', 'json', icao, max_age_days=max_age_days)
+    

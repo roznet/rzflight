@@ -87,21 +87,6 @@ class CachedSource(ABC):
         else:
             raise ValueError(f"Unsupported file extension: {ext}")
 
-    def _split_key(self, key: str) -> Tuple[str, str]:
-        """
-        Split a cache key into base key and parameter.
-        
-        Args:
-            key: Full cache key (e.g., 'airport_LFPO')
-            
-        Returns:
-            Tuple of (base_key, parameter)
-        """
-        parts = key.split('_', 1)
-        if len(parts) == 1:
-            return parts[0], ''
-        return parts[0], parts[1]
-
     def _validate_fetch_method(self, base_key: str) -> None:
         """
         Validate that the fetch method exists for the given base key.
