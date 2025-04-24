@@ -6,7 +6,7 @@
     "configurations": [
 
         {
-            "name": "Python Debugger: Download EGKB",
+            "name": "Python Debugger: Autorouter EGKB",
             "type": "debugpy",
             "request": "launch",
             "program": "newinfo.py",
@@ -16,7 +16,7 @@
             },
             "cwd": "${workspaceFolder}/python",
             "python": "${workspaceFolder}/python/venv/bin/python",
-            "args": ["download", "EGKB"]
+            "args": ["autorouter", "EGKB"]
         },
         {
             "name": "Python Debugger: France eAIP LFAT",

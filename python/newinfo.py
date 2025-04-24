@@ -32,7 +32,7 @@ class Command:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize the appropriate source based on command
-        if args.command == 'download':
+        if args.command == 'autorouter':
             self.source = AutorouterSource(
                 cache_dir=str(self.cache_dir),
                 username=args.username,
@@ -40,11 +40,12 @@ class Command:
             )
         elif args.command == 'france_eaip':
             self.source = FranceEAIPSource(
+                cache_dir=str(self.cache_dir),
                 root_dir=args.root_dir
             )
 
-    def run_download(self):
-        """Download AIPs and procedures for specified airports."""
+    def run_autorouter(self):
+        """Download AIPs and procedures from Autorouter API."""
         for airport in self.args.airports:
             airport = airport.strip()
             logger.info(f'Processing {airport}')
@@ -112,7 +113,7 @@ class Command:
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['download', 'france_eaip'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')

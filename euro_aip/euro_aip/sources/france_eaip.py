@@ -14,14 +14,14 @@ logger = logging.getLogger(__name__)
 class FranceEAIPSource(CachedSource):
     """Source implementation for reading France eAIP data from local directories."""
     
-    def __init__(self, root_dir: str):
+    def __init__(self, cache_dir: str, root_dir: str):
         """
         Initialize the France eAIP source.
         
         Args:
             root_dir: Root directory containing the eAIP data
         """
-        super().__init__(root_dir)
+        super().__init__(cache_dir)
         self.root_dir = Path(root_dir)
         
     def _find_airport_pdf(self, icao: str) -> Optional[Path]:
@@ -71,7 +71,15 @@ class FranceEAIPSource(CachedSource):
         Returns:
             List of paths to procedure PDF files
         """
-        procedure_dir = self.root_dir / "html" / "eAIP" / "Cartes" / icao
+        # Look for the most recent AIRAC directory
+        airac_pattern = 'FRANCE/AIRAC*'
+        airac_dirs = sorted(self.root_dir.glob(airac_pattern), reverse=True)
+        if not airac_dirs:
+            logger.warning(f"No AIRAC directories found in {self.root_dir}")
+            return []
+            
+        # Look for procedures in the most recent AIRAC directory
+        procedure_dir = airac_dirs[0] / "html" / "eAIP" / "Cartes" / icao
         logger.debug(f"Looking for procedures in directory: {procedure_dir}")
         
         if not procedure_dir.exists():
@@ -131,7 +139,7 @@ class FranceEAIPSource(CachedSource):
             name = pdf_path.stem
             
             # Parse the procedure name
-            parser = ProcedureParserFactory.get_parser('LEC')
+            parser = ProcedureParserFactory.get_parser('LFC')
             parsed = parser.parse(name, icao)
             if parsed:
                 rv.append(parsed)

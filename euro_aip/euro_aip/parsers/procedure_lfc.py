@@ -1,15 +1,13 @@
-from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
+from .procedure_default import DefaultProcedureParser
 
-class ProcedureParser(ABC):
-    """Base class for procedure parsers."""
+class LFCProcedureParser(DefaultProcedureParser):
+    """Parser for LFC (France) procedure names."""
     
-    @abstractmethod
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""
-        pass
+        return ['LFC']
     
-    @abstractmethod
     def parse(self, heading: str, icao: str) -> Optional[Dict[str, Any]]:
         """
         Parse a procedure heading into structured data.
@@ -21,4 +19,8 @@ class ProcedureParser(ABC):
         Returns:
             Dictionary containing parsed procedure data or None if invalid
         """
-        pass 
+        # Replace underscores with spaces
+        heading = heading.replace('_', ' ')
+        
+        # Use the default parser's implementation
+        return super().parse(heading, icao) 
