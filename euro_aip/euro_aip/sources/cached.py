@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Tuple
 from pathlib import Path
+import inspect
 
 class CachedSource(ABC):
     """
@@ -42,13 +43,34 @@ class CachedSource(ABC):
         self.source_name = self.__class__.__name__.lower()
         self.cache_path = self.cache_dir / self.source_name
         self.cache_path.mkdir(parents=True, exist_ok=True)
+        self._force_refresh = False
+
+    def set_force_refresh(self, force_refresh: bool = True) -> None:
+        """
+        Set whether to force refresh of cached data.
+        
+        Args:
+            force_refresh: Whether to force refresh of cached data
+        """
+        self._force_refresh = force_refresh
 
     def _get_cache_file(self, key: str, ext: str) -> Path:
         """Get the cache file path for a given key and extension."""
         return self.cache_path / f"{key}.{ext}"
 
     def _is_cache_valid(self, cache_file: Path, max_age_days: Optional[int] = None) -> bool:
-        """Check if the cache file is valid (exists and not too old)."""
+        """
+        Check if the cache file is valid (exists and not too old).
+        
+        Args:
+            cache_file: Path to the cache file
+            max_age_days: Maximum age of cache in days (None for no limit)
+            
+        Returns:
+            bool: True if the cache is valid, False otherwise
+        """
+        if self._force_refresh:
+            return False
         if not cache_file.exists():
             return False
         if max_age_days is None:
@@ -111,7 +133,7 @@ class CachedSource(ABC):
         Args:
             key: Base key for the data type (e.g., 'airport', 'procedures')
             ext: File extension (json, csv, or pdf)
-            param: Parameter to pass to the fetch method
+            param: Parameter to pass to the fetch method (ignored if fetch method takes no arguments)
             cache_param: Optional parameter to use in the cache key (if None, uses param)
             max_age_days: Maximum age of cache in days (None for no limit)
             **kwargs: Additional arguments to pass to the fetch method
@@ -136,20 +158,16 @@ class CachedSource(ABC):
         # Get the fetch method
         fetch_method = getattr(self, f"fetch_{key}")
         
-        # Call the fetch method with the parameter and any additional kwargs
-        data = fetch_method(param, **kwargs)
+        # Check if the method takes any parameters
+        sig = inspect.signature(fetch_method)
+        if len(sig.parameters) == 0:
+            # Method takes no parameters, call it directly
+            data = fetch_method()
+        else:
+            # Method takes parameters, call it with param and kwargs
+            data = fetch_method(param, **kwargs)
         
         # Save to cache
         self._save_to_cache(data, cache_key, ext)
         
         return data
-
-    @abstractmethod
-    def fetch_airport_aip(self, icao: str) -> Dict[str, Any]:
-        """Fetch airport data from the source."""
-        pass
-
-    @abstractmethod
-    def fetch_procedures(self, icao: str) -> List[Dict[str, Any]]:
-        """Fetch procedures data from the source."""
-        pass 

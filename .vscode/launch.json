@@ -9,7 +9,7 @@
             "name": "Python Debugger: Autorouter EGKB",
             "type": "debugpy",
             "request": "launch",
-            "program": "newinfo.py",
+            "program": "aip.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
@@ -22,7 +22,7 @@
             "name": "Python Debugger: France eAIP LFAT",
             "type": "debugpy",
             "request": "launch",
-            "program": "newinfo.py",
+            "program": "aip.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
@@ -30,6 +30,19 @@
             "cwd": "${workspaceFolder}/euro_aip/example",
             "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
             "args": ["--root-dir", "cache/eaip_17_apr_2025", "france_eaip", "LFAT"]
+        },
+        {
+            "name": "Python Debugger: World Airports",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aip.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/euro_aip"
+            },
+            "cwd": "${workspaceFolder}/euro_aip/example",
+            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
+            "args": ["worldairports"]
         }
     ]
 }

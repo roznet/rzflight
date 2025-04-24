@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from pprint import pprint
-from euro_aip.sources import AutorouterSource, FranceEAIPSource
+from euro_aip.sources import AutorouterSource, FranceEAIPSource, WorldAirportsSource
 from euro_aip.parsers import AIPParserFactory
 
 # Configure logging
@@ -42,6 +42,15 @@ class Command:
                 cache_dir=str(self.cache_dir),
                 root_dir=args.root_dir
             )
+        elif args.command == 'worldairports':
+            self.source = WorldAirportsSource(
+                cache_dir=str(self.cache_dir),
+                database=args.database
+            )
+            
+        # Set force refresh if requested
+        if args.force_refresh:
+            self.source.set_force_refresh()
 
     def run_autorouter(self):
         """Download AIPs and procedures from Autorouter API."""
@@ -106,19 +115,44 @@ class Command:
                     import traceback
                     traceback.print_exc()
 
+    def run_worldairports(self):
+        """Download and process World Airports data."""
+        logger.info('Processing World Airports data')
+        
+        try:
+            # Get the database
+            db_metadata = self.source.get_airport_database()
+            logger.info(f'Successfully created database: {db_metadata["database"]}')
+            
+            # Display table information
+            for table in db_metadata['tables']:
+                logger.info(f'Table {table["name"]}: {table["row_count"]} rows, {len(table["fields"])} fields')
+            
+            if self.args.verbose:
+                logger.info('\nDetailed table information:')
+                pprint(db_metadata)
+                
+        except Exception as e:
+            logger.error(f'Error processing World Airports data: {e}')
+            if self.args.verbose:
+                import traceback
+                traceback.print_exc()
+
     def run(self):
         """Run the specified command."""
         getattr(self, f'run_{self.args.command}')()
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
     parser.add_argument('-p', '--password', help='Autorouter password')
     parser.add_argument('-r', '--root-dir', help='Root directory for France eAIP data', default='.')
+    parser.add_argument('-d', '--database', help='SQLite database file for World Airports', default='airports.db')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
+    parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')
     
     args = parser.parse_args()
     
