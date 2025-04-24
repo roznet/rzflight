@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from pprint import pprint
-from euro_aip import EuroAIP
 from euro_aip.sources import AutorouterSource, FranceEAIPSource
 from euro_aip.parsers import AIPParserFactory
 
