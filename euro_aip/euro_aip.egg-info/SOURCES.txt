@@ -1,5 +1,5 @@
 README.md
-setup.py
+pyproject.toml
 euro_aip/__init__.py
 euro_aip.egg-info/PKG-INFO
 euro_aip.egg-info/SOURCES.txt
@@ -19,7 +19,6 @@ euro_aip/parsers/procedure_factory.py
 euro_aip/parsers/procedure_lfc.py
 euro_aip/sources/__init__.py
 euro_aip/sources/autorouter.py
-euro_aip/sources/base.py
 euro_aip/sources/cached.py
 euro_aip/sources/france_eaip.py
 euro_aip/storage/__init__.py

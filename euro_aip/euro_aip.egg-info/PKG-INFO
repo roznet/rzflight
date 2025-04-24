@@ -2,9 +2,8 @@ Metadata-Version: 2.4
 Name: euro_aip
 Version: 0.1.0
 Summary: A library for parsing and managing European AIP (Aeronautical Information Publication) data
-Home-page: https://github.com/brice/euro_aip
-Author: Brice Rosenzweig
-Author-email: brice@rosenzweig.io
+Author-email: Brice Rosenzweig <brice@rosenzweig.io>
+License: MIT
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -16,7 +15,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: requests>=2.25.1
 Requires-Dist: pandas>=1.2.0
-Requires-Dist: camelot-py>=0.10.1
+Requires-Dist: camelot-py>=1.0.0
 Requires-Dist: sqlalchemy>=1.4.0
 Requires-Dist: python-dateutil>=2.8.1
 Provides-Extra: dev
@@ -24,16 +23,6 @@ Requires-Dist: pytest>=6.0; extra == "dev"
 Requires-Dist: black>=21.0; extra == "dev"
 Requires-Dist: mypy>=0.900; extra == "dev"
 Requires-Dist: flake8>=3.9.0; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Euro AIP
 
