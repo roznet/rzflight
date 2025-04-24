@@ -9,7 +9,7 @@ fi
 source venv/bin/activate
 
 # Install euro_aip in development mode (from parent directory)
-pip install -e ../euro_aip
+pip install -e ../../euro_aip
 
 # Install development dependencies
-pip install -e "../euro_aip[dev]" 
+pip install -e "../../euro_aip[dev]" 
