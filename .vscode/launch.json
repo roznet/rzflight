@@ -14,8 +14,8 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
             },
-            "cwd": "${workspaceFolder}/python",
-            "python": "${workspaceFolder}/python/venv/bin/python",
+            "cwd": "${workspaceFolder}/euro_aip/example",
+            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
             "args": ["autorouter", "EGKB"]
         },
         {
@@ -27,8 +27,8 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
             },
-            "cwd": "${workspaceFolder}/python",
-            "python": "${workspaceFolder}/python/venv/bin/python",
+            "cwd": "${workspaceFolder}/euro_aip/example",
+            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
             "args": ["--root-dir", "cache/eaip_17_apr_2025", "france_eaip", "LFAT"]
         }
     ]
