@@ -29,31 +29,19 @@ class Command:
         self.args = args
         self.cache_dir = Path(args.cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Initialize the appropriate source based on command
-        if args.command == 'autorouter':
-            self.source = AutorouterSource(
-                cache_dir=str(self.cache_dir),
-                username=args.username,
-                password=args.password
-            )
-        elif args.command == 'france_eaip':
-            self.source = FranceEAIPSource(
-                cache_dir=str(self.cache_dir),
-                root_dir=args.root_dir
-            )
-        elif args.command == 'worldairports':
-            self.source = WorldAirportsSource(
-                cache_dir=str(self.cache_dir),
-                database=args.database
-            )
-            
-        # Set force refresh if requested
-        if args.force_refresh:
-            self.source.set_force_refresh()
+        self.source = None
 
     def run_autorouter(self):
         """Download AIPs and procedures from Autorouter API."""
+        # Initialize source
+        self.source = AutorouterSource(
+            cache_dir=str(self.cache_dir),
+            username=self.args.username,
+            password=self.args.password
+        )
+        if self.args.force_refresh:
+            self.source.set_force_refresh()
+            
         for airport in self.args.airports:
             airport = airport.strip()
             logger.info(f'Processing {airport}')
@@ -87,6 +75,14 @@ class Command:
 
     def run_france_eaip(self):
         """Parse France eAIP data from local directories."""
+        # Initialize source
+        self.source = FranceEAIPSource(
+            cache_dir=str(self.cache_dir),
+            root_dir=self.args.root_dir
+        )
+        if self.args.force_refresh:
+            self.source.set_force_refresh()
+            
         logger.info(f"Using root directory: {self.args.root_dir}")
         
         for airport in self.args.airports:
@@ -117,6 +113,14 @@ class Command:
 
     def run_worldairports(self):
         """Download and process World Airports data."""
+        # Initialize source
+        self.source = WorldAirportsSource(
+            cache_dir=str(self.cache_dir),
+            database=self.args.database
+        )
+        if self.args.force_refresh:
+            self.source.set_force_refresh()
+            
         logger.info('Processing World Airports data')
         
         try:
