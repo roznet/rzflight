@@ -34,7 +34,10 @@ class DefaultAIPParser(AIPParser):
                 temp_file.flush()
                 
                 # Parse the PDF
-                tables = camelot.read_pdf(temp_file.name, pages='1-2', flavor='stream')
+                tables = camelot.read_pdf(temp_file.name, pages='1-2', 
+                                          flavor='stream',
+                                          row_tol=12,
+                                          )
                 
                 if len(tables) > 1:
                     admin = tables[0].df.to_dict('records')
@@ -77,7 +80,9 @@ class DefaultAIPParser(AIPParser):
         """
         rv = []
         for row in table:
+            print(row)
             field_sep_line = False
+            # we have at least a field and a value
             if 1 in row:
                 fields = row[1].split(' / ')
                 if len(fields) == 2:

@@ -1,4 +1,5 @@
 camelot-py>=1.0.0
 pandas
 requests
-pathlib 
+pathlib
+pytest 
