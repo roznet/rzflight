@@ -1,5 +1,7 @@
 from typing import Dict, Type, List
-from .base import AIPParser
+from .aip_base import AIPParser
+import pandas as pd
+from tabulate import tabulate
 
 # Constants for authority codes
 DEFAULT_AUTHORITY = 'DEFAULT'
@@ -50,4 +52,36 @@ class AIPParserFactory:
         Returns:
             List of supported authority codes
         """
-        return list(cls._parsers.keys()) 
+        return list(cls._parsers.keys())
+        
+    @staticmethod
+    def pretty_print_results(results: List[Dict[str, str]], show_alt: bool = True) -> None:
+        """
+        Pretty print parsing results in a table format.
+        
+        Args:
+            results: List of dictionaries containing parsed data
+            show_alt: Whether to show alt_field and alt_value columns
+        """
+        if not results:
+            print("No results to display")
+            return
+            
+        # Convert to DataFrame
+        df = pd.DataFrame(results)
+        
+        # Select columns to display
+        columns = ['ident', 'section', 'field', 'value']
+        if show_alt:
+            columns.extend(['alt_field', 'alt_value'])
+            
+        # Filter out rows where alt values are empty or None if not showing alt
+        if not show_alt:
+            df = df[df['alt_field'].isna() | (df['alt_field'] == '')]
+            df = df[df['alt_value'].isna() | (df['alt_value'] == '')]
+            
+        # Select and reorder columns
+        df = df[columns]
+        
+        # Print table
+        print(tabulate(df, headers='keys', tablefmt='grid', showindex=False)) 

@@ -3,7 +3,7 @@ import pandas as pd
 import camelot
 from io import StringIO, BytesIO
 from typing import List, Dict, Any
-from .base import AIPParser
+from .aip_base import AIPParser
 
 class LECAIPParser(AIPParser):
     """Parser for LEC (France) AIP format."""
@@ -70,53 +70,7 @@ class LECAIPParser(AIPParser):
         
         return rv
     
-    def _pdf_to_text(self, pdf_data: bytes) -> tuple[list[str], list[str]]:
-        """
-        Convert PDF data to text, separating Spanish and English columns.
         
-        Args:
-            pdf_data: Raw PDF data
-            
-        Returns:
-            Tuple of (spanish_texts, english_texts) where each is a list of strings,
-            with each string containing all rows from a single table joined by newlines
-        """
-        # Create a BytesIO object from the PDF data
-        pdf_file = BytesIO(pdf_data)
-        
-        # Extract tables from the PDF
-        tables = camelot.read_pdf(pdf_file, pages='all', flavor='stream')
-        
-        # Initialize lists for Spanish and English text
-        spanish_texts = []
-        english_texts = []
-        
-        for i, table in enumerate(tables):
-            try:
-                print(f"Processing table {i+1}")
-                
-                # Ensure the table has at least 2 columns
-                if len(table.df.columns) >= 2:
-                    # Get the first column (Spanish) and second column (English)
-                    spanish_col = table.df.iloc[:, 0].values
-                    english_col = table.df.iloc[:, 1].values
-
-                    for (spanish, english) in zip(spanish_col, english_col):
-                        if 'customs' in english.lower() or 'Fuel' in english:
-                            print(f">> {spanish} --- {english}")
-                    # Create strings for this table's text
-                    spanish_text = '\n'.join([str(text).strip() for text in spanish_col if str(text).strip()])
-                    english_text = '\n'.join([str(text).strip() for text in english_col if str(text).strip()])
-                    
-                    # Add to respective lists
-                    spanish_texts.append(spanish_text)
-                    english_texts.append(english_text)
-            except Exception as e:
-                print(f"Error processing table {i+1}: {str(e)}")
-                print(f"Table data: {table.df}")
-                raise
-        
-        return spanish_texts, english_texts
     
     def _parse_sections(self, text: str) -> Dict[str, pd.DataFrame]:
         """
@@ -131,8 +85,8 @@ class LECAIPParser(AIPParser):
         chunks = {}
         current = []
         section = None
-        section_re = re.compile(r' +([0-9]+)\. +[A-Z]+')
-        
+        section_re = re.compile(r'([0-9]+)\. +[A-Z]+')
+
         for line in text.splitlines():
             m = section_re.match(line)
             if m:

@@ -1,9 +1,7 @@
-import camelot.io as camelot
-import tempfile
 import os
 import logging
 from typing import List, Dict, Any
-from .base import AIPParser
+from .aip_base import AIPParser
 from .aip_factory import DEFAULT_AUTHORITY
 
 logger = logging.getLogger(__name__)
@@ -28,31 +26,21 @@ class DefaultAIPParser(AIPParser):
         """
         rv = []
         try:
-            # Create a temporary file to store the PDF
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-                temp_file.write(pdf_data)
-                temp_file.flush()
+            tables = self._pdf_to_tables(pdf_data)
+            if len(tables) > 1:
+                admin = tables[0].df.to_dict('records')
+                operational = tables[1].df.to_dict('records')
                 
-                # Parse the PDF
-                tables = camelot.read_pdf(temp_file.name, pages='1-2', 
-                                          flavor='stream',
-                                          row_tol=12,
-                                          )
+                rv.extend(self._process_table(admin, 'admin', icao))
+                rv.extend(self._process_table(operational, 'operational', icao))
                 
-                if len(tables) > 1:
-                    admin = tables[0].df.to_dict('records')
-                    operational = tables[1].df.to_dict('records')
-                    
-                    rv.extend(self._process_table(admin, 'admin', icao))
-                    rv.extend(self._process_table(operational, 'operational', icao))
-                    
-                if len(tables) > 3:
-                    handling = tables[2].df.to_dict('records')
-                    passenger = tables[3].df.to_dict('records')
-                    
-                    rv.extend(self._process_table(handling, 'handling', icao))
-                    rv.extend(self._process_table(passenger, 'passenger', icao))
-                    
+            if len(tables) > 3:
+                handling = tables[2].df.to_dict('records')
+                passenger = tables[3].df.to_dict('records')
+                
+                rv.extend(self._process_table(handling, 'handling', icao))
+                rv.extend(self._process_table(passenger, 'passenger', icao))
+                
         except Exception as e:
             logger.error(f"Error parsing PDF for {icao}: {e}")
             return None
