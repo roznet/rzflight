@@ -42,6 +42,15 @@ class WorldAirportsSource(CachedSource):
             logger.info(f"Downloading {url} to {target}")
             urllib.request.urlretrieve(url, target)
             
+    def _get_field_type(self, field: str) -> str:
+        """Determine SQL type based on field name."""
+        # Check for suffixes
+        for suffix, sql_type in self.known_suffix_types.items():
+            if field.endswith(suffix):
+                return sql_type
+                
+        return 'TEXT'
+        
     def _create_table_from_csv(self, table_name: str, fields: List[str], primary_key: str = 'ident') -> str:
         """Create SQL for creating a table from CSV fields."""
         sql = f'CREATE TABLE {table_name} (\n'
@@ -49,7 +58,7 @@ class WorldAirportsSource(CachedSource):
             if field == primary_key:
                 sql += f"{field} TEXT PRIMARY KEY,\n"
             else:
-                sql += f"{field} {self.known_suffix_types.get(field[-4:], 'TEXT')},\n"
+                sql += f"{field} {self._get_field_type(field)},\n"
         sql = sql[:-2] + '\n)'
         return sql
         
@@ -305,7 +314,7 @@ class WorldAirportsSource(CachedSource):
             
             # Commit the changes
             conn.commit()
-            
+
             # Return database metadata
             return {
                 'database': self.database,
@@ -325,7 +334,8 @@ class WorldAirportsSource(CachedSource):
         Returns:
             Dictionary containing database metadata
         """
-        return self.get_data('airport_database', 'json', '', max_age_days=max_age_days)
+        # should always rebuild the database
+        return self.fetch_airport_database()
             
     def get_airport_summary(self) -> List[Dict[str, Any]]:
         """
