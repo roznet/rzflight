@@ -34,7 +34,7 @@ class DefaultAIPParser(AIPParser):
                 temp_file.flush()
                 
                 # Parse the PDF
-                tables = camelot.read_pdf(temp_file.name, pages='1-2')
+                tables = camelot.read_pdf(temp_file.name, pages='1-2', flavor='stream')
                 
                 if len(tables) > 1:
                     admin = tables[0].df.to_dict('records')
@@ -52,7 +52,7 @@ class DefaultAIPParser(AIPParser):
                     
         except Exception as e:
             logger.error(f"Error parsing PDF for {icao}: {e}")
-            return [{'ident': icao, 'section': 'admin', 'field': 'Observations', 'value': 'Error parsing PDF', 'alt_value': ''}]
+            return None
         finally:
             # Clean up the temporary file
             if 'temp_file' in locals():
@@ -101,7 +101,7 @@ class DefaultAIPParser(AIPParser):
                     alt_value = row[3]
                 else:
                     alt_value = None
-                if alt_field and not alt_value:
+                if alt_field and not alt_value and value:
                     sp = value.splitlines()
                     if len(sp) % 2 == 0:
                         half = len(sp) // 2

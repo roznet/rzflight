@@ -6,6 +6,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, Tuple
 from pathlib import Path
 import inspect
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CachedSource(ABC):
     """
@@ -58,7 +61,7 @@ class CachedSource(ABC):
         """Get the cache file path for a given key and extension."""
         return self.cache_path / f"{key}.{ext}"
 
-    def _is_cache_valid(self, cache_file: Path, max_age_days: Optional[int] = None) -> bool:
+    def _is_cache_valid(self, cache_file: Path, max_age_days: Optional[int] = None) -> Tuple[bool, Optional[str]]:
         """
         Check if the cache file is valid (exists and not too old).
         
@@ -67,16 +70,18 @@ class CachedSource(ABC):
             max_age_days: Maximum age of cache in days (None for no limit)
             
         Returns:
-            bool: True if the cache is valid, False otherwise
+            Tuple[bool, Optional[str]]: (is_valid, reason if invalid)
         """
         if self._force_refresh:
-            return False
+            return False, "force refresh"
         if not cache_file.exists():
-            return False
+            return False, "missing"
         if max_age_days is None:
-            return True
+            return True, None
         file_age = datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)
-        return file_age.days <= max_age_days
+        if file_age.days <= max_age_days:
+            return True, None
+        return False, "expired"
 
     def _save_to_cache(self, data: Any, key: str, ext: str) -> None:
         """Save data to cache with the specified extension."""
@@ -149,7 +154,9 @@ class CachedSource(ABC):
         cache_key = f"{key}_{cache_param if cache_param is not None else param}"
         cache_file = self._get_cache_file(cache_key, ext)
         
-        if self._is_cache_valid(cache_file, max_age_days):
+        is_valid, reason = self._is_cache_valid(cache_file, max_age_days)
+        if is_valid:
+            logger.info(f"{cache_file.name} retrieved from cache")
             return self._load_from_cache(cache_key, ext)
             
         # Validate that the fetch method exists
@@ -169,5 +176,6 @@ class CachedSource(ABC):
         
         # Save to cache
         self._save_to_cache(data, cache_key, ext)
+        logger.info(f"{cache_file.name} [{reason}] fetched using {fetch_method.__name__}")
         
         return data
