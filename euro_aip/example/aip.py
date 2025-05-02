@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from pprint import pprint
-from euro_aip.sources import AutorouterSource, FranceEAIPSource, WorldAirportsSource
+from euro_aip.sources import AutorouterSource, FranceEAIPSource, WorldAirportsSource, PointDePassageJournalOfficiel, DatabaseSource
 from euro_aip.parsers import AIPParserFactory
 
 # Configure logging
@@ -142,23 +142,59 @@ class Command:
                 import traceback
                 traceback.print_exc()
 
+    def run_pointdepassage(self):
+        """Process Point de Passage journal PDF and store in database."""
+        # Initialize database source
+        database_source = DatabaseSource(
+            self.args.database
+        )
+        
+        # Initialize Point de Passage source
+        source = PointDePassageJournalOfficiel(
+            pdf_path=self.args.journal_path,
+            database_source=database_source
+        )
+            
+        logger.info(f'Processing Point de Passage journal: {self.args.journal_path}')
+        
+        try:
+            # Get points de passage
+            points_de_passage = source.get_points_de_passage()
+            if points_de_passage:
+                logger.info(f'Successfully found {len(points_de_passage)} Points de Passage airports')
+                if self.args.verbose:
+                    logger.info('\nPoints de Passage airports:')
+                    pprint(points_de_passage)
+            else:
+                logger.warning('No Points de Passage airports found in the journal')
+                
+        except Exception as e:
+            logger.error(f'Error processing Point de Passage journal: {e}')
+            if self.args.verbose:
+                import traceback
+                traceback.print_exc()
+
     def run(self):
         """Run the specified command."""
         getattr(self, f'run_{self.args.command}')()
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports', 'pointdepassage'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
     parser.add_argument('-p', '--password', help='Autorouter password')
     parser.add_argument('-r', '--root-dir', help='Root directory for France eAIP data', default='.')
-    parser.add_argument('-d', '--database', help='SQLite database file for World Airports', default='airports.db')
+    parser.add_argument('-d', '--database', help='SQLite database file', default='airports.db')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')
+    parser.add_argument('-j', '--journal-path', help='Path to Point de Passage journal PDF file')
     
     args = parser.parse_args()
+    
+    if args.command == 'pointdepassage' and not args.journal_path:
+        parser.error("--journal-path is required for pointdepassage command")
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

@@ -1,3 +1,26 @@
+"""
+Source for parsing French eAIP (Electronic Aeronautical Information Publication) data.
+
+This source reads the official French eAIP data from the DGAC (Direction Générale
+de l'Aviation Civile) website. The eAIP data can be downloaded from:
+https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html
+
+To use this source:
+1. Download the "ZIP eAIP complet" from the DGAC website
+2. Extract the ZIP file to a directory
+3. Point this source to the extracted directory as the root directory
+
+The eAIP contains comprehensive aeronautical information including:
+- Airport information
+- Navigation procedures
+- Airspace structures
+- ATC procedures
+- And more
+
+Note: The eAIP is updated every 28 days (AIRAC cycle). Make sure to use the
+latest version for current information.
+"""
+
 import os
 import logging
 from typing import Dict, List, Any, Optional
@@ -12,16 +35,32 @@ from ..parsers.procedure_factory import ProcedureParserFactory
 logger = logging.getLogger(__name__)
 
 class FranceEAIPSource(CachedSource):
-    """Source implementation for reading France eAIP data from local directories."""
+    """
+    A source that provides access to French eAIP data.
     
-    def __init__(self, cache_dir: str, root_dir: str):
+    This source reads the official French eAIP data from the DGAC website.
+    The eAIP data should be downloaded from:
+    https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html
+    
+    To use this source:
+    1. Download the "ZIP eAIP complet" from the DGAC website
+    2. Extract the ZIP file to a directory
+    3. Point this source to the extracted directory as the root directory
+    
+    The source will parse the XML files in the eAIP to extract relevant
+    aeronautical information.
+    """
+    
+    def __init__(self, root_dir: str):
         """
-        Initialize the France eAIP source.
+        Initialize the source.
         
         Args:
-            root_dir: Root directory containing the eAIP data
+            root_dir: Path to the root directory of the extracted eAIP.
+                     This should be the directory containing the 'FRANCE' folder
+                     from the downloaded eAIP ZIP file.
         """
-        super().__init__(cache_dir)
+        super().__init__(root_dir)
         self.root_dir = Path(root_dir)
         
     def _find_airport_pdf(self, icao: str) -> Optional[Path]:
