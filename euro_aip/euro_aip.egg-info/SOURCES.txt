@@ -12,7 +12,6 @@ euro_aip/parsers/__init__.py
 euro_aip/parsers/aip_default.py
 euro_aip/parsers/aip_factory.py
 euro_aip/parsers/aip_lec.py
-euro_aip/parsers/base.py
 euro_aip/parsers/procedure.py
 euro_aip/parsers/procedure_default.py
 euro_aip/parsers/procedure_factory.py
