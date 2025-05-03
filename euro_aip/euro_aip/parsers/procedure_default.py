@@ -21,6 +21,7 @@ class DefaultProcedureParser(ProcedureParser):
             r'.*(INSTRUMENT APPROACH CHART| IAC[ /])[- ]*',
             r'[- ]*ICAO[- ]*'
         ]
+        self.runway_pattern = re.compile(r'\s+([0-3][0-9])([RLC])?')
     
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""
@@ -81,11 +82,30 @@ class DefaultProcedureParser(ProcedureParser):
         Returns:
             Dictionary containing parsed procedure data
         """
-        # Basic parsing of procedure name
-        # This can be enhanced based on specific needs
+        # First try to identify the approach type
+        approach_types = ['ILS', 'RNAV', 'RNP', 'LOC', 'VOR', 'NDB']
+        approach_type = None
+        for type_name in approach_types:
+            if type_name in name:
+                approach_type = type_name
+                break
+                
+        # Then look for runway number
+        runway_match = self.runway_pattern.search(name)
+        
+        if runway_match:
+            runway_number = runway_match.group(1)
+            runway_letter = runway_match.group(2) if runway_match.group(2) else None
+        else:
+            runway_number = None
+            runway_letter = None
+            
         return {
             'icao': icao,
             'name': name,
             'type': 'approach',  # Default to approach since we filter for these
-            'raw_name': name
-        } 
+            'raw_name': name,
+            'approach_type': approach_type,
+            'runway_number': runway_number,
+            'runway_letter': runway_letter
+        }

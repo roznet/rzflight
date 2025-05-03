@@ -6,7 +6,7 @@
     "configurations": [
         
         {
-            "name": "Python Debugger: Autorouter LSZH",
+            "name": "Python Debugger: Autorouter EGKB",
             "type": "debugpy",
             "request": "launch",
             "program": "aip.py",
@@ -16,7 +16,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["autorouter", "LSZH"]
+            "args": ["autorouter", "EGKB", "-n"]
         },
         {
             "name": "Python Debugger: France eAIP LFAT",

@@ -47,6 +47,7 @@ class CachedSource(ABC):
         self.cache_path = self.cache_dir / self.source_name
         self.cache_path.mkdir(parents=True, exist_ok=True)
         self._force_refresh = False
+        self._never_refresh = False
 
     def set_force_refresh(self, force_refresh: bool = True) -> None:
         """
@@ -56,6 +57,16 @@ class CachedSource(ABC):
             force_refresh: Whether to force refresh of cached data
         """
         self._force_refresh = force_refresh
+
+    def set_never_refresh(self, never_refresh: bool = True) -> None:
+        """
+        Set whether to never refresh cached data.
+        If set to True, will use cached data if it exists, regardless of age.
+        
+        Args:
+            never_refresh: Whether to never refresh cached data
+        """
+        self._never_refresh = never_refresh
 
     def _get_cache_file(self, key: str, ext: str) -> Path:
         """Get the cache file path for a given key and extension."""
@@ -76,6 +87,8 @@ class CachedSource(ABC):
             return False, "force refresh"
         if not cache_file.exists():
             return False, "missing"
+        if self._never_refresh:
+            return True, None
         if max_age_days is None:
             return True, None
         file_age = datetime.now() - datetime.fromtimestamp(cache_file.stat().st_mtime)

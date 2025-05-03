@@ -1,8 +1,12 @@
 from typing import List, Dict, Any, Optional
 from .procedure_default import DefaultProcedureParser
-
+import re
 class LFCProcedureParser(DefaultProcedureParser):
     """Parser for LFC (France) procedure names."""
+
+    def __init__(self):
+        super().__init__()
+        self.runway_pattern = re.compile(r'RWY([0-3][0-9])([RLC])?')
     
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""

@@ -97,7 +97,7 @@ class AutorouterSource(CachedSource):
             logger.error(f"Error fetching document {doc_id}: {e}")
             raise
 
-    def get_airport_data(self, icao: str, max_age_days: int = 7) -> Dict[str, Any]:
+    def get_airport_data(self, icao: str, max_age_days: int = 28) -> Dict[str, Any]:
         """
         Get airport data from cache or fetch it if not available.
         
@@ -110,7 +110,7 @@ class AutorouterSource(CachedSource):
         """
         return self.get_data('airport', 'json', icao, max_age_days=max_age_days)
 
-    def fetch_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+    def fetch_procedures(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
         """
         Get procedures data from cache or fetch it if not available.
         
@@ -147,7 +147,7 @@ class AutorouterSource(CachedSource):
                     rv.append(proc)
         return rv
 
-    def get_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+    def get_procedures(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
         """
         Get procedures data from cache or fetch it if not available.
         
@@ -160,7 +160,7 @@ class AutorouterSource(CachedSource):
         """
         return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
     
-    def get_document(self, doc_id: str, icao: str, max_age_days: int = 30) -> bytes:
+    def get_document(self, doc_id: str, icao: str, max_age_days: int = 28) -> bytes:
         """
         Get document from cache or fetch it if not available.
         
@@ -174,7 +174,7 @@ class AutorouterSource(CachedSource):
         """
         return self.get_data('document', 'pdf', doc_id, cache_param=icao, max_age_days=max_age_days)
 
-    def get_airport_documents(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+    def get_airport_documents(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
         """
         Get airport documents list from cache or fetch it if not available.
         
@@ -188,7 +188,7 @@ class AutorouterSource(CachedSource):
         data = self.get_airport_data(icao, max_age_days)
         return self._extract_airport_doc_list(data)
 
-    def fetch_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+    def fetch_airport_aip(self, icao: str, max_age_days: int = 28) -> Optional[Dict[str, Any]]:
         """
         Get airport AIP data from cache or fetch and parse it if not available.
         
@@ -223,7 +223,7 @@ class AutorouterSource(CachedSource):
                 }
         return None
     
-    def get_airport_aip(self, icao: str, max_age_days: int = 7) -> Optional[Dict[str, Any]]:
+    def get_airport_aip(self, icao: str, max_age_days: int = 28) -> Optional[Dict[str, Any]]:
         """
         Get airport AIP data from cache or fetch and parse it if not available.
         
@@ -235,4 +235,19 @@ class AutorouterSource(CachedSource):
             Dictionary containing parsed AIP data or None if not available
         """
         return self.get_data('airport_aip', 'json', icao, max_age_days=max_age_days)
-    
+
+    def get_approach_data(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
+        """
+        Get approach data from cache or fetch and parse it if not available.
+        """
+        procedures = self.get_procedures(icao, max_age_days)
+        rv = []
+        authority = 'DEFAULT'
+        for proc in procedures:
+            if proc['type'] == 'approach':
+                from ..parsers.procedure_factory import ProcedureParserFactory
+                parser = ProcedureParserFactory.get_parser(authority)
+                parsed = parser.parse(proc['heading'], icao)
+                if parsed:
+                    rv.append(parsed)
+        return rv

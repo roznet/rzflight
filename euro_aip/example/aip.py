@@ -41,6 +41,8 @@ class Command:
         )
         if self.args.force_refresh:
             self.source.set_force_refresh()
+        if self.args.never_refresh:
+            self.source.set_never_refresh()
             
         for airport in self.args.airports:
             airport = airport.strip()
@@ -66,6 +68,13 @@ class Command:
                     logger.info(f'Successfully parsed {len(aip_data["parsed_data"])} items in AIP for {airport}')
                 else:
                     logger.warning(f'No AIP document found for {airport}')
+
+                # Get approach data
+                approach_data = self.source.get_approach_data(airport)
+                if approach_data:
+                    logger.info(f'Successfully parsed {len(approach_data)} items in approach data for {airport}')
+                else:
+                    logger.warning(f'No approach data found for {airport}')
                     
             except Exception as e:
                 logger.error(f'Error processing {airport}: {e}')
@@ -82,6 +91,8 @@ class Command:
         )
         if self.args.force_refresh:
             self.source.set_force_refresh()
+        if self.args.never_refresh:
+            self.source.set_never_refresh()
             
         logger.info(f"Using root directory: {self.args.root_dir}")
         
@@ -120,6 +131,8 @@ class Command:
         )
         if self.args.force_refresh:
             self.source.set_force_refresh()
+        if self.args.never_refresh:
+            self.source.set_never_refresh()
             
         logger.info('Processing World Airports data')
         
@@ -215,6 +228,7 @@ def main():
     parser.add_argument('-d', '--database', help='SQLite database file', default='airports.db')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')
+    parser.add_argument('-n', '--never-refresh', help='Never refresh cached data if it exists', action='store_true')
     parser.add_argument('-j', '--journal-path', help='Path to Point de Passage journal PDF file')
     parser.add_argument('-w', '--where', help='SQL WHERE clause for database query')
     

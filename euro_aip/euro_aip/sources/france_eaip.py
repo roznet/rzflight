@@ -51,7 +51,7 @@ class FranceEAIPSource(CachedSource):
     aeronautical information.
     """
     
-    def __init__(self, root_dir: str):
+    def __init__(self, cache_dir: str, root_dir: str):
         """
         Initialize the source.
         
@@ -60,7 +60,7 @@ class FranceEAIPSource(CachedSource):
                      This should be the directory containing the 'FRANCE' folder
                      from the downloaded eAIP ZIP file.
         """
-        super().__init__(root_dir)
+        super().__init__(cache_dir)
         self.root_dir = Path(root_dir)
         
     def _find_airport_pdf(self, icao: str) -> Optional[Path]:
@@ -185,7 +185,7 @@ class FranceEAIPSource(CachedSource):
                 
         return rv
         
-    def get_airport_aip(self, icao: str, max_age_days: int = 7) -> Dict[str, Any]:
+    def get_airport_aip(self, icao: str, max_age_days: int = 28) -> Dict[str, Any]:
         """
         Get airport data from cache or fetch it if not available.
         
@@ -198,7 +198,7 @@ class FranceEAIPSource(CachedSource):
         """
         return self.get_data('airport_aip', 'json', icao, max_age_days=max_age_days)
         
-    def get_procedures(self, icao: str, max_age_days: int = 7) -> List[Dict[str, Any]]:
+    def get_procedures(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
         """
         Get procedures data from cache or fetch it if not available.
         
