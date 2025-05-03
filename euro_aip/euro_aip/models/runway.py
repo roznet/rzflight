@@ -10,8 +10,8 @@ class Runway:
     length_ft: Optional[float] = None
     width_ft: Optional[float] = None
     surface: Optional[str] = None
-    lighted: Optional[str] = None
-    closed: Optional[str] = None
+    lighted: Optional[bool] = None
+    closed: Optional[bool] = None
     
     # Low end (LE) information
     le_ident: Optional[str] = None
@@ -58,24 +58,48 @@ class Runway:
     @classmethod
     def from_dict(cls, data: dict) -> 'Runway':
         """Create instance from dictionary."""
-        if 'created_at' in data:
-            data['created_at'] = datetime.fromisoformat(data['created_at'])
+        # Filter out unknown fields
+        known_fields = {field for field in cls.__dataclass_fields__}
+        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+        
+        if 'created_at' in filtered_data:
+            filtered_data['created_at'] = datetime.fromisoformat(filtered_data['created_at'])
             
         # Convert numeric fields from strings if needed
-        numeric_fields = [
-            'length_ft', 'width_ft', 'le_elevation_ft', 'le_heading_degT',
-            'le_displaced_threshold_ft', 'he_elevation_ft', 'he_heading_degT',
-            'he_displaced_threshold_ft'
-        ]
-        
-        for field in numeric_fields:
-            if field in data and data[field] is not None:
+        for field, value in filtered_data.items():
+            if value is not None and any(field.endswith(suffix) for suffix in ['_deg', '_degT', '_ft']):
                 try:
-                    data[field] = float(data[field])
+                    filtered_data[field] = float(value)
                 except (ValueError, TypeError):
-                    data[field] = None
+                    filtered_data[field] = None
                     
-        return cls(**data)
+        # Convert boolean fields
+        for field in ['lighted', 'closed']:
+            if field in filtered_data and filtered_data[field] is not None:
+                filtered_data[field] = bool(filtered_data[field])
+                    
+        return cls(**filtered_data)
     
     def __repr__(self):
-        return f"Runway(airport_ident='{self.airport_ident}', le_ident='{self.le_ident}', he_ident='{self.he_ident}')" 
+        return f"Runway(airport_ident='{self.airport_ident}', le_ident='{self.le_ident}', he_ident='{self.he_ident}')"
+        
+    def __str__(self):
+        """Return a human-readable string representation of the runway."""
+        status = []
+        if self.closed:
+            status.append("CLOSED")
+        if self.lighted:
+            status.append("LIGHTED")
+            
+        runway_info = f"Runway {self.le_ident}/{self.he_ident}"
+        if status:
+            runway_info += f" ({', '.join(status)})"
+            
+        if self.length_ft:
+            runway_info += f"\nLength: {self.length_ft:.0f}ft"
+        if self.width_ft:
+            runway_info += f" Width: {self.width_ft:.0f}ft"
+        if self.surface:
+            runway_info += f"\nSurface: {self.surface}"
+            
+        return runway_info 

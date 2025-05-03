@@ -56,6 +56,19 @@
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
             "args": ["pointdepassage", "-j", "cache/joe_20210529.pdf"]
-        }
+        },
+        {
+            "name": "Python Debugger: Query Database",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aip.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/euro_aip"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": ["querydb", "-w", "ident = 'LFAT' or ident = 'EGKB'", "-v"]
+
     ]
 }

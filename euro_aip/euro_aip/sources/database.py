@@ -2,8 +2,10 @@
 
 import sqlite3
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, List
 from contextlib import contextmanager
+from ..models.airport import Airport
+from ..models.runway import Runway
 
 class DatabaseSource:
     """
@@ -92,3 +94,51 @@ class DatabaseSource:
                 'database': str(self.database_path),
                 'tables': [self.get_table_info(table) for table in tables]
             } 
+        
+    def get_airports(self, where: str = None) -> List[Airport]:
+        """
+        Get all airports from the database.
+        
+        Args:
+            where: SQL WHERE clause to filter the airports
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT * FROM airports"
+            if where:
+                query += f" WHERE {where}"
+            cursor.execute(query)
+            return [Airport.from_dict(dict(row)) for row in cursor.fetchall()]
+        
+    def get_airports_with_runways(self, where: str = None) -> List[Airport]:
+        """
+        Get all airports from the database with their runways.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            query = """
+            SELECT a.*, r.*
+            FROM airports a
+            LEFT JOIN runways r ON a.ident = r.airport_ident
+            """
+            if where:
+                query += f" WHERE {where}"
+            cursor.execute(query)
+
+            airports : Dict[str, Airport] = {}
+
+            for row in cursor:
+                airport_id = row['ident']
+                if airport_id not in airports:
+                    airports[airport_id] = Airport.from_dict(dict(row))
+
+                runway = Runway.from_dict(dict(row))
+                if not runway.closed:
+                    if not airports[airport_id].runways:
+                        airports[airport_id].runways = []
+                    airports[airport_id].runways.append(runway)
+
+            return list(airports.values())
+        
+        
+            

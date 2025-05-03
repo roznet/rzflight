@@ -48,6 +48,8 @@ class WorldAirportsSource(CachedSource):
         for suffix, sql_type in self.known_suffix_types.items():
             if field.endswith(suffix):
                 return sql_type
+        if field in ['closed', 'lighted']:
+            return 'INTEGER'
                 
         return 'TEXT'
         
@@ -246,6 +248,7 @@ class WorldAirportsSource(CachedSource):
             AND t.surface = r.surface 
             AND r.surface != '' 
             AND a.continent = 'EU'
+            AND r.closed = '0'
         """)
         
         # Process summaries

@@ -174,13 +174,39 @@ class Command:
                 import traceback
                 traceback.print_exc()
 
+    def run_querydb(self):
+        """Query the database with a WHERE clause."""
+        # Initialize database source
+        database_source = DatabaseSource(
+            self.args.database
+        )
+            
+        logger.info(f'Querying database with WHERE clause: {self.args.where}')
+        
+        try:
+            # Get airports matching the WHERE clause
+            airports = database_source.get_airports_with_runways(self.args.where)
+            if airports:
+                logger.info(f'Found {len(airports)} airports')
+                if self.args.verbose:
+                    for airport in airports:
+                        logger.info(f'{str(airport)}')
+            else:
+                logger.warning('No airports found matching the criteria')
+                
+        except Exception as e:
+            logger.error(f'Error querying database: {e}')
+            if self.args.verbose:
+                import traceback
+                traceback.print_exc()
+
     def run(self):
         """Run the specified command."""
         getattr(self, f'run_{self.args.command}')()
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports', 'pointdepassage'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports', 'pointdepassage', 'querydb'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
@@ -190,11 +216,14 @@ def main():
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')
     parser.add_argument('-j', '--journal-path', help='Path to Point de Passage journal PDF file')
+    parser.add_argument('-w', '--where', help='SQL WHERE clause for database query')
     
     args = parser.parse_args()
     
     if args.command == 'pointdepassage' and not args.journal_path:
         parser.error("--journal-path is required for pointdepassage command")
+    if args.command == 'querydb' and not args.where:
+        parser.error("--where is required for querydb command")
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

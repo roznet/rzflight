@@ -26,7 +26,7 @@ class Airport:
     created_at: datetime = datetime.now()
     
     # Optional relationships (not stored in the dataclass, but can be loaded)
-    runways: List['Runway'] = None
+    runways: List['Runway'] = None 
     aip_entries: List['AIPEntry'] = None
     
     def to_dict(self) -> dict:
@@ -63,9 +63,34 @@ class Airport:
     @classmethod
     def from_dict(cls, data: dict) -> 'Airport':
         """Create instance from dictionary."""
-        if 'created_at' in data:
-            data['created_at'] = datetime.fromisoformat(data['created_at'])
-        return cls(**data)
+        # Filter out unknown fields
+        known_fields = {field for field in cls.__dataclass_fields__}
+        filtered_data = {k: v for k, v in data.items() if k in known_fields}
+        
+        if 'created_at' in filtered_data:
+            filtered_data['created_at'] = datetime.fromisoformat(filtered_data['created_at'])
+        return cls(**filtered_data)
     
     def __repr__(self):
-        return f"Airport(ident='{self.ident}', name='{self.name}')" 
+        return f"Airport(ident='{self.ident}', name='{self.name}')"
+        
+    def __str__(self):
+        """Return a human-readable string representation of the airport."""
+        airport_info = f"{self.name} ({self.ident})"
+        
+        if self.municipality:
+            airport_info += f"\nLocation: {self.municipality}"
+        if self.iso_country:
+            airport_info += f", {self.iso_country}"
+            
+        if self.latitude_deg and self.longitude_deg:
+            airport_info += f"\nCoordinates: {self.latitude_deg:.4f}°N, {self.longitude_deg:.4f}°E"
+        if self.elevation_ft:
+            airport_info += f"\nElevation: {self.elevation_ft}ft"
+            
+        if self.runways:
+            airport_info += f"\n\nRunways:"
+            for runway in self.runways:
+                airport_info += f"\n{str(runway)}"
+                
+        return airport_info 
