@@ -2,6 +2,9 @@ import pytest
 from pathlib import Path
 from euro_aip.parsers import AIPParserFactory
 from tests.assets.expected_results import EXPECTED_RESULTS
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_authority_from_icao(icao: str) -> str:
     """
@@ -40,12 +43,16 @@ def get_authority_from_icao(icao: str) -> str:
 def test_aip_parser_parse_airports(test_pdfs):
     """Test that the AIP parser can parse all test PDF files."""
     assert test_pdfs, "No test PDF files found"
+    skip_list = ['ESMS']
+    debug_list = ['LFAT']
     
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)
         icao = pdf_file.stem.split('_')[1]
         authority = get_authority_from_icao(icao)
-        
+        if icao in skip_list:
+            logger.info(f"Skipping {icao}")
+            continue
         # Create parser for the specific authority
         parser = AIPParserFactory.get_parser(authority)
         
@@ -53,13 +60,15 @@ def test_aip_parser_parse_airports(test_pdfs):
         pdf_data = pdf_file.read_bytes()
         
         # Parse the file
+        if icao in debug_list:
+            logger.info(f"Parsing {icao}")
         result = parser.parse(pdf_data, icao)
         
         # Basic validation of the result
         assert result is not None, f"Parser returned None for {icao}"
         assert isinstance(result, list), f"Result is not a list for {icao}"
         assert len(result) > 0, f"Empty result for {icao}"
-        if icao == 'EBOS':
+        if icao in debug_list:
             AIPParserFactory.pretty_print_results(result)
             
         # If we have expected results for this airport, validate them

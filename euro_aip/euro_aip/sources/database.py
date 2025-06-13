@@ -105,11 +105,13 @@ class DatabaseSource:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             query = "SELECT * FROM airports"
+
             if where:
                 query += f" WHERE {where}"
+            
             cursor.execute(query)
             return [Airport.from_dict(dict(row)) for row in cursor.fetchall()]
-        
+
     def get_airports_with_runways(self, where: str = None) -> List[Airport]:
         """
         Get all airports from the database with their runways.
@@ -139,6 +141,46 @@ class DatabaseSource:
                     airports[airport_id].runways.append(runway)
 
             return list(airports.values())
+
+    def get_airports_by_icao_list(self, icao_list: List[str]) -> List[Airport]:
+        """
+        Efficiently query airports from database using a list of ICAO codes.
+        
+        Parameters
+        ----------
+        icao_list : List[str]
+            List of ICAO airport codes to query
+            
+        Returns
+        -------
+        List[Airport]
+            List of matching airports
+        """
+        
+        # SQLite has a limit of 999 parameters, so we need to handle large lists
+        CHUNK_SIZE = 900  # Leave some margin below the 999 limit
+        
+        if len(icao_list) > CHUNK_SIZE:
+            # For large lists, we'll need to chunk the query
+            all_results = []
+            for i in range(0, len(icao_list), CHUNK_SIZE):
+                chunk = icao_list[i:i + CHUNK_SIZE]
+                # Create the WHERE clause with placeholders
+                placeholders = ','.join([f"'{code}'" for code in chunk])
+                where_clause = f"ident IN ({placeholders})"
+                
+                chunk_airports = self.get_airports(where=where_clause)
+                all_results.extend(chunk_airports)
+            
+            return all_results
+        else:
+            # For smaller lists, we can do a single query
+            placeholders = ','.join([f"'{code}'" for code in icao_list])
+            where_clause = f"ident IN ({placeholders})"
+            
+            return self.get_airports(where=where_clause)
+
+        
         
         
             

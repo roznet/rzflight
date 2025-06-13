@@ -28,15 +28,15 @@ class DefaultAIPParser(AIPParser):
         try:
             tables = self._pdf_to_tables(pdf_data)
             if len(tables) > 1:
-                admin = tables[0].df.to_dict('records')
-                operational = tables[1].df.to_dict('records')
+                admin = tables[0].to_dict('records')
+                operational = tables[1].to_dict('records')
                 
                 rv.extend(self._process_table(admin, 'admin', icao))
                 rv.extend(self._process_table(operational, 'operational', icao))
                 
             if len(tables) > 3:
-                handling = tables[2].df.to_dict('records')
-                passenger = tables[3].df.to_dict('records')
+                handling = tables[2].to_dict('records')
+                passenger = tables[3].to_dict('records')
                 
                 rv.extend(self._process_table(handling, 'handling', icao))
                 rv.extend(self._process_table(passenger, 'passenger', icao))
@@ -68,7 +68,6 @@ class DefaultAIPParser(AIPParser):
         """
         rv = []
         for row in table:
-            print(row)
             field_sep_line = False
             # we have at least a field and a value
             if 1 in row:

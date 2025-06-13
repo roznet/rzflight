@@ -73,12 +73,17 @@ class AIPParserFactory:
         # Select columns to display
         columns = ['ident', 'section', 'field', 'value']
         if show_alt:
-            columns.extend(['alt_field', 'alt_value'])
+            if 'alt_field' in df.columns:
+                columns.extend(['alt_field'])
+            if 'alt_value' in df.columns:
+                columns.extend(['alt_value'])
             
         # Filter out rows where alt values are empty or None if not showing alt
         if not show_alt:
-            df = df[df['alt_field'].isna() | (df['alt_field'] == '')]
-            df = df[df['alt_value'].isna() | (df['alt_value'] == '')]
+            if 'alt_field' in df.columns:
+                df = df[df['alt_field'].isna() | (df['alt_field'] == '')]
+            if 'alt_value' in df.columns:
+                df = df[df['alt_value'].isna() | (df['alt_value'] == '')]
             
         # Select and reorder columns
         df = df[columns]
