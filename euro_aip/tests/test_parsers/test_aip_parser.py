@@ -44,7 +44,7 @@ def test_aip_parser_parse_airports(test_pdfs):
     """Test that the AIP parser can parse all test PDF files."""
     assert test_pdfs, "No test PDF files found"
     skip_list = ['ESMS']
-    debug_list = ['LFAT']
+    debug_list = ['LIMJ']
     
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)

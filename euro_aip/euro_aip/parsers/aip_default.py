@@ -46,6 +46,10 @@ class DefaultAIPParser(AIPParser):
                 
                 rv.extend(self._process_table(handling, 'handling', icao))
                 rv.extend(self._process_table(passenger, 'passenger', icao))
+            # for all the other tables assign it as other
+            for table in tables[4:]:
+                other = table.to_dict('records')
+                rv.extend(self._process_table(other, 'other', icao))
                 
         except Exception as e:
             logger.error(f"Error parsing PDF for {icao}: {e}")

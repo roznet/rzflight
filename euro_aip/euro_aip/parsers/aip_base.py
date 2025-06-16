@@ -18,7 +18,7 @@ class AIPParser(ABC):
     """Base interface for AIP document parsers."""
     
     # Override this in subclasses to specify which parser to use
-    PREFERRED_PARSER: ParserType = 'pdfplumber'
+    PREFERRED_PARSER: ParserType = 'camelot_lattice'
     
     # Default table settings for pdfplumber
     TABLE_SETTINGS = {
@@ -36,7 +36,7 @@ class AIPParser(ABC):
         logger.debug(f"Extracting tables with Camelot ({flavor})")
         tables = camelot.read_pdf(
             temp_file, 
-            pages='1-2',
+            pages='1-3',
             flavor=flavor,
         )
         if tables:
