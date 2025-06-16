@@ -44,7 +44,7 @@ def test_aip_parser_parse_airports(test_pdfs):
     """Test that the AIP parser can parse all test PDF files."""
     assert test_pdfs, "No test PDF files found"
     skip_list = ['ESMS']
-    debug_list = ['LIMJ']
+    debug_list = ['EHRD']
     
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)
@@ -86,13 +86,13 @@ def test_aip_parser_parse_airports(test_pdfs):
         for item in result:
             if 'customs' in item['field'].lower() :
                 found['Customs'] = True
-            if item['alt_field'] and 'customs' in item['alt_field'].lower():
+            if 'alt_field' in item and item['alt_field'] and 'customs' in item['alt_field'].lower():
                 found['Customs'] = True
             # Check for fuel types - look for both "fuel" and "type" words in the field
             field_lower = item['field'].lower() if item['field'] else ''
             if 'fuel' in field_lower and 'type' in field_lower:
                 found['Fuel Types'] = True
-            if item['alt_field']:
+            if 'alt_field' in item and item['alt_field']:
                 alt_field_lower = item['alt_field'].lower()
                 if 'fuel' in alt_field_lower and 'type' in alt_field_lower:
                     found['Fuel Types'] = True
