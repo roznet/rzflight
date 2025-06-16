@@ -1,5 +1,6 @@
 import os
 import logging
+import traceback
 from typing import List, Dict, Any
 from .aip_base import AIPParser
 from .aip_factory import DEFAULT_AUTHORITY
@@ -43,6 +44,7 @@ class DefaultAIPParser(AIPParser):
                 
         except Exception as e:
             logger.error(f"Error parsing PDF for {icao}: {e}")
+            logger.error(f"Full traceback:\n{traceback.format_exc()}")
             return None
         finally:
             # Clean up the temporary file
@@ -70,7 +72,7 @@ class DefaultAIPParser(AIPParser):
         for row in table:
             field_sep_line = False
             # we have at least a field and a value
-            if 1 in row:
+            if 1 in row and row[1] is not None:
                 fields = row[1].split(' / ')
                 if len(fields) == 2:
                     field = fields[0]

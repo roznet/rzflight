@@ -19,7 +19,7 @@
             "args": ["autorouter", "EGKB", "-n"]
         },
         {
-            "name": "Python Debugger: France eAIP LFAT",
+            "name": "Python Debugger: France eAIP LFQA",
             "type": "debugpy",
             "request": "launch",
             "program": "aip.py",
@@ -29,7 +29,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["--root-dir", "cache/eaip_17_apr_2025", "france_eaip", "LFAT"]
+            "args": ["--root-dir", "cache/eaip_17_apr_2025", "-f", "france_eaip", "LFQA"]
         },
         {
             "name": "Python Debugger: World Airports",
