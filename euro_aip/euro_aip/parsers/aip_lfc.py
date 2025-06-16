@@ -1,12 +1,12 @@
 from typing import List, Dict, Any, Optional
 from .aip_default import DefaultAIPParser
 
-class EBCAIPParser(DefaultAIPParser):
-    """Parser for Belgium (EBC) AIP documents."""
+class LFCAIPParser(DefaultAIPParser):
+    """Parser for France (LFC) AIP documents."""
     
-    PREFERRED_PARSER = 'pdfplumber'  # Use pdfplumber for better table extraction
+    PREFERRED_PARSER = 'camelot_lattice'  # Use pdfplumber for better table extraction
     
-    # Custom table settings for Belgian AIP documents
+    # Custom table settings for France AIP documents
     TABLE_SETTINGS = {
         'vertical_strategy': 'lines',  # Use lines for vertical detection
         'horizontal_strategy': 'lines',  # Use lines for horizontal detection
@@ -24,7 +24,7 @@ class EBCAIPParser(DefaultAIPParser):
 
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""
-        return ['EBC']
+        return ['LFC']
     
     def parse(self, pdf_data: bytes, icao: str) -> List[Dict[str, Any]]:
         """

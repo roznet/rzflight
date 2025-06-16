@@ -9,6 +9,11 @@ logger = logging.getLogger(__name__)
 
 class DefaultAIPParser(AIPParser):
     """Parser for default AIP format (used when authority is not known or specialized)."""
+
+    FIELD_INDEX = 1
+    VALUE_INDEX = 2
+    ALT_VALUE_INDEX = 3
+    FIELD_SEPARATOR = ' / '
     
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""
@@ -69,51 +74,58 @@ class DefaultAIPParser(AIPParser):
             List of dictionaries containing processed table data
         """
         rv = []
+        field = None
+        alt_field = None
+        values = []
+        alt_values = []
         for row in table:
             field_sep_line = False
             # we have at least a field and a value
-            if 1 in row and row[1] is not None:
-                fields = row[1].split(' / ')
+            row_field = row[self.FIELD_INDEX] if self.FIELD_INDEX in row else None
+            row_alt_field = None
+            row_value = row[self.VALUE_INDEX] if self.VALUE_INDEX in row else None
+            row_alt_value = row[self.ALT_VALUE_INDEX] if self.ALT_VALUE_INDEX in row else None
+
+            # if not None we start a new field
+            if row_field is not None:
+                if field and len(values) > 0:
+                    data = {
+                        'ident': icao,
+                        'section': section,
+                        'field': field,
+                        'alt_field': alt_field,
+                        'value': '\n'.join(values),
+                        'alt_value': '\n'.join(alt_values)
+                    }
+                    rv.append(data)
+                values = []
+                alt_values = []
+                # first see if field is a single field or a pair of fields
+                fields = row_field.split(self.FIELD_SEPARATOR)
                 if len(fields) == 2:
                     field = fields[0]
                     alt_field = fields[1]
                 else:
-                    sp = row[1].splitlines()
+                    sp = row_field.splitlines()
                     if len(sp) == 2:
                         field_sep_line = True
                         field = sp[0]
                         alt_field = sp[1]
                     else:
-                        field = row[1]
+                        field = row_field.strip()
                         alt_field = None
-
-                if 2 in row:
-                    value = row[2]
-                else:
-                    value = None
-                if 3 in row:
-                    alt_value = row[3]
-                else:
-                    alt_value = None
-                if alt_field and not alt_value and value:
-                    sp = value.splitlines()
-                    if len(sp) % 2 == 0:
-                        half = len(sp) // 2
-                        value = '\n'.join(sp[:half])
-                        alt_value = '\n'.join(sp[half:])
-                if 3 in row and alt_value == '':
-                    sp = value.splitlines()
-                    if len(sp) == 2:
-                        value = sp[0]
-                        alt_value = sp[1]
-
-                data = {
-                    'ident': icao,
-                    'section': section,
-                    'field': field,
-                    'alt_field': alt_field,
-                    'value': value,
-                    'alt_value': alt_value
-                }
-                rv.append(data)
+            if row_value is not None:
+                values.append(row_value)
+            if row_alt_value is not None:
+                alt_values.append(row_alt_value)
+        if field and len(values) > 0:
+            data = {
+                'ident': icao,
+                'section': section,
+                'field': field,
+                'alt_field': alt_field,
+                'value': '\n'.join(values),
+                'alt_value': '\n'.join(alt_values)
+            }
+            rv.append(data)
         return rv 

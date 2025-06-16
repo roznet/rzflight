@@ -84,10 +84,18 @@ def test_aip_parser_parse_airports(test_pdfs):
 
         found = {'Customs': False, 'Fuel Types': False}
         for item in result:
-            if 'customs' in item['field'].lower():
+            if 'customs' in item['field'].lower() :
                 found['Customs'] = True
-            if 'fuel types' in item['field'].lower():
+            if item['alt_field'] and 'customs' in item['alt_field'].lower():
+                found['Customs'] = True
+            # Check for fuel types - look for both "fuel" and "type" words in the field
+            field_lower = item['field'].lower() if item['field'] else ''
+            if 'fuel' in field_lower and 'type' in field_lower:
                 found['Fuel Types'] = True
+            if item['alt_field']:
+                alt_field_lower = item['alt_field'].lower()
+                if 'fuel' in alt_field_lower and 'type' in alt_field_lower:
+                    found['Fuel Types'] = True
 
         assert found['Customs'], f"Customs field not found for {icao}"
         assert found['Fuel Types'], f"Fuel Types field not found for {icao}"
