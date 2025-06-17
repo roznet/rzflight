@@ -5,6 +5,7 @@ from .aip_ebc import EBCAIPParser
 from .aip_esc import ESCAIPParser
 from .aip_lfc import LFCAIPParser
 from .aip_lic import LICAIPParser
+from .aip_ekc import EKCAIPParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
 from .procedure_default import DefaultProcedureParser
 from .procedure_lfc import LFCProcedureParser
@@ -15,6 +16,7 @@ AIPParserFactory.register_parser('EBC', EBCAIPParser)
 AIPParserFactory.register_parser('ESC', ESCAIPParser)
 AIPParserFactory.register_parser('LFC', LFCAIPParser)
 AIPParserFactory.register_parser('LIC', LICAIPParser)
+AIPParserFactory.register_parser('EKC', EKCAIPParser)
 AIPParserFactory.register_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
 
 # Register the procedure parsers
