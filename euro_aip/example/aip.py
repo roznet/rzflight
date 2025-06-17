@@ -95,8 +95,17 @@ class Command:
             self.source.set_never_refresh()
             
         logger.info(f"Using root directory: {self.args.root_dir}")
+
+        if self.args.airports:
+            airports = self.args.airports
+        else:
+            # get all available airports
+            airports = self.source.find_available_airports()
+            logger.info(f"Found {len(airports)} airports")
+            if self.args.verbose:
+                logger.info(f"Available airports: {airports}")
         
-        for airport in self.args.airports:
+        for airport in airports:
             airport = airport.strip()
             logger.info(f'Processing {airport}')
             

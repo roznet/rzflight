@@ -34,6 +34,7 @@ from ..parsers.procedure_factory import ProcedureParserFactory
 
 logger = logging.getLogger(__name__)
 
+
 class FranceEAIPSource(CachedSource):
     """
     A source that provides access to French eAIP data.
@@ -51,6 +52,9 @@ class FranceEAIPSource(CachedSource):
     aeronautical information.
     """
     
+    # Precompiled regex patterns for better performance
+    AIRPORT_PDF_PATTERN = re.compile(r'FR-AD-2\.(LF[A-Z][A-Z])-fr')
+
     def __init__(self, cache_dir: str, root_dir: str):
         """
         Initialize the source.
@@ -62,7 +66,33 @@ class FranceEAIPSource(CachedSource):
         """
         super().__init__(cache_dir)
         self.root_dir = Path(root_dir)
+
+    def find_available_airports(self) -> List[str]:
+        """
+        Find all available airports in the eAIP.
+        """
+        airac_pattern = 'FRANCE/AIRAC*'
+        logger.debug(f"Searching for AIRAC directories with pattern: {airac_pattern}")
+        logger.debug(f"Root directory: {self.root_dir}")
         
+        # check root_dir exists
+        if not self.root_dir.exists():
+            logger.warning(f"Root directory does not exist: {self.root_dir}")
+            return None
+        
+        airac_dirs = sorted(self.root_dir.glob(airac_pattern), reverse=True)
+        # look for pdf of pattern pdf/FR-AD-2.(LF[A-Z][A-Z]).pdf
+        pdf_pattern = 'pdf/FR-AD-2.LF*.pdf'
+        pdf_files = list(airac_dirs[0].glob(pdf_pattern))
+        logger.debug(f"Found PDF files: {[str(f) for f in pdf_files]}")
+        # now extract the icao code from the pdf file name using regex
+        rv = []
+        for f in pdf_files:
+            match = self.AIRPORT_PDF_PATTERN.search(f.stem)
+            if match:
+                rv.append(match.group(1))
+        return rv
+
     def _find_airport_pdf(self, icao: str) -> Optional[Path]:
         """
         Find the airport PDF file in the AIRAC directory.
