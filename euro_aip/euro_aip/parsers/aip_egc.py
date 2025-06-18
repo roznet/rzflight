@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Any, Optional
 from bs4 import BeautifulSoup
 from .aip_base import AIPParser
+from .procedure_factory import ProcedureParserFactory
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +31,7 @@ class EGCAIPParser(AIPParser):
         # Parse HTML with BeautifulSoup
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        rv = []
-        
-        # Look for div elements with pattern {ICAO}-AD-2.[0-9]
-        pattern = f"{icao}-AD-2\\.([0-9])"
-        div_elements = soup.find_all('div', id=re.compile(pattern))
-        
-        logger.debug(f"Found {len(div_elements)} div elements for {icao}")
-        
-        # Map section numbers to section names
+        # Map section numbers to section names for AIP data
         section_mapping = {
             '2': 'admin',
             '3': 'operational', 
@@ -46,28 +39,91 @@ class EGCAIPParser(AIPParser):
             '5': 'passenger'
         }
         
-        for div in div_elements:
-            # Extract section number from ID
-            match = re.search(pattern, div.get('id', ''))
-            if not match:
-                continue
-                
-            section_num = match.group(1)
-            section_name = section_mapping.get(section_num)
-            
-            if not section_name:
-                continue
-                
-            logger.debug(f"Processing section {section_num} ({section_name}) for {icao}")
-            
-            # Find all tables in this div
-            tables = div.find_all('table')
-            
-            for table in tables:
-                table_data = self._parse_table(table, section_name, icao)
-                rv.extend(table_data)
+        # Extract tables from AIP sections
+        tables = self._extract_tables_from_sections(soup, icao, section_mapping)
+        
+        rv = []
+        for table in tables:
+            table_data = self._parse_table(table['table'], table['section'], icao)
+            rv.extend(table_data)
         
         return rv
+    
+    def extract_procedures(self, html_data: bytes, icao: str) -> List[Dict[str, Any]]:
+        """
+        Extract procedures from UK AIP HTML document data.
+        
+        Args:
+            html_data: Raw HTML data
+            icao: ICAO airport code
+            
+        Returns:
+            List of dictionaries containing procedure data
+        """
+        # Convert bytes to string
+        html_content = html_data.decode('utf-8', errors='ignore')
+        
+        # Parse HTML with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Map section numbers to section names for procedures
+        section_mapping = {
+            '24': 'procedures'
+        }
+        
+        # Extract tables from procedure sections
+        tables = self._extract_tables_from_sections(soup, icao, section_mapping)
+        
+        rv = []
+        for table in tables:
+            table_data = self._parse_procedure_table(table['table'], table['section'], icao)
+            rv.extend(table_data)
+        
+        return rv
+    
+    def _extract_tables_from_sections(self, soup: BeautifulSoup, icao: str, section_mapping: Dict[str, str]) -> List[Dict[str, Any]]:
+        """
+        Extract tables from HTML sections based on the provided section mapping.
+        
+        Args:
+            soup: BeautifulSoup object
+            icao: ICAO airport code
+            section_mapping: Dictionary mapping section numbers to section names
+            
+        Returns:
+            List of dictionaries containing table and section information
+        """
+        tables = []
+        
+        # Look for div elements with pattern {ICAO}-AD-2.[section_number]
+        for section_num in section_mapping.keys():
+            pattern = f"{icao}-AD-2\\.{section_num}"
+            div_elements = soup.find_all('div', id=re.compile(pattern))
+            
+            logger.debug(f"Found {len(div_elements)} div elements for {icao} section {section_num}")
+            
+            for div in div_elements:
+                # Extract section number from ID
+                match = re.search(pattern, div.get('id', ''))
+                if not match:
+                    continue
+                    
+                section_name = section_mapping.get(section_num)
+                if not section_name:
+                    continue
+                    
+                logger.debug(f"Processing section {section_num} ({section_name}) for {icao}")
+                
+                # Find all tables in this div
+                div_tables = div.find_all('table')
+                
+                for table in div_tables:
+                    tables.append({
+                        'table': table,
+                        'section': section_name
+                    })
+        
+        return tables
     
     def _parse_table(self, table, section: str, icao: str) -> List[Dict[str, Any]]:
         """
@@ -126,6 +182,50 @@ class EGCAIPParser(AIPParser):
             }
             
             rv.append(data)
+            
+        return rv
+    
+    def _parse_procedure_table(self, table, section: str, icao: str) -> List[Dict[str, Any]]:
+        """
+        Parse a procedure table element and extract structured data.
+        
+        Args:
+            table: BeautifulSoup table element
+            section: Section name (procedures)
+            icao: ICAO airport code
+            
+        Returns:
+            List of dictionaries containing parsed procedure data
+        """
+        rv = []
+        parser = ProcedureParserFactory.get_parser('EGC')
+        
+        # Find all rows in the table
+        rows = table.find_all('tr')
+        
+        for row in rows:
+            # Find all cells in the row
+            cells = row.find_all(['td', 'th'])
+            
+            if len(cells) < 1:
+                continue
+                
+            # Extract text from cells
+            procedure_cell = cells[0] if len(cells) > 0 else None
+            
+            # Extract text content
+            procedure = self._extract_text(procedure_cell)
+            # Clean up the procedure name
+            procedure = procedure.strip()
+            
+            # Skip rows that are of the kind "AD 2.*" (these are section headers)
+            if procedure.startswith('AD 2.'):
+                continue
+                
+            # Skip header rows or empty content
+            parsed = parser.parse(procedure, icao)
+            if parsed:
+                rv.append(parsed)
             
         return rv
     

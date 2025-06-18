@@ -42,7 +42,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["--root-dir", "cache/AIRAC 06-25",  "uk_eaip", "EGMC"]
+            "args": ["--root-dir", "cache/AIRAC 06-25",  "-f", "uk_eaip", "EGMC"]
         },
         {
             "name": "Python Debugger: World Airports",

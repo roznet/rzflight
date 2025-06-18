@@ -55,7 +55,7 @@ class UKEAIPSource(CachedSource):
     """
     
     # Precompiled regex patterns for better performance
-    AIRPORT_HTML_PATTERN = re.compile(r'(EG[A-Z][A-Z])-AD-2')
+    AIRPORT_HTML_PATTERN = re.compile(r'(EG[A-Z][A-Z])-en-GB')
     AIRPORT_PDF_PATTERN = re.compile(r'EG-AD-2\.(EG[A-Z][A-Z])-en')
 
     def __init__(self, cache_dir: str, root_dir: str):
@@ -75,7 +75,7 @@ class UKEAIPSource(CachedSource):
         Find all available airports in the UK eAIP.
         """
         # Look for both HTML and PDF files
-        html_pattern = '**/ED-AD-2.EG*-en-GB.html'
+        html_pattern = '**/EG-AD-2.EG*-en-GB.html'
         pdf_pattern = '**/EG-AD-2.EG*.pdf'
         
         logger.debug(f"Searching for HTML files with pattern: {html_pattern}")
@@ -225,22 +225,18 @@ class UKEAIPSource(CachedSource):
         Returns:
             List of dictionaries containing procedures data
         """
-        files = self._find_procedure_files(icao)
-        if not files:
+        file = self._find_airport_file(icao)
+        if not file:
             return []
             
         rv = []
-        for file_path in files:
-            # Extract procedure name from filename
-            name = file_path.stem
-            
-            # Parse the procedure name
-            parser = ProcedureParserFactory.get_parser('EGC')
-            parsed = parser.parse(name, icao)
-            if parsed:
-                rv.append(parsed)
-                
-        return rv
+        # Read the file
+        with open(file, 'rb') as f:
+            file_data = f.read()
+
+        parser = AIPParserFactory.get_parser('EGC', 'html')
+        procedures = parser.extract_procedures(file_data, icao)
+        return procedures
         
     def get_airport_aip(self, icao: str, max_age_days: int = 28) -> Dict[str, Any]:
         """

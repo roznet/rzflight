@@ -88,8 +88,8 @@ class AIPParserFactory:
     @classmethod
     def _get_dual_parser(cls, authority: str) -> DualFormatAIPParser:
         """Get dual parser for authority."""
-        html_parser = cls._html_parsers.get(authority)
-        pdf_parser = cls._pdf_parsers.get(authority)
+        html_parser = cls._get_html_parser(authority)
+        pdf_parser = cls._get_pdf_parser(authority)
         
         if html_parser is None and pdf_parser is None:
             raise ValueError(f"No HTML or PDF parser registered for authority: {authority}")
