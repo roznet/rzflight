@@ -55,10 +55,6 @@ class DefaultAIPParser(AIPParser):
             logger.error(f"Error parsing PDF for {icao}: {e}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
             return None
-        finally:
-            # Clean up the temporary file
-            if 'temp_file' in locals():
-                os.unlink(temp_file.name)
                 
         if not rv:
             return [{'ident': icao, 'section': 'admin', 'field': 'Observations', 'value': 'Empty file', 'alt_value': ''}]
