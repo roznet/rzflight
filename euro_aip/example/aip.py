@@ -85,6 +85,11 @@ class Command:
     def run_france_eaip(self):
         """Parse France eAIP data from local directories."""
         # Initialize source
+
+        if not self.args.root_dir:
+            logger.error("--root-dir is required for france_eaip command, the source can be downloaded from https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html")
+            return
+
         self.source = FranceEAIPSource(
             cache_dir=str(self.cache_dir),
             root_dir=self.args.root_dir
@@ -133,6 +138,11 @@ class Command:
 
     def run_uk_eaip(self):
         """Parse UK eAIP data from local directories."""
+
+        if not self.args.root_dir:
+            logger.error("--root-dir is required for uk_eaip command, the source can be downloaded from https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP")
+            return
+
         # Initialize source
         self.source = UKEAIPSource(
             cache_dir=str(self.cache_dir),
@@ -214,6 +224,10 @@ class Command:
                 traceback.print_exc()
 
     def run_pointdepassage(self):
+        if not self.args.journal_path:
+            logger.error("--journal-path is required for pointdepassage command, the source can be downloaded from https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009")
+            return
+        
         """Process Point de Passage journal PDF and store in database."""
         # Initialize database source
         database_source = DatabaseSource(
@@ -247,6 +261,10 @@ class Command:
 
     def run_querydb(self):
         """Query the database with a WHERE clause."""
+        if not self.args.where:
+            logger.error("--where is required for querydb command")
+            return
+        
         # Initialize database source
         database_source = DatabaseSource(
             self.args.database
@@ -282,7 +300,7 @@ def main():
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
     parser.add_argument('-p', '--password', help='Autorouter password')
-    parser.add_argument('-r', '--root-dir', help='Root directory for eAIP data', default='.')
+    parser.add_argument('-r', '--root-dir', help='Root directory for eAIP data')
     parser.add_argument('-d', '--database', help='SQLite database file', default='airports.db')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')
@@ -292,10 +310,6 @@ def main():
     
     args = parser.parse_args()
     
-    if args.command == 'pointdepassage' and not args.journal_path:
-        parser.error("--journal-path is required for pointdepassage command")
-    if args.command == 'querydb' and not args.where:
-        parser.error("--where is required for querydb command")
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

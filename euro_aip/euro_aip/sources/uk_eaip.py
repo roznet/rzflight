@@ -3,7 +3,7 @@ Source for parsing UK eAIP (Electronic Aeronautical Information Publication) dat
 
 This source reads the official UK eAIP data from the UK CAA (Civil Aviation Authority) 
 website. The eAIP data can be downloaded from:
-https://www.nats-uk.ead-it.com/cms-nats/opencms/en/Publications/Aeronautical-Information-Publications/
+https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/
 
 To use this source:
 1. Download the UK eAIP from the NATS website
