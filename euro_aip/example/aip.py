@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from pprint import pprint
-from euro_aip.sources import AutorouterSource, FranceEAIPSource, WorldAirportsSource, PointDePassageJournalOfficiel, DatabaseSource
+from euro_aip.sources import AutorouterSource, FranceEAIPSource, UKEAIPSource, WorldAirportsSource, PointDePassageJournalOfficiel, DatabaseSource
 from euro_aip.parsers import AIPParserFactory
 
 # Configure logging
@@ -86,6 +86,55 @@ class Command:
         """Parse France eAIP data from local directories."""
         # Initialize source
         self.source = FranceEAIPSource(
+            cache_dir=str(self.cache_dir),
+            root_dir=self.args.root_dir
+        )
+        if self.args.force_refresh:
+            self.source.set_force_refresh()
+        if self.args.never_refresh:
+            self.source.set_never_refresh()
+            
+        logger.info(f"Using root directory: {self.args.root_dir}")
+
+        if self.args.airports:
+            airports = self.args.airports
+        else:
+            # get all available airports
+            airports = self.source.find_available_airports()
+            logger.info(f"Found {len(airports)} airports")
+            if self.args.verbose:
+                logger.info(f"Available airports: {airports}")
+        
+        for airport in airports:
+            airport = airport.strip()
+            logger.info(f'Processing {airport}')
+            
+            try:
+                # Get airport data
+                airport_data = self.source.get_airport_aip(airport)
+                if airport_data:
+                    logger.info(f'Successfully parsed {len(airport_data["parsed_data"])} items in AIP for {airport}')
+                else:
+                    logger.warning(f'No AIP document found for {airport}')
+                    continue
+                
+                # Get procedures
+                procedures = self.source.get_procedures(airport)
+                if procedures:
+                    logger.info(f'Successfully parsed {len(procedures)} procedures for {airport}')
+                else:
+                    logger.warning(f'No procedures found for {airport}')
+                    
+            except Exception as e:
+                logger.error(f'Error processing {airport}: {e}')
+                if self.args.verbose:
+                    import traceback
+                    traceback.print_exc()
+
+    def run_uk_eaip(self):
+        """Parse UK eAIP data from local directories."""
+        # Initialize source
+        self.source = UKEAIPSource(
             cache_dir=str(self.cache_dir),
             root_dir=self.args.root_dir
         )
@@ -228,12 +277,12 @@ class Command:
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'worldairports', 'pointdepassage', 'querydb'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'uk_eaip', 'worldairports', 'pointdepassage', 'querydb'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
     parser.add_argument('-p', '--password', help='Autorouter password')
-    parser.add_argument('-r', '--root-dir', help='Root directory for France eAIP data', default='.')
+    parser.add_argument('-r', '--root-dir', help='Root directory for eAIP data', default='.')
     parser.add_argument('-d', '--database', help='SQLite database file', default='airports.db')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     parser.add_argument('-f', '--force-refresh', help='Force refresh of cached data', action='store_true')

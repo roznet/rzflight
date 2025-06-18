@@ -6,18 +6,24 @@ from .aip_esc import ESCAIPParser
 from .aip_lfc import LFCAIPParser
 from .aip_lic import LICAIPParser
 from .aip_ekc import EKCAIPParser
+from .aip_egc import EGCAIPParser
+from .aip_dual import DualFormatAIPParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
 from .procedure_default import DefaultProcedureParser
 from .procedure_lfc import LFCProcedureParser
 
-# Register the AIP parsers
-AIPParserFactory.register_parser('LEC', LECAIPParser)
-AIPParserFactory.register_parser('EBC', EBCAIPParser)
-AIPParserFactory.register_parser('ESC', ESCAIPParser)
-AIPParserFactory.register_parser('LFC', LFCAIPParser)
-AIPParserFactory.register_parser('LIC', LICAIPParser)
-AIPParserFactory.register_parser('EKC', EKCAIPParser)
-AIPParserFactory.register_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
+# Register the general AIP parsers
+AIPParserFactory.register_pdf_parser('LEC', LECAIPParser)
+AIPParserFactory.register_pdf_parser('EBC', EBCAIPParser)
+AIPParserFactory.register_pdf_parser('ESC', ESCAIPParser)
+AIPParserFactory.register_pdf_parser('LFC', LFCAIPParser)
+AIPParserFactory.register_pdf_parser('LIC', LICAIPParser)
+AIPParserFactory.register_pdf_parser('EKC', EKCAIPParser)
+AIPParserFactory.register_pdf_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
+
+# Register HTML and PDF parsers for EGC (UK)
+AIPParserFactory.register_html_parser('EGC', EGCAIPParser)
+AIPParserFactory.register_pdf_parser('EGC', DefaultAIPParser)
 
 # Register the procedure parsers
 ProcedureParserFactory.register_parser(PROCEDURE_DEFAULT_AUTHORITY, DefaultProcedureParser)
@@ -30,6 +36,11 @@ __all__ = [
     'DefaultAIPParser',
     'EBCAIPParser',
     'ESCAIPParser',
+    'LFCAIPParser',
+    'LICAIPParser',
+    'EKCAIPParser',
+    'EGCAIPParser',
+    'DualFormatAIPParser',
     'ProcedureParserFactory',
     'PROCEDURE_DEFAULT_AUTHORITY',
     'DefaultProcedureParser',

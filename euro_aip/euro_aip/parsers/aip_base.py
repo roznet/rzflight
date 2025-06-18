@@ -11,6 +11,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Constants for authority codes
+DEFAULT_AUTHORITY = 'DEFAULT'
+
 # Define parser types
 ParserType = Literal['camelot_stream', 'camelot_lattice', 'pdfplumber']
 

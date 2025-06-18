@@ -32,6 +32,19 @@
             "args": ["--root-dir", "cache/eaip_17_apr_2025",  "france_eaip"]
         },
         {
+            "name": "Python Debugger: UK eAIP EGMC",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aip.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": ["--root-dir", "cache/AIRAC 06-25",  "uk_eaip", "EGMC"]
+        },
+        {
             "name": "Python Debugger: World Airports",
             "type": "debugpy",
             "request": "launch",

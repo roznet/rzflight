@@ -3,7 +3,7 @@ import logging
 import traceback
 from typing import List, Dict, Any
 from .aip_base import AIPParser
-from .aip_factory import DEFAULT_AUTHORITY
+from .aip_base import DEFAULT_AUTHORITY
 
 logger = logging.getLogger(__name__)
 

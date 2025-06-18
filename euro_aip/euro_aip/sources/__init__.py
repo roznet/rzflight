@@ -7,6 +7,7 @@ airport and navigation data from various sources.
 
 from .autorouter import AutorouterSource
 from .france_eaip import FranceEAIPSource
+from .uk_eaip import UKEAIPSource
 from .worldairports import WorldAirportsSource
 from .database import DatabaseSource
 from .point_de_passage import PointDePassageJournalOfficiel
@@ -14,6 +15,7 @@ from .point_de_passage import PointDePassageJournalOfficiel
 __all__ = [
     'AutorouterSource',
     'FranceEAIPSource',
+    'UKEAIPSource',
     'WorldAirportsSource',
     'DatabaseSource',
     'PointDePassageJournalOfficiel'
