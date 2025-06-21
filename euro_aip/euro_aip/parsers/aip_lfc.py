@@ -20,7 +20,7 @@ class LFCAIPParser(DefaultAIPParser):
     FIELD_INDEX = 1
     VALUE_INDEX = 2
     ALT_VALUE_INDEX = 3
-    FIELD_SEPARATOR = ' / '
+    FIELD_SEPARATOR = r' / |\n'
 
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""

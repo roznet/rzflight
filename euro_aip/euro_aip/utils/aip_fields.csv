@@ -1,0 +1,35 @@
+﻿section,field_id,field_std_id,description
+admin,201,1,ARP coordinates and site at AD
+admin,202,2,Direction and distance from city
+admin,203,3,Elevation / Reference temperature / Mean Low Temperature
+admin,204,4,Geoid undulation at AD ELEV PSN
+admin,205,5,Magnetic Variation / Annual Change
+admin,206,6,AD Administration
+admin,207,7,Type of Traffic permitted (IFR/VFR)
+admin,208,8,Remarks
+operational,301,1,AD Administration
+operational,302,2,Customs and immigration
+operational,303,3,Health and sanitation
+operational,304,4,AIS Briefing Office
+operational,305,5,ATS Reporting Office (ARO)
+operational,306,6,MET Briefing Office
+operational,307,7,ATS
+operational,308,8,Fuelling
+operational,309,9,Handling
+operational,310,10,Security
+operational,311,11,De-icing
+operational,312,12,Remarks
+handling,401,1,Cargo handling facilities
+handling,402,2,Fuel and oil types
+handling,403,3,Fuelling facilities/capacity
+handling,404,4,De-icing facilities
+handling,405,5,Hangar space for visiting aircraft
+handling,406,6,Repair facilities for visiting aircraft
+handling,407,7,Remarks
+passenger,501,1,Hotels
+passenger,502,2,Restaurants
+passenger,503,3,Transportation
+passenger,504,4,Medical facilities
+passenger,505,5,Bank and Post Office
+passenger,506,6,Tourist Office
+passenger,507,7,Remarks

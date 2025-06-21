@@ -3,6 +3,8 @@ from pathlib import Path
 from euro_aip.parsers import AIPParserFactory
 from tests.assets.expected_results import EXPECTED_RESULTS
 import logging
+from collections import defaultdict
+from euro_aip.utils.field_mapper import FieldMapper
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,11 @@ def test_aip_parser_parse_airports(test_pdfs):
     skip_list = ['ESMS', 'EKAH']
     debug_list = []
     
+    # Track field coverage across authorities
+    field_coverage = defaultdict(lambda: defaultdict(dict))  # field_name -> authority -> defs
+    authority_fields = defaultdict(set)  # authority -> set of field names
+    authority_icao_mapping = {}  # authority -> list of ICAO codes
+    
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)
         icao = pdf_file.stem.split('_')[1]
@@ -55,6 +62,12 @@ def test_aip_parser_parse_airports(test_pdfs):
         if icao in skip_list:
             logger.info(f"Skipping {icao}")
             continue
+            
+        # Track authority to ICAO mapping
+        if authority not in authority_icao_mapping:
+            authority_icao_mapping[authority] = []
+        authority_icao_mapping[authority].append(icao)
+        
         # Create parser for the specific authority
         parser = AIPParserFactory.get_parser(authority)
         
@@ -72,6 +85,13 @@ def test_aip_parser_parse_airports(test_pdfs):
         assert len(result) > 0, f"Empty result for {icao}"
         if icao in debug_list:
             AIPParserFactory.pretty_print_results(result)
+            
+        # Track field coverage
+        for item in result:
+            field_name = item.get('field', '')
+            if field_name:
+                field_coverage[field_name][authority] = item
+                authority_fields[authority].add(field_name.strip())
             
         # If we have expected results for this airport, validate them
         if icao in EXPECTED_RESULTS:
@@ -103,3 +123,230 @@ def test_aip_parser_parse_airports(test_pdfs):
 
         assert found['Customs'], f"Customs field not found for {icao}"
         assert found['Fuel Types'], f"Fuel Types field not found for {icao}"
+    
+    # Analyze and log field coverage
+    analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping)
+    analyze_field_mapping(field_coverage)
+
+def analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping):
+    """
+    Analyze field coverage across authorities and log detailed statistics.
+    
+    Args:
+        field_coverage: Dictionary mapping field names to set of authorities
+        authority_fields: Dictionary mapping authorities to set of field names
+        authority_icao_mapping: Dictionary mapping authorities to list of ICAO codes
+    """
+    logger.info("=" * 80)
+    logger.info("FIELD COVERAGE ANALYSIS")
+    logger.info("=" * 80)
+    
+    
+    # Basic statistics
+    total_fields = len(field_coverage)
+    total_authorities = len(authority_fields)
+    
+    logger.info(f"Total unique fields found: {total_fields}")
+    logger.info(f"Total authorities tested: {total_authorities}")
+    
+    # Authority statistics
+    logger.info("\nAUTHORITY STATISTICS:")
+    logger.info("-" * 40)
+    for authority, fields in authority_fields.items():
+        icao_codes = authority_icao_mapping.get(authority, [])
+        logger.info(f"{authority}: {len(fields)} fields from {len(icao_codes)} airports ({icao_codes})")
+    
+    # Field coverage statistics
+    logger.info("\nFIELD COVERAGE STATISTICS:")
+    logger.info("-" * 40)
+    
+    # Group fields by coverage level
+    coverage_levels = defaultdict(list)
+    for field_name, authorities in field_coverage.items():
+        coverage_count = len(authorities)
+        coverage_levels[coverage_count].append(field_name)
+    
+    # Show fields by coverage level (most common first)
+    for coverage_count in sorted(coverage_levels.keys(), reverse=True):
+        fields = coverage_levels[coverage_count]
+        percentage = (coverage_count / total_authorities) * 100
+        logger.info(f"Fields found in {coverage_count}/{total_authorities} authorities ({percentage:.1f}%): {len(fields)} fields")
+        
+        # Show field names for high coverage fields
+        if coverage_count >= total_authorities // 2:  # Show fields found in at least half of authorities
+            for field_name in sorted(fields):
+                authorities_list = sorted(field_coverage[field_name])
+                logger.info(f"  - {field_name} ({authorities_list})")
+    
+    # Unique fields per authority
+    logger.info("\nUNIQUE FIELDS PER AUTHORITY:")
+    logger.info("-" * 40)
+    for authority, fields in authority_fields.items():
+        unique_fields = []
+        for field_name in fields:
+            if len(field_coverage[field_name]) == 1:  # Only found in this authority
+                unique_fields.append(field_name)
+        
+        if unique_fields:
+            logger.info(f"{authority} unique fields ({len(unique_fields)}):")
+            for field_name in sorted(unique_fields):
+                logger.info(f"  - {field_name}")
+        else:
+            logger.info(f"{authority}: No unique fields")
+    
+    # Most common fields
+    logger.info("\nMOST COMMON FIELDS:")
+    logger.info("-" * 40)
+    sorted_fields = sorted(field_coverage.items(), key=lambda x: len(x[1]), reverse=True)
+    for field_name, authorities in sorted_fields[:20]:  # Top 20
+        coverage_count = len(authorities)
+        percentage = (coverage_count / total_authorities) * 100
+        authorities_list = sorted(authorities)
+        logger.info(f"{field_name}: {coverage_count}/{total_authorities} ({percentage:.1f}%) - {authorities_list}")
+
+def analyze_field_mapping(field_coverage):
+    # FIELD MAPPING ANALYSIS
+    logger.info("\nFIELD MAPPING ANALYSIS:")
+    logger.info("-" * 40)
+    
+    # Initialize field mapper
+    field_mapper = FieldMapper()
+
+    # Track mapping statistics
+    mapping_stats = {
+        'total_fields': 0,
+        'mapped_fields': set(),  # Set of field names that were mapped
+        'unmapped_fields': set(),  # Set of field names that were not mapped
+        'high_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score >= 0.8
+        'medium_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score >= 0.6
+        'low_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score < 0.6
+        'mappings_by_section': defaultdict(lambda: {'mapped': set(), 'unmapped': set()}),
+        'unmapped_fields_list': [],
+        'low_confidence_mappings_list': []
+    }
+    
+    # Analyze each field for mapping potential
+    for field_name, authorities in field_coverage.items():
+        mapping_stats['total_fields'] += 1
+        
+        # Get the first occurrence's section and field_std_id for better mapping
+        first_authority = next(iter(authorities))
+        first_item = authorities[first_authority]
+        section = first_item.get('section')
+        field_std_id = first_item.get('field_std_id')
+        field_std_id = None
+        
+        # Try to map this field using the actual section and field_std_id
+        mapping = field_mapper.map_field(field_name, section, field_std_id)
+        
+        if mapping['mapped']:
+            mapping_stats['mapped_fields'].add(field_name)
+            found_section = mapping['section']
+            mapping_stats['mappings_by_section'][found_section]['mapped'].add(field_name)
+            
+            score = mapping['similarity_score']
+            mapping_tuple = (field_name, mapping['mapped_description'], score, found_section)
+            
+            if score >= 0.8:
+                mapping_stats['high_confidence_mappings'].add(mapping_tuple)
+            elif score >= 0.6:
+                mapping_stats['medium_confidence_mappings'].add(mapping_tuple)
+            else:
+                mapping_stats['low_confidence_mappings'].add(mapping_tuple)
+                mapping_stats['low_confidence_mappings_list'].append({
+                    'field': field_name,
+                    'mapped_to': mapping['mapped_description'],
+                    'score': score,
+                    'section': found_section
+                })
+        else:
+            mapping_stats['unmapped_fields'].add(field_name)
+            mapping_stats['unmapped_fields_list'].append(field_name)
+    
+    # Log mapping statistics
+    logger.info(f"Total fields analyzed: {mapping_stats['total_fields']}")
+    logger.info(f"Mapped fields: {len(mapping_stats['mapped_fields'])} ({len(mapping_stats['mapped_fields'])/mapping_stats['total_fields']*100:.1f}%)")
+    logger.info(f"Unmapped fields: {len(mapping_stats['unmapped_fields'])} ({len(mapping_stats['unmapped_fields'])/mapping_stats['total_fields']*100:.1f}%)")
+    logger.info(f"High confidence mappings (≥0.8): {len(mapping_stats['high_confidence_mappings'])}")
+    logger.info(f"Medium confidence mappings (≥0.6): {len(mapping_stats['medium_confidence_mappings'])}")
+    logger.info(f"Low confidence mappings (<0.6): {len(mapping_stats['low_confidence_mappings'])}")
+    
+    # Mapping by section
+    logger.info("\nMAPPING BY SECTION:")
+    for section, stats in mapping_stats['mappings_by_section'].items():
+        total_section = len(stats['mapped']) + len(stats['unmapped'])
+        if total_section > 0:
+            percentage = (len(stats['mapped']) / total_section) * 100
+            logger.info(f"{section}: {len(stats['mapped'])}/{total_section} mapped ({percentage:.1f}%)")
+    
+    # Show some unmapped fields for analysis
+    if mapping_stats['unmapped_fields']:
+        logger.info(f"\nSAMPLE UNMAPPED FIELDS ({min(10, len(mapping_stats['unmapped_fields']))} of {len(mapping_stats['unmapped_fields'])}):")
+        for field_name in sorted(list(mapping_stats['unmapped_fields']))[:10]:
+            logger.info(f"  - {field_name}")
+    
+    # Show high confidence mappings
+    if mapping_stats['high_confidence_mappings']:
+        logger.info(f"\nHIGH CONFIDENCE MAPPINGS ({min(10, len(mapping_stats['high_confidence_mappings']))} of {len(mapping_stats['high_confidence_mappings'])}):")
+        for mapping_tuple in sorted(mapping_stats['high_confidence_mappings'], key=lambda x: x[2], reverse=True)[:10]:
+            field_name, mapped_to, score, section = mapping_tuple
+            logger.info(f"  - '{field_name}' -> '{mapped_to}' (score: {score:.2f}, section: {section})")
+    
+    # Show medium confidence mappings
+    if mapping_stats['medium_confidence_mappings']:
+        logger.info(f"\nMEDIUM CONFIDENCE MAPPINGS ({min(10, len(mapping_stats['medium_confidence_mappings']))} of {len(mapping_stats['medium_confidence_mappings'])}):")
+        for mapping_tuple in sorted(mapping_stats['medium_confidence_mappings'], key=lambda x: x[2], reverse=True)[:10]:
+            field_name, mapped_to, score, section = mapping_tuple
+            logger.info(f"  - '{field_name}' -> '{mapped_to}' (score: {score:.2f}, section: {section})")
+    
+    # Show low confidence mappings for review
+    if mapping_stats['low_confidence_mappings']:
+        logger.info(f"\nLOW CONFIDENCE MAPPINGS ({min(10, len(mapping_stats['low_confidence_mappings']))} of {len(mapping_stats['low_confidence_mappings'])}):")
+        for mapping_tuple in sorted(mapping_stats['low_confidence_mappings'], key=lambda x: x[2])[:10]:
+            field_name, mapped_to, score, section = mapping_tuple
+            logger.info(f"  - '{field_name}' -> '{mapped_to}' (score: {score:.2f}, section: {section})")
+    
+    # Field similarity analysis
+    logger.info("\nFIELD SIMILARITY ANALYSIS:")
+    logger.info("-" * 40)
+    
+    # Find fields that might be similar (contain similar words)
+    field_words = defaultdict(set)
+    for field_name in field_coverage.keys():
+        words = set(field_name.lower().split())
+        field_words[field_name] = words
+    
+    # Group similar fields
+    similar_groups = []
+    processed_fields = set()
+    
+    for field_name, words in field_words.items():
+        if field_name in processed_fields:
+            continue
+            
+        similar_fields = [field_name]
+        processed_fields.add(field_name)
+        
+        for other_field, other_words in field_words.items():
+            if other_field in processed_fields:
+                continue
+                
+            # Check for word overlap (at least 50% of words match)
+            if words and other_words:
+                overlap = len(words.intersection(other_words))
+                min_words = min(len(words), len(other_words))
+                if min_words > 0 and overlap / min_words >= 0.5:
+                    similar_fields.append(other_field)
+                    processed_fields.add(other_field)
+        
+        if len(similar_fields) > 1:
+            similar_groups.append(similar_fields)
+    
+    if similar_groups:
+        logger.info(f"Found {len(similar_groups)} groups of similar fields:")
+        for group in similar_groups:
+            logger.info(f"  - {group}")
+    else:
+        logger.info("No similar field groups found")
+    
+    logger.info("=" * 80)

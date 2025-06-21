@@ -50,6 +50,7 @@ class LECAIPParser(AIPParser):
                             'ident': icao,
                             'section': section,
                             'field': field,
+                            'field_std_id': None,
                             'alt_field': field,
                             'value': value,
                             'alt_value': value
