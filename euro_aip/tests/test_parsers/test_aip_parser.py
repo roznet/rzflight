@@ -112,7 +112,11 @@ def test_aip_parser_parse_airports(test_pdfs):
         for item in standardised_result:
             found_fields[item['field_id']].add(authority)
 
-    required_fields = [402, 302]
+    
+    required_fields = [
+        402, # Fuel Types
+        302, # Customs
+        ]
     for field_id in required_fields:
         assert len(found_fields[field_id]) == len(authority_icao_mapping), f"Field {field_mapper.get_field_for_id(field_id)['field_name']} not found for any authority"
 
