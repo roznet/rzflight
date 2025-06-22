@@ -52,6 +52,7 @@ def test_aip_parser_parse_airports(test_pdfs):
     field_coverage = defaultdict(lambda: defaultdict(dict))  # field_name -> authority -> defs
     authority_fields = defaultdict(set)  # authority -> set of field names
     authority_icao_mapping = {}  # authority -> list of ICAO codes
+    field_mapper = FieldMapper()
     
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)
@@ -102,31 +103,31 @@ def test_aip_parser_parse_airports(test_pdfs):
                 assert len(result) >= expected['count'], \
                     f"Expected {expected['count']} items for {icao}, got {len(result)}"
             
-            # Check for specific fields
 
-        found = {'Customs': False, 'Fuel Types': False}
-        for item in result:
-            if 'customs' in item['field'].lower() :
-                found['Customs'] = True
-            if 'alt_field' in item and item['alt_field'] and 'customs' in item['alt_field'].lower():
-                found['Customs'] = True
-            # Check for fuel types - look for both "fuel" and "type" words in the field
-            field_lower = item['field'].lower() if item['field'] else ''
-            if 'fuel' in field_lower and 'type' in field_lower:
-                found['Fuel Types'] = True
-            if field_lower == 'fuel/oil': # special case for EDC
-                found['Fuel Types'] = True
-            if 'alt_field' in item and item['alt_field']:
-                alt_field_lower = item['alt_field'].lower()
-                if 'fuel' in alt_field_lower and 'type' in alt_field_lower:
-                    found['Fuel Types'] = True
+        standardised_result = field_mapper.standardise_fields(result)
+        logger.info(f"Standardised result: {len(standardised_result)}/{len(result)}")
+        # Check for specific fields
+        found = {
+            402: False, # Fuel Types
+            302: False # Customs
+        }
+        for item in standardised_result:
+            for field_std_id, found in found.items():
+                if item['field_std_id'] == field_std_id:
+                    found[field_std_id] = True
+        for field_std_id, found_field in found.items():
+            assert found_field, f"Field {field_std_id} {field_mapper.get_field_for_std_id(field_std_id)['field_name']} not found for {icao}"
 
-        assert found['Customs'], f"Customs field not found for {icao}"
-        assert found['Fuel Types'], f"Fuel Types field not found for {icao}"
+
+
     
     # Analyze and log field coverage
     analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping)
-    analyze_field_mapping(field_coverage)
+    json_mapping_stats = analyze_field_mapping(field_coverage)
+    
+    # Make the JSON mapping stats available for external use (e.g., saving to file)
+    # You can access this in the debug console or save it to a file
+    return json_mapping_stats
 
 def analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping):
     """
@@ -217,6 +218,8 @@ def analyze_field_mapping(field_coverage):
         'total_fields': 0,
         'mapped_fields': set(),  # Set of field names that were mapped
         'unmapped_fields': set(),  # Set of field names that were not mapped
+        'mapped_fields_by_authority': defaultdict(set),  # authority -> set of mapped field names
+        'unmapped_fields_by_authority': defaultdict(set),  # authority -> set of unmapped field names
         'high_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score >= 0.8
         'medium_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score >= 0.6
         'low_confidence_mappings': set(),  # Set of (field_name, mapped_to) tuples with score < 0.6
@@ -240,9 +243,13 @@ def analyze_field_mapping(field_coverage):
         mapping = field_mapper.map_field(field_name, section, field_std_id)
         
         if mapping['mapped']:
-            mapping_stats['mapped_fields'].add(field_name)
+            mapping_stats['mapped_fields'].add((field_name,section))
             found_section = mapping['section']
             mapping_stats['mappings_by_section'][found_section]['mapped'].add(field_name)
+            
+            # Track which authorities have this mapped field
+            for authority in authorities:
+                mapping_stats['mapped_fields_by_authority'][authority].add((field_name,section))
             
             score = mapping['similarity_score']
             mapping_tuple = (field_name, mapping['mapped_description'], score, found_section)
@@ -260,8 +267,14 @@ def analyze_field_mapping(field_coverage):
                     'section': found_section
                 })
         else:
-            mapping_stats['unmapped_fields'].add(field_name)
+            mapping_stats['unmapped_fields'].add((field_name,section))
             mapping_stats['unmapped_fields_list'].append(field_name)
+            # Track which authorities have this unmapped field
+            for authority in authorities:
+                mapping_stats['unmapped_fields_by_authority'][authority].add(field_name)
+    
+    # Convert mapping_stats to JSON serializable format
+    json_mapping_stats = convert_mapping_stats_to_json(mapping_stats)
     
     # Log mapping statistics
     logger.info(f"Total fields analyzed: {mapping_stats['total_fields']}")
@@ -278,6 +291,30 @@ def analyze_field_mapping(field_coverage):
         if total_section > 0:
             percentage = (len(stats['mapped']) / total_section) * 100
             logger.info(f"{section}: {len(stats['mapped'])}/{total_section} mapped ({percentage:.1f}%)")
+    
+    # Show mapped fields by authority
+    logger.info("\nMAPPED FIELDS BY AUTHORITY:")
+    for authority in sorted(mapping_stats['mapped_fields_by_authority'].keys()):
+        mapped_fields = mapping_stats['mapped_fields_by_authority'][authority]
+        if mapped_fields:
+            logger.info(f"{authority}: {len(mapped_fields)} mapped fields")
+            # Show first few mapped fields for each authority
+            for field_name in sorted(list(mapped_fields))[:5]:
+                logger.info(f"  - {field_name}")
+            if len(mapped_fields) > 5:
+                logger.info(f"  ... and {len(mapped_fields) - 5} more")
+    
+    # Show unmapped fields by authority
+    logger.info("\nUNMAPPED FIELDS BY AUTHORITY:")
+    for authority in sorted(mapping_stats['unmapped_fields_by_authority'].keys()):
+        unmapped_fields = mapping_stats['unmapped_fields_by_authority'][authority]
+        if unmapped_fields:
+            logger.info(f"{authority}: {len(unmapped_fields)} unmapped fields")
+            # Show first few unmapped fields for each authority
+            for field_name in sorted(list(unmapped_fields))[:5]:
+                logger.info(f"  - {field_name}")
+            if len(unmapped_fields) > 5:
+                logger.info(f"  ... and {len(unmapped_fields) - 5} more")
     
     # Show some unmapped fields for analysis
     if mapping_stats['unmapped_fields']:
@@ -306,47 +343,35 @@ def analyze_field_mapping(field_coverage):
             field_name, mapped_to, score, section = mapping_tuple
             logger.info(f"  - '{field_name}' -> '{mapped_to}' (score: {score:.2f}, section: {section})")
     
-    # Field similarity analysis
-    logger.info("\nFIELD SIMILARITY ANALYSIS:")
-    logger.info("-" * 40)
+    # Return the JSON serializable version for external use
+    return json_mapping_stats
+
+def convert_mapping_stats_to_json(mapping_stats):
+    """
+    Convert mapping_stats to a JSON serializable format.
     
-    # Find fields that might be similar (contain similar words)
-    field_words = defaultdict(set)
-    for field_name in field_coverage.keys():
-        words = set(field_name.lower().split())
-        field_words[field_name] = words
-    
-    # Group similar fields
-    similar_groups = []
-    processed_fields = set()
-    
-    for field_name, words in field_words.items():
-        if field_name in processed_fields:
-            continue
-            
-        similar_fields = [field_name]
-        processed_fields.add(field_name)
+    Args:
+        mapping_stats: The original mapping_stats dictionary
         
-        for other_field, other_words in field_words.items():
-            if other_field in processed_fields:
-                continue
-                
-            # Check for word overlap (at least 50% of words match)
-            if words and other_words:
-                overlap = len(words.intersection(other_words))
-                min_words = min(len(words), len(other_words))
-                if min_words > 0 and overlap / min_words >= 0.5:
-                    similar_fields.append(other_field)
-                    processed_fields.add(other_field)
-        
-        if len(similar_fields) > 1:
-            similar_groups.append(similar_fields)
+    Returns:
+        Dictionary with all minimum information to be used for mapping tests
+    """
+    json_stats = {}
     
-    if similar_groups:
-        logger.info(f"Found {len(similar_groups)} groups of similar fields:")
-        for group in similar_groups:
-            logger.info(f"  - {group}")
-    else:
-        logger.info("No similar field groups found")
+    # Convert simple fields
+    json_stats['total_fields'] = mapping_stats['total_fields']
     
-    logger.info("=" * 80)
+    # Convert sets to sorted lists
+    json_stats['mapped_fields'] = sorted(list(mapping_stats['mapped_fields']))
+    
+    # Convert defaultdict sets to regular dicts with sorted lists
+    json_stats['mapped_fields_by_authority'] = {}
+    for authority, field_set in mapping_stats['mapped_fields_by_authority'].items():
+        json_stats['mapped_fields_by_authority'][authority] = sorted(list(field_set))
+    
+    json_stats['unmapped_fields_by_authority'] = {}
+    for authority, field_set in mapping_stats['unmapped_fields_by_authority'].items():
+        json_stats['unmapped_fields_by_authority'][authority] = sorted(list(field_set))
+    
+    
+    return json_stats

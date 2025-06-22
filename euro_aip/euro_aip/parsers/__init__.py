@@ -5,6 +5,7 @@ from .aip_ebc import EBCAIPParser
 from .aip_esc import ESCAIPParser
 from .aip_lfc import LFCAIPParser
 from .aip_lic import LICAIPParser
+from .aip_lkc import LKCAIPParser
 from .aip_ekc import EKCAIPParser
 from .aip_egc import EGCAIPParser
 from .aip_dual import DualFormatAIPParser
@@ -18,6 +19,7 @@ AIPParserFactory.register_pdf_parser('EBC', EBCAIPParser)
 AIPParserFactory.register_pdf_parser('ESC', ESCAIPParser)
 AIPParserFactory.register_pdf_parser('LFC', LFCAIPParser)
 AIPParserFactory.register_pdf_parser('LIC', LICAIPParser)
+AIPParserFactory.register_pdf_parser('LKC', LKCAIPParser)
 AIPParserFactory.register_pdf_parser('EKC', EKCAIPParser)
 AIPParserFactory.register_pdf_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
 
@@ -38,6 +40,7 @@ __all__ = [
     'ESCAIPParser',
     'LFCAIPParser',
     'LICAIPParser',
+    'LKCAIPParser',
     'EKCAIPParser',
     'EGCAIPParser',
     'DualFormatAIPParser',

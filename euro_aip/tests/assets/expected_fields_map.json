@@ -1,0 +1,2385 @@
+{
+  "total_fields": 293,
+  "mapped_fields": [
+    [
+      "AD ADMINISTRATION",
+      "operational"
+    ],
+    [
+      "AD Administration",
+      "operational"
+    ],
+    [
+      "AD administration",
+      "admin"
+    ],
+    [
+      "AIS Briefing Office",
+      "operational"
+    ],
+    [
+      "AIS briefing office",
+      "operational"
+    ],
+    [
+      "ARP COORDINATES AND SITE AT AD",
+      "admin"
+    ],
+    [
+      "ARP co-ordinates and site at AD",
+      "admin"
+    ],
+    [
+      "ARP coordinates and site at AD",
+      "admin"
+    ],
+    [
+      "ARP coordinates and site at Aerodrome",
+      "admin"
+    ],
+    [
+      "ATS",
+      "operational"
+    ],
+    [
+      "ATS Reporting Office (ARO)",
+      "operational"
+    ],
+    [
+      "ATS reporting office (ARO)",
+      "operational"
+    ],
+    [
+      "Bank and Post Office",
+      "passenger"
+    ],
+    [
+      "CUSTOMS AND IMMIGRATION",
+      "operational"
+    ],
+    [
+      "Cargo handling facilities",
+      "handling"
+    ],
+    [
+      "Cargo-handling facilities",
+      "handling"
+    ],
+    [
+      "Cargo\u2212handling facilities",
+      "handling"
+    ],
+    [
+      "Customs and Immigration",
+      "operational"
+    ],
+    [
+      "Customs and immigration",
+      "operational"
+    ],
+    [
+      "De-icing",
+      "operational"
+    ],
+    [
+      "De-icing facilities",
+      "handling"
+    ],
+    [
+      "De\u2212icing",
+      "operational"
+    ],
+    [
+      "De\u2212icing facilities",
+      "handling"
+    ],
+    [
+      "Direction and distance from (city)",
+      "admin"
+    ],
+    [
+      "Direction and distance from city",
+      "admin"
+    ],
+    [
+      "Direction and distance from the CITY",
+      "admin"
+    ],
+    [
+      "Direction and distance of ARP from (city)",
+      "admin"
+    ],
+    [
+      "Direction, distance from city",
+      "admin"
+    ],
+    [
+      "ELEVATION/REFERENCE TEMPERATURE/MEAN LOW \nTEMPERATURE",
+      "admin"
+    ],
+    [
+      "Elevation / Reference temperature",
+      "admin"
+    ],
+    [
+      "Elevation / Reference temperature / Mean Low Temperature",
+      "admin"
+    ],
+    [
+      "Elevation/Reference temperature",
+      "admin"
+    ],
+    [
+      "Elevation/reference temperature",
+      "admin"
+    ],
+    [
+      "Fuel and oil types",
+      "handling"
+    ],
+    [
+      "Fuel/oil\ntypes",
+      "handling"
+    ],
+    [
+      "Fuel/oil types",
+      "handling"
+    ],
+    [
+      "Fuelling",
+      "operational"
+    ],
+    [
+      "Fuelling facilities and capacity",
+      "handling"
+    ],
+    [
+      "Fuelling facilities/capacity",
+      "handling"
+    ],
+    [
+      "Geoid undulation at AD ELEV PSN",
+      "admin"
+    ],
+    [
+      "HEALTH AND SANITATION",
+      "operational"
+    ],
+    [
+      "Handling",
+      "operational"
+    ],
+    [
+      "Hangar space available for visiting aircraft",
+      "handling"
+    ],
+    [
+      "Hangar space for visiting aircraft",
+      "handling"
+    ],
+    [
+      "Health and Sanitation",
+      "operational"
+    ],
+    [
+      "Health and sanitation",
+      "operational"
+    ],
+    [
+      "Hotels",
+      "passenger"
+    ],
+    [
+      "MAGNETIC VARIATION/ANNUAL CHANGE",
+      "admin"
+    ],
+    [
+      "MET Briefing Office",
+      "operational"
+    ],
+    [
+      "MET briefing",
+      "operational"
+    ],
+    [
+      "MET briefing office",
+      "operational"
+    ],
+    [
+      "Magnetic variation",
+      "admin"
+    ],
+    [
+      "Magnetic variation/Annual change",
+      "admin"
+    ],
+    [
+      "Medical\nfacilities",
+      "passenger"
+    ],
+    [
+      "Medical facilities",
+      "passenger"
+    ],
+    [
+      "Remarks",
+      "passenger"
+    ],
+    [
+      "Repair facilities for visiting aircraft",
+      "handling"
+    ],
+    [
+      "Restaurants",
+      "passenger"
+    ],
+    [
+      "Security",
+      "operational"
+    ],
+    [
+      "Tourist Office",
+      "passenger"
+    ],
+    [
+      "Tourist office",
+      "passenger"
+    ],
+    [
+      "Transportation",
+      "passenger"
+    ],
+    [
+      "Type of Traffic permitted (IFR/VFR)",
+      "admin"
+    ],
+    [
+      "Type of traffic permitted (IFR/ VFR)",
+      "admin"
+    ],
+    [
+      "Types of\ntraffic permitted (IFR/VFR)",
+      "admin"
+    ],
+    [
+      "Types of traffic permitted (IFR/VFR)",
+      "admin"
+    ]
+  ],
+  "mapped_fields_by_authority": {
+    "EBC": [
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Cargo-handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from (city)",
+        "admin"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities and capacity",
+        "handling"
+      ],
+      [
+        "Geoid undulation at AD ELEV PSN",
+        "admin"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "LDC": [
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ARP coordinates and site at AD",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Bank and Post Office",
+        "passenger"
+      ],
+      [
+        "Cargo-handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from (city)",
+        "admin"
+      ],
+      [
+        "Elevation/Reference temperature",
+        "admin"
+      ],
+      [
+        "Fuel/oil types",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Geoid undulation at AD ELEV PSN",
+        "admin"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist Office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "EHC": [
+      [
+        "AIS briefing office",
+        "operational"
+      ],
+      [
+        "ARP co-ordinates and site at AD",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS reporting office (ARO)",
+        "operational"
+      ],
+      [
+        "Cargo-handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from (city)",
+        "admin"
+      ],
+      [
+        "Elevation/reference temperature",
+        "admin"
+      ],
+      [
+        "Fuel/oil types",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Geoid undulation at AD ELEV PSN",
+        "admin"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET briefing office",
+        "operational"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "LKC": [
+      [
+        "AD Administration",
+        "operational"
+      ],
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Cargo\u2212handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De\u2212icing",
+        "operational"
+      ],
+      [
+        "De\u2212icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from (city)",
+        "admin"
+      ],
+      [
+        "Elevation / Reference temperature",
+        "admin"
+      ],
+      [
+        "Fuel/oil types",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Type of traffic permitted (IFR/ VFR)",
+        "admin"
+      ]
+    ],
+    "EDC": [
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ARP coordinates and site at AD",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Bank and Post Office",
+        "passenger"
+      ],
+      [
+        "Cargo-handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance of ARP from (city)",
+        "admin"
+      ],
+      [
+        "Elevation/Reference temperature",
+        "admin"
+      ],
+      [
+        "Fuel/oil\ntypes",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Geoid undulation at AD ELEV PSN",
+        "admin"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Medical\nfacilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist Office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of\ntraffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "EGC": [
+      [
+        "AD Administration",
+        "operational"
+      ],
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ARP coordinates and site at AD",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Bank and Post Office",
+        "passenger"
+      ],
+      [
+        "Cargo handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from city",
+        "admin"
+      ],
+      [
+        "Elevation / Reference temperature / Mean Low Temperature",
+        "admin"
+      ],
+      [
+        "Fuel and oil types",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Geoid undulation at AD ELEV PSN",
+        "admin"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist Office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Type of Traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "LIC": [
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "Cargo-handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from city",
+        "admin"
+      ],
+      [
+        "Elevation/Reference temperature",
+        "admin"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "Magnetic variation/Annual change",
+        "admin"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "LSC": [
+      [
+        "AD Administration",
+        "operational"
+      ],
+      [
+        "AIS Briefing Office",
+        "operational"
+      ],
+      [
+        "ARP coordinates and site at Aerodrome",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "ATS Reporting Office (ARO)",
+        "operational"
+      ],
+      [
+        "Bank and Post Office",
+        "passenger"
+      ],
+      [
+        "Cargo handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction and distance from the CITY",
+        "admin"
+      ],
+      [
+        "Elevation/Reference temperature",
+        "admin"
+      ],
+      [
+        "Fuel/oil types",
+        "handling"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Fuelling facilities/capacity",
+        "handling"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space available for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Health and sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET Briefing Office",
+        "operational"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Tourist Office",
+        "passenger"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ],
+      [
+        "Types of traffic permitted (IFR/VFR)",
+        "admin"
+      ]
+    ],
+    "LEC": [
+      [
+        "AD administration",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "Customs and Immigration",
+        "operational"
+      ],
+      [
+        "Fuelling",
+        "operational"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Health and Sanitation",
+        "operational"
+      ],
+      [
+        "Hotels",
+        "passenger"
+      ],
+      [
+        "MET briefing",
+        "operational"
+      ],
+      [
+        "Magnetic variation",
+        "admin"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Security",
+        "operational"
+      ],
+      [
+        "Transportation",
+        "passenger"
+      ]
+    ],
+    "LFC": [
+      [
+        "AD administration",
+        "admin"
+      ],
+      [
+        "AIS briefing office",
+        "operational"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "Bank and Post Office",
+        "passenger"
+      ],
+      [
+        "Cargo handling facilities",
+        "handling"
+      ],
+      [
+        "Customs and immigration",
+        "operational"
+      ],
+      [
+        "De-icing",
+        "operational"
+      ],
+      [
+        "De-icing facilities",
+        "handling"
+      ],
+      [
+        "Direction, distance from city",
+        "admin"
+      ],
+      [
+        "Fuel and oil types",
+        "handling"
+      ],
+      [
+        "Handling",
+        "operational"
+      ],
+      [
+        "Hangar space for visiting aircraft",
+        "handling"
+      ],
+      [
+        "MET briefing office",
+        "operational"
+      ],
+      [
+        "Magnetic variation",
+        "admin"
+      ],
+      [
+        "Medical facilities",
+        "passenger"
+      ],
+      [
+        "Remarks",
+        "passenger"
+      ],
+      [
+        "Repair facilities for visiting aircraft",
+        "handling"
+      ],
+      [
+        "Restaurants",
+        "passenger"
+      ],
+      [
+        "Tourist office",
+        "passenger"
+      ]
+    ],
+    "LOC": [
+      [
+        "AD ADMINISTRATION",
+        "operational"
+      ],
+      [
+        "ARP COORDINATES AND SITE AT AD",
+        "admin"
+      ],
+      [
+        "ATS",
+        "operational"
+      ],
+      [
+        "CUSTOMS AND IMMIGRATION",
+        "operational"
+      ],
+      [
+        "ELEVATION/REFERENCE TEMPERATURE/MEAN LOW \nTEMPERATURE",
+        "admin"
+      ],
+      [
+        "HEALTH AND SANITATION",
+        "operational"
+      ],
+      [
+        "MAGNETIC VARIATION/ANNUAL CHANGE",
+        "admin"
+      ]
+    ]
+  },
+  "unmapped_fields_by_authority": {
+    "EBC": [
+      [
+        "AD Operator",
+        "operational"
+      ],
+      [
+        "AFS",
+        "admin"
+      ],
+      [
+        "ARP coordinates",
+        "admin"
+      ],
+      [
+        "Address",
+        "admin"
+      ],
+      [
+        "Bank",
+        "passenger"
+      ],
+      [
+        "Email",
+        "admin"
+      ],
+      [
+        "FAX",
+        "admin"
+      ],
+      [
+        "Fuel types",
+        "handling"
+      ],
+      [
+        "Name of AD operator",
+        "admin"
+      ],
+      [
+        "Oil types",
+        "handling"
+      ],
+      [
+        "Post office",
+        "passenger"
+      ],
+      [
+        "Site of ARP at aerodrome",
+        "admin"
+      ],
+      [
+        "TEL",
+        "admin"
+      ],
+      [
+        "Website",
+        "admin"
+      ],
+      [
+        "annual change",
+        "admin"
+      ],
+      [
+        "reference temperature",
+        "admin"
+      ]
+    ],
+    "LIC": [
+      [
+        "ARO",
+        "operational"
+      ],
+      [
+        "ARP coordinates",
+        "admin"
+      ],
+      [
+        "ATS authority",
+        "admin"
+      ],
+      [
+        "Aerodrome Administration",
+        "operational"
+      ],
+      [
+        "Aerodrome administration authority",
+        "admin"
+      ],
+      [
+        "Aerodrome operator",
+        "admin"
+      ],
+      [
+        "Banca e ufficio postale",
+        "other"
+      ],
+      [
+        "Fuel/Oil types",
+        "other"
+      ],
+      [
+        "Fuelling capacity",
+        "other"
+      ],
+      [
+        "Geoid undulation",
+        "admin"
+      ],
+      [
+        "METEO Briefing Office",
+        "handling"
+      ],
+      [
+        "Servizio riparazioni per aeromobili in \ntransito\nRepair facilities for visiting aircraft",
+        "other"
+      ],
+      [
+        "Servizio sanitario",
+        "operational"
+      ]
+    ],
+    "LEC": [
+      [
+        "AFTN",
+        "admin"
+      ],
+      [
+        "ARP",
+        "admin"
+      ],
+      [
+        "Abastecimiento de combustible",
+        "operational"
+      ],
+      [
+        "Address",
+        "admin"
+      ],
+      [
+        "Administraci\u00f3n AD",
+        "admin"
+      ],
+      [
+        "Aduanas e Inmigraci\u00f3n",
+        "operational"
+      ],
+      [
+        "Aeropuerto",
+        "operational"
+      ],
+      [
+        "Airport",
+        "operational"
+      ],
+      [
+        "Annual change",
+        "admin"
+      ],
+      [
+        "Approved traffic",
+        "admin"
+      ],
+      [
+        "Asistencia en tierra",
+        "operational"
+      ],
+      [
+        "CLH Aviaci\u00f3n",
+        "handling"
+      ],
+      [
+        "Cambio anual",
+        "admin"
+      ],
+      [
+        "Capacidad de reabastecimiento",
+        "handling"
+      ],
+      [
+        "Cargo facilities",
+        "handling"
+      ],
+      [
+        "Declinaci\u00f3n magn\u00e9tica",
+        "admin"
+      ],
+      [
+        "Deshielo",
+        "operational"
+      ],
+      [
+        "Direcci\u00f3n",
+        "admin"
+      ],
+      [
+        "Distance and direction from the city",
+        "admin"
+      ],
+      [
+        "Distancia y direcci\u00f3n desde la ciudad",
+        "admin"
+      ],
+      [
+        "Elevaci\u00f3n",
+        "admin"
+      ],
+      [
+        "Elevation",
+        "admin"
+      ],
+      [
+        "Espacio disponible en hangar",
+        "handling"
+      ],
+      [
+        "FAX",
+        "admin"
+      ],
+      [
+        "Fuel types",
+        "handling"
+      ],
+      [
+        "Geoid undulation",
+        "admin"
+      ],
+      [
+        "Hangar space",
+        "handling"
+      ],
+      [
+        "Hoteles",
+        "passenger"
+      ],
+      [
+        "Informaci\u00f3n MET",
+        "operational"
+      ],
+      [
+        "Informaci\u00f3n tur\u00edstica",
+        "passenger"
+      ],
+      [
+        "Instalaciones m\u00e9dicas",
+        "passenger"
+      ],
+      [
+        "Instalaciones para el deshielo",
+        "handling"
+      ],
+      [
+        "Instalaciones para el manejo de carga",
+        "handling"
+      ],
+      [
+        "Instalaciones para reparaciones",
+        "handling"
+      ],
+      [
+        "Low average temperature",
+        "admin"
+      ],
+      [
+        "Mobile phone",
+        "handling"
+      ],
+      [
+        "M\u00f3vil",
+        "handling"
+      ],
+      [
+        "Observaciones",
+        "passenger"
+      ],
+      [
+        "Oil types",
+        "handling"
+      ],
+      [
+        "Ondulaci\u00f3n geoide",
+        "admin"
+      ],
+      [
+        "Reference temperature",
+        "admin"
+      ],
+      [
+        "Refuelling capacity",
+        "handling"
+      ],
+      [
+        "Repair facilities",
+        "handling"
+      ],
+      [
+        "Restaurant",
+        "passenger"
+      ],
+      [
+        "Restaurante",
+        "passenger"
+      ],
+      [
+        "SITA",
+        "handling"
+      ],
+      [
+        "SLCA",
+        "handling"
+      ],
+      [
+        "Seguridad",
+        "operational"
+      ],
+      [
+        "Servicios m\u00e9dicos y de sanidad",
+        "operational"
+      ],
+      [
+        "TEL",
+        "admin"
+      ],
+      [
+        "Temperatura baja media",
+        "admin"
+      ],
+      [
+        "Temperatura de referencia",
+        "admin"
+      ],
+      [
+        "Tipos de combustible",
+        "handling"
+      ],
+      [
+        "Tipos de lubricante",
+        "handling"
+      ],
+      [
+        "Tourist information",
+        "passenger"
+      ],
+      [
+        "Transporte",
+        "passenger"
+      ],
+      [
+        "Tr\u00e1nsito autorizado",
+        "admin"
+      ]
+    ],
+    "LFC": [
+      [
+        "ACL elevation",
+        "other"
+      ],
+      [
+        "ACL location",
+        "other"
+      ],
+      [
+        "AD level for fire fighting",
+        "other"
+      ],
+      [
+        "AFS",
+        "admin"
+      ],
+      [
+        "ARO",
+        "operational"
+      ],
+      [
+        "ARP location",
+        "admin"
+      ],
+      [
+        "ATS units served",
+        "other"
+      ],
+      [
+        "Additional information",
+        "other"
+      ],
+      [
+        "Address",
+        "admin"
+      ],
+      [
+        "Aircraft stands ID signs",
+        "other"
+      ],
+      [
+        "Apron strength",
+        "other"
+      ],
+      [
+        "Apron surface",
+        "other"
+      ],
+      [
+        "Associated MET Office",
+        "other"
+      ],
+      [
+        "Briefing, consultation",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "Charts, other information",
+        "other"
+      ],
+      [
+        "Clearance priority",
+        "other"
+      ],
+      [
+        "FAX",
+        "admin"
+      ],
+      [
+        "Flight documentation",
+        "other"
+      ],
+      [
+        "Fueling",
+        "operational"
+      ],
+      [
+        "Fueling facilities and capacities",
+        "handling"
+      ],
+      [
+        "Geoid undulation",
+        "admin"
+      ],
+      [
+        "Health and sanitary",
+        "operational"
+      ],
+      [
+        "Hours of service",
+        "other"
+      ],
+      [
+        "H\u00f4tels",
+        "passenger"
+      ],
+      [
+        "INS checkpoints",
+        "other"
+      ],
+      [
+        "Interval of issuance",
+        "other"
+      ],
+      [
+        "Language used",
+        "other"
+      ],
+      [
+        "MET Office outside HOR",
+        "other"
+      ],
+      [
+        "Mat\u00e9riaux utilis\u00e9s pour le traitement de la surface\nde l'aire de mouvement / Material used for\nmovement area surface treatment",
+        "other"
+      ],
+      [
+        "Office in charge of TAF",
+        "other"
+      ],
+      [
+        "Pistes sp\u00e9cialement pr\u00e9par\u00e9es en condition\nhivernale / Specially prepared winter runways",
+        "other"
+      ],
+      [
+        "Position GEO ARP",
+        "admin"
+      ],
+      [
+        "RWY and TWY lighting",
+        "other"
+      ],
+      [
+        "RWY and TWY marking",
+        "other"
+      ],
+      [
+        "Reference elevation",
+        "admin"
+      ],
+      [
+        "Reference temperature",
+        "admin"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ],
+      [
+        "Safety",
+        "operational"
+      ],
+      [
+        "Stop bars",
+        "other"
+      ],
+      [
+        "Supplementary equipment",
+        "other"
+      ],
+      [
+        "Syst\u00e8mes de guidage pour l'accostage des\na\u00e9ronefs\nVisual docking/parking guidance system",
+        "other"
+      ],
+      [
+        "TELEX",
+        "admin"
+      ],
+      [
+        "TWY guide lines",
+        "other"
+      ],
+      [
+        "TWY strength",
+        "other"
+      ],
+      [
+        "TWY surface",
+        "other"
+      ],
+      [
+        "TWY width",
+        "other"
+      ],
+      [
+        "Telephone",
+        "admin"
+      ],
+      [
+        "Transportation facilities",
+        "passenger"
+      ],
+      [
+        "Type of clearing equipment",
+        "other"
+      ],
+      [
+        "Type of landing forecast",
+        "other"
+      ],
+      [
+        "Type of traffic",
+        "admin"
+      ],
+      [
+        "VOR checkpoints",
+        "other"
+      ],
+      [
+        "Validity period",
+        "other"
+      ],
+      [
+        "Year (annual change)",
+        "admin"
+      ]
+    ],
+    "LDC": [
+      [
+        "AD Operator",
+        "operational"
+      ],
+      [
+        "AD Operator, address, telephone, telefax, AFS, \nSITA, e-mail, URL",
+        "admin"
+      ],
+      [
+        "AD category for fire fighting",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "MAG VAR/Annual change",
+        "admin"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ]
+    ],
+    "EHC": [
+      [
+        "AD category for fire fighting",
+        "other"
+      ],
+      [
+        "AD operator",
+        "operational"
+      ],
+      [
+        "AD operator, postal address, telephone, telefax,\nemail, AFS, website",
+        "admin"
+      ],
+      [
+        "Altimeter checkpoint location and elevation",
+        "other"
+      ],
+      [
+        "Apron surface and strength",
+        "other"
+      ],
+      [
+        "Bank and post office",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "INS checkpoints",
+        "other"
+      ],
+      [
+        "MAG VAR/annual change",
+        "admin"
+      ],
+      [
+        "RWY and TWY markings and LGT",
+        "other"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ],
+      [
+        "Stop bars",
+        "other"
+      ],
+      [
+        "Taxiway width, surface and strength",
+        "other"
+      ],
+      [
+        "Use of aircraft stand ID signs, TWY guide lines\nand visual docking/parking guidance system at\naircraft stands",
+        "other"
+      ],
+      [
+        "VOR checkpoints",
+        "other"
+      ]
+    ],
+    "LSC": [
+      [
+        "ACL location and elevation",
+        "other"
+      ],
+      [
+        "AD Administration, address, telephone, telefax, telex, AFS",
+        "admin"
+      ],
+      [
+        "AD category for fire fighting",
+        "other"
+      ],
+      [
+        "Apron surface and strength",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "Clearance priorities",
+        "other"
+      ],
+      [
+        "MAG VAR/Annual change",
+        "admin"
+      ],
+      [
+        "RWY/TWY markings and LGT",
+        "other"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ],
+      [
+        "Stop bars",
+        "other"
+      ],
+      [
+        "Taxiway width, surface and strength",
+        "other"
+      ],
+      [
+        "Type(s) of clearing equipment",
+        "other"
+      ],
+      [
+        "Use of aircraft stand ID signs, TWY guide lines and visual \ndocking/parking guidance system of aircraft stands",
+        "other"
+      ],
+      [
+        "VOR/INS checkpoints",
+        "other"
+      ]
+    ],
+    "EDC": [
+      [
+        "AD category for fire fighting",
+        "other"
+      ],
+      [
+        "AD operator",
+        "operational"
+      ],
+      [
+        "AD operator, address,\ntelephone,\ntelefax,\ntelex, AFS, E-mail,\nwebsite",
+        "admin"
+      ],
+      [
+        "Altimeter checkpoint\nlocation and elevation",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "Clearance priorities",
+        "other"
+      ],
+      [
+        "Designation, surface and strength of aprons",
+        "other"
+      ],
+      [
+        "Designation, width, surface and strength of\ntaxiways",
+        "other"
+      ],
+      [
+        "INS checkpoints",
+        "other"
+      ],
+      [
+        "MAG VAR/date of\ninformation and annual change",
+        "admin"
+      ],
+      [
+        "RWY and TWY markings and LGT",
+        "other"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ],
+      [
+        "Specially prepared winter runways",
+        "other"
+      ],
+      [
+        "Stop bars",
+        "other"
+      ],
+      [
+        "Type(s) of clearing equipment",
+        "other"
+      ],
+      [
+        "Use of aircraft stand ID signs, TWY guide lines and visual\ndocking/parking guidance system at aircraft stands",
+        "other"
+      ],
+      [
+        "Use of material\nfor movement area surface treatment",
+        "other"
+      ],
+      [
+        "VOR checkpoints",
+        "other"
+      ]
+    ],
+    "EGC": [
+      [
+        "2",
+        "other"
+      ],
+      [
+        "AD Administration\nAddress\nTelephone\nTelefax\nSITA\nE-mail address\nWeb address",
+        "admin"
+      ],
+      [
+        "AD category for fire fighting services",
+        "other"
+      ],
+      [
+        "Altimeter checkpoint location and elevation",
+        "other"
+      ],
+      [
+        "Annual Change",
+        "admin"
+      ],
+      [
+        "Apron surface and strength",
+        "other"
+      ],
+      [
+        "Capability for removal of disabled aircraft",
+        "other"
+      ],
+      [
+        "INS checkpoints",
+        "other"
+      ],
+      [
+        "Obstacle\nType",
+        "other"
+      ],
+      [
+        "Other runway protection measures",
+        "other"
+      ],
+      [
+        "Rescue equipment",
+        "other"
+      ],
+      [
+        "Runway and taxiway markings and lighting",
+        "other"
+      ],
+      [
+        "STREETLIGHT",
+        "other"
+      ],
+      [
+        "Stop bars and runway guard lights (if any)",
+        "other"
+      ],
+      [
+        "TREE",
+        "other"
+      ],
+      [
+        "Taxiway width, surface and strength",
+        "other"
+      ],
+      [
+        "Use of aircraft stand ID signs, TWY guide lines and visual\ndocking/parking guidance system of aircraft stands",
+        "other"
+      ],
+      [
+        "VOR checkpoints",
+        "other"
+      ]
+    ],
+    "LOC": [
+      [
+        "ABFERTIGUNG",
+        "handling"
+      ],
+      [
+        "AD CATEGORY FOR FIRE FIGHTING",
+        "other"
+      ],
+      [
+        "AD OPERATOR, ADDRESS, TELEPHONE, TELEFAX, \nTELEX, AFS, EMAIL, WEBSITE",
+        "admin"
+      ],
+      [
+        "AIS BRIEFING OFFICE",
+        "handling"
+      ],
+      [
+        "ANMERKUNGEN",
+        "other"
+      ],
+      [
+        "ATS REPORTING OFFICE (ARO)",
+        "handling"
+      ],
+      [
+        "BANK AND POST OFFICE",
+        "other"
+      ],
+      [
+        "BANKEN UND POST\u00c4MTER",
+        "other"
+      ],
+      [
+        "BEF\u00d6RDERUNGSMITTEL",
+        "other"
+      ],
+      [
+        "BETANKUNG",
+        "handling"
+      ],
+      [
+        "BETANKUNGSM\u00d6GLICHKEITEN",
+        "passenger"
+      ],
+      [
+        "CAPABILITY FOR REMOVAL OF DISABLED AIRCRAFT",
+        "other"
+      ],
+      [
+        "CARGO-HANDLING FACILITIES",
+        "passenger"
+      ],
+      [
+        "DE-ICING",
+        "handling"
+      ],
+      [
+        "DE-ICING FACILITIES",
+        "passenger"
+      ],
+      [
+        "DIRECTION AND DISTANCE FROM SALZBURG",
+        "admin"
+      ],
+      [
+        "ENTEISUNG",
+        "handling"
+      ],
+      [
+        "ENTEISUNGSEINRICHTUNGEN",
+        "passenger"
+      ],
+      [
+        "FLUGBERATUNG",
+        "handling"
+      ],
+      [
+        "FLUGPLATZBETREIBER, ADRESSE, TELEFON, TELEFAX, \nTELEX, FLUGFERNMELDEDIENST, EMAIL, WEBSITE",
+        "admin"
+      ],
+      [
+        "FLUGPLATZBETRIEBSLEITUNG",
+        "operational"
+      ],
+      [
+        "FLUGPLATZH\u00d6HE \u00dcBER MEERESSPIEGEL/\nBEZUGSTEMPERATUR/DURCHSCHNITTLICHE \nMINIMUMTEMPERATUR",
+        "admin"
+      ],
+      [
+        "FLUGVERKEHRSDIENSTSTELLE",
+        "handling"
+      ],
+      [
+        "FRACHTVERLADEGER\u00c4TE",
+        "passenger"
+      ],
+      [
+        "FUEL/OIL TYPES",
+        "passenger"
+      ],
+      [
+        "FUELLING",
+        "handling"
+      ],
+      [
+        "FUELLING FACILITIES/CAPACITY",
+        "passenger"
+      ],
+      [
+        "GENEHMIGTER FLUGVERKEHR",
+        "admin"
+      ],
+      [
+        "GEOID UNDULATION",
+        "admin"
+      ],
+      [
+        "HANDLING",
+        "handling"
+      ],
+      [
+        "HANGAR SPACE FOR VISITING AIRCRAFT",
+        "passenger"
+      ],
+      [
+        "HOTELS",
+        "other"
+      ],
+      [
+        "KOORDINATEN UND LAGE DES \nFLUGPLATZBEZUGSPUNKTES",
+        "admin"
+      ],
+      [
+        "MEDICAL FACILITIES",
+        "other"
+      ],
+      [
+        "MEDIZINISCHE EINRICHTUNGEN",
+        "other"
+      ],
+      [
+        "MEDIZINISCHE VERSORGUNG",
+        "operational"
+      ],
+      [
+        "MELDESTELLE F\u00dcR FLUGVERKEHRSDIENSTE",
+        "handling"
+      ],
+      [
+        "MET BRIEFING OFFICE",
+        "handling"
+      ],
+      [
+        "M\u00d6GLICHKEITEN ZUR ENTFERNUNG \nMAN\u00d6VRIERUNF\u00c4HIGER LUFTFAHRZEUGE",
+        "other"
+      ],
+      [
+        "ORTSMISSWEISUNG/J\u00c4HRLICHE \u00c4NDERUNG",
+        "admin"
+      ],
+      [
+        "REMARKS",
+        "other"
+      ],
+      [
+        "REPAIR FACILITIES FOR VISITING AIRCRAFT",
+        "other"
+      ],
+      [
+        "REPARATUREINRICHTUNGEN F\u00dcR FLUGHAFENFREMDE \nLUFTFAHRZEUGE",
+        "other"
+      ],
+      [
+        "RESCUE EQUIPMENT",
+        "other"
+      ],
+      [
+        "RESTAURANTS",
+        "other"
+      ],
+      [
+        "RETTUNGSAUSR\u00dcSTUNG",
+        "other"
+      ],
+      [
+        "RICHTUNG UND ENTFERNUNG VON SALZBURG",
+        "admin"
+      ],
+      [
+        "SECURITY",
+        "handling"
+      ],
+      [
+        "SICHERHEITSDIENST",
+        "handling"
+      ],
+      [
+        "TOURIST OFFICE",
+        "other"
+      ],
+      [
+        "TOURISTENINFORMATION",
+        "other"
+      ],
+      [
+        "TRANSPORTATION",
+        "other"
+      ],
+      [
+        "TREIBSTOFF/\u00d6LSORTEN",
+        "passenger"
+      ],
+      [
+        "TYPES OF TRAFFIC PERMITTED",
+        "admin"
+      ],
+      [
+        "VERF\u00dcGBARE FEUERBEK\u00c4MPFUNGSKATEGORIEN",
+        "other"
+      ],
+      [
+        "VERF\u00dcGBARE HALLENR\u00c4UME F\u00dcR FLUGHAFENFREMDE \nLUFTFAHRZEUGE",
+        "passenger"
+      ],
+      [
+        "WETTERBERATUNG",
+        "handling"
+      ],
+      [
+        "ZOLL- UND EINWANDERUNGSBEH\u00d6RDE",
+        "operational"
+      ]
+    ],
+    "LKC": [
+      [
+        "MAG VAR / Annual change",
+        "admin"
+      ],
+      [
+        "Provozovatel leti\u0161t\u011b:\nAerodrome operator\nAdresa\nAddress\ntelefon:\ntelephone\ntelefax:\nSITA\nE\u2212mail",
+        "admin"
+      ],
+      [
+        "Zem\u011bpisn\u00e9 sou\u0159adnice vzta\u017en\u00e9ho bodu leti\u0161t\u011b a jeho \num\u00edst\u011bn\u00ed\nARP coordinates and site at AD",
+        "admin"
+      ]
+    ]
+  }
+}

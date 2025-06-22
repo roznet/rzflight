@@ -1,7 +1,7 @@
 import csv
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from difflib import SequenceMatcher
 import logging
 
@@ -255,4 +255,35 @@ class FieldMapper:
                 'similarity_score': 0.0,
                 'field_std_id': None,
                 'mapped': False
-            } 
+            }
+    def standardise_fields(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Standardise a list of fields by mapping them to standard fields. Will only return a list of records that were mapped.
+        """
+        standardised_fields = []
+        for record in records:
+            mapped_record = self.map_field(record['field'])
+            if mapped_record['mapped']:
+                standardised_record = record.copy()
+                standardised_record['field_std_id'] = mapped_record['field_std_id'] 
+                standardised_record['field'] = mapped_record['mapped_field_name']
+                standardised_record['section'] = mapped_record['section']
+                standardised_record['mapped_description'] = mapped_record['mapped_description']
+                standardised_fields.append(standardised_record)
+        return standardised_fields
+
+    def get_field_for_std_id(self, field_std_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get the field for a given standard field ID.
+        
+        Args:
+            field_std_id: The standard field ID to search for
+            
+        Returns:
+            Field information dictionary or None if not found
+        """
+        for section, fields in self.standard_fields.items():
+            for field_id, field_info in fields.items():
+                if field_info['field_std_id'] == field_std_id:
+                    return field_info
+        return None

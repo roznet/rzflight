@@ -1,0 +1,201 @@
+{
+  "expected_mappings": [
+    {
+      "field_name": "Customs and immigration",
+      "mapped_to": "Customs and immigration",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Fuelling",
+      "mapped_to": "Fuelling",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Handling",
+      "mapped_to": "Handling",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Security",
+      "mapped_to": "Security",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "De-icing",
+      "mapped_to": "De-icing",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Hotels",
+      "mapped_to": "Hotels",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Restaurants",
+      "mapped_to": "Restaurants",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Medical facilities",
+      "mapped_to": "Medical facilities",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Transportation",
+      "mapped_to": "Transportation",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Hangar space for visiting aircraft",
+      "mapped_to": "Hangar space for visiting aircraft",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Cargo-handling facilities",
+      "mapped_to": "Cargo-handling facilities",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Fuel/oil types",
+      "mapped_to": "Fuel/oil types",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "Remarks",
+      "mapped_to": "Remarks",
+      "section": "admin",
+      "score": 1.0,
+      "authority": "EBC"
+    },
+    {
+      "field_name": "ATS",
+      "mapped_to": "ATS",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Customs and immigration",
+      "mapped_to": "Customs and immigration",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Fuelling",
+      "mapped_to": "Fuelling",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Handling",
+      "mapped_to": "Handling",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Security",
+      "mapped_to": "Security",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "De-icing",
+      "mapped_to": "De-icing",
+      "section": "operational",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Hotels",
+      "mapped_to": "Hotels",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Restaurants",
+      "mapped_to": "Restaurants",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Medical facilities",
+      "mapped_to": "Medical facilities",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Transportation",
+      "mapped_to": "Transportation",
+      "section": "passenger",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Hangar space for visiting aircraft",
+      "mapped_to": "Hangar space for visiting aircraft",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Cargo-handling facilities",
+      "mapped_to": "Cargo-handling facilities",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Fuel/oil types",
+      "mapped_to": "Fuel/oil types",
+      "section": "handling",
+      "score": 1.0,
+      "authority": "LEC"
+    },
+    {
+      "field_name": "Remarks",
+      "mapped_to": "Remarks",
+      "section": "admin",
+      "score": 1.0,
+      "authority": "LEC"
+    }
+  ],
+  "metadata": {
+    "description": "Expected field mappings for validation testing",
+    "created_date": "2024-01-01",
+    "version": "1.0",
+    "total_expected_mappings": 30,
+    "authorities_covered": ["EBC", "LEC"],
+    "sections_covered": ["admin", "operational", "handling", "passenger"]
+  }
+} 
