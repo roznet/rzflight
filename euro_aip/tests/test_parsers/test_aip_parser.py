@@ -107,16 +107,16 @@ def test_aip_parser_parse_airports(test_pdfs):
         standardised_result = field_mapper.standardise_fields(result)
         logger.info(f"Standardised result: {len(standardised_result)}/{len(result)}")
         # Check for specific fields
-        found = {
+        found_results = {
             402: False, # Fuel Types
             302: False # Customs
         }
         for item in standardised_result:
-            for field_std_id, found in found.items():
-                if item['field_std_id'] == field_std_id:
-                    found[field_std_id] = True
-        for field_std_id, found_field in found.items():
-            assert found_field, f"Field {field_std_id} {field_mapper.get_field_for_std_id(field_std_id)['field_name']} not found for {icao}"
+            for field_id, found in found_results.items():
+                if item['field_id'] == field_id:
+                    found_results[field_id] = True
+        for field_id, found in found_results.items():
+            assert found, f"Field {field_id} {field_mapper.get_field_for_id(field_id)['field_name']} not found for {icao}"
 
 
 
@@ -232,15 +232,15 @@ def analyze_field_mapping(field_coverage):
     for field_name, authorities in field_coverage.items():
         mapping_stats['total_fields'] += 1
         
-        # Get the first occurrence's section and field_std_id for better mapping
+        # Get the first occurrence's section and field_aip_id for better mapping
         first_authority = next(iter(authorities))
         first_item = authorities[first_authority]
         section = first_item.get('section')
-        field_std_id = first_item.get('field_std_id')
-        field_std_id = None
+        field_aip_id = first_item.get('field_aip_id')
+        field_aip_id = None
         
-        # Try to map this field using the actual section and field_std_id
-        mapping = field_mapper.map_field(field_name, section, field_std_id)
+        # Try to map this field using the actual section and field_aip_id
+        mapping = field_mapper.map_field(field_name, section, field_aip_id)
         
         if mapping['mapped']:
             mapping_stats['mapped_fields'].add((field_name,section))
@@ -252,7 +252,7 @@ def analyze_field_mapping(field_coverage):
                 mapping_stats['mapped_fields_by_authority'][authority].add((field_name,section))
             
             score = mapping['similarity_score']
-            mapping_tuple = (field_name, mapping['mapped_description'], score, found_section)
+            mapping_tuple = (field_name, mapping['mapped_field_name'], score, found_section)
             
             if score >= 0.8:
                 mapping_stats['high_confidence_mappings'].add(mapping_tuple)
@@ -262,7 +262,7 @@ def analyze_field_mapping(field_coverage):
                 mapping_stats['low_confidence_mappings'].add(mapping_tuple)
                 mapping_stats['low_confidence_mappings_list'].append({
                     'field': field_name,
-                    'mapped_to': mapping['mapped_description'],
+                    'mapped_to': mapping['mapped_field_name'],
                     'score': score,
                     'section': found_section
                 })

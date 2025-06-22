@@ -4,6 +4,7 @@ from pathlib import Path
 from euro_aip.parsers import AIPParserFactory
 from euro_aip.utils.field_mapper import FieldMapper
 import logging
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -42,28 +43,38 @@ def test_expected_fields_still_mapped():
     
     # Track test results
     test_results = {
-        'total_expected_fields': 0,
         'still_mapped_fields': 0,
         'unmapped_fields': [],
-        'changed_mappings': [],
-        'authority_results': {}
     }
     
     # Test each expected field mapping
     for field_info in expected_fields_map.get('mapped_fields', []):
-        (field_name,section) = field_info
-        
-        test_results['total_expected_fields'] += 1
+        field_name = field_info[0]
         
         # Try to map the field
-        mapping = field_mapper.map_field(field_name, section)
+        mapping = field_mapper.map_field(field_name)
+        
         if mapping['mapped']:
             test_results['still_mapped_fields'] += 1
         else:
-            test_results['unmapped_fields'].append((field_name,section))
-    # check no fields are now unmapped
-    assert test_results['unmapped_fields'] == []
-     
+            test_results['unmapped_fields'].append(field_name)
+            tryagain = field_mapper.map_field(field_name)
+    
+    # Log test results
+    logger.info("=" * 80)
+    logger.info("FIELD MAPPING VALIDATION RESULTS")
+    logger.info("=" * 80)
+    
+    mapped_fields = test_results['still_mapped_fields']
+    unmapped_fields = len(test_results['unmapped_fields'])
+    
+    # Assertions
+    assert len(test_results['unmapped_fields']) == 0, "No expected fields to test"
+    
+    logger.info("=" * 80)
+    logger.info("FIELD MAPPING VALIDATION PASSED")
+    logger.info("=" * 80)
+
 def test_unmapped_fields_can_be_mapped():
     # Load expected fields map
     expected_fields_map = load_expected_fields_map()
@@ -83,9 +94,9 @@ def test_unmapped_fields_can_be_mapped():
     focus_fields = []
 
     test_results = {
-        'total_unmapped_fields': 0,
-        'still_unmapped_fields': 0,
-        'now_mapped_fields':set()
+        'still_unmapped_fields': set(),
+        'now_mapped_fields':set(),
+        'mapped_fields':defaultdict(set)
     }
     # now got through unmapped fields and see if they can be mapped now
     # by default loops through each authority and field, but if focus_authority or focus_fields is set,
@@ -100,9 +111,20 @@ def test_unmapped_fields_can_be_mapped():
             mapping = field_mapper.map_field(field_name)
             if mapping['mapped']:
                 test_results['now_mapped_fields'].add(field_name)
+                test_results['mapped_fields'][mapping['mapped_field_name']].add(field_name)
             else:
-                test_results['still_unmapped_fields'] += 1 
+                test_results['still_unmapped_fields'].add(field_name)
 
-    logger.info(f"Total unmapped fields: {test_results['total_unmapped_fields']}")
+    # Test each expected field mapping
+    for field_info in expected_fields_map.get('mapped_fields', []):
+        field_name = field_info[0]
+        
+        # Try to map the field
+        mapping = field_mapper.map_field(field_name)
+        
+        if mapping['mapped']:
+            test_results['mapped_fields'][mapping['mapped_field_name']].add(field_name)
+
+    logger.info(f"Total unmapped fields: {len(test_results['still_unmapped_fields'])}")
     logger.info(f"Still unmapped fields: {test_results['still_unmapped_fields']}")
     logger.info(f"Now mapped fields: {test_results['now_mapped_fields']}")

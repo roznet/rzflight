@@ -80,7 +80,7 @@ class DefaultAIPParser(AIPParser):
         alt_field = None
         values = []
         alt_values = []
-        field_std_id = None
+        field_aip_id = None
 
         for row in table:
             field_sep_line = False
@@ -89,10 +89,10 @@ class DefaultAIPParser(AIPParser):
             row_alt_field = None
             row_value = row[self.VALUE_INDEX] if self.VALUE_INDEX in row else None
             row_alt_value = row[self.ALT_VALUE_INDEX] if self.ALT_VALUE_INDEX in row else None
-            row_field_id = row[self.FIELD_ID_INDEX] if self.FIELD_ID_INDEX in row else None
+            row_field_aip_id = row[self.FIELD_ID_INDEX] if self.FIELD_ID_INDEX in row else None
 
-            if row_field_id == '':
-                row_field_id = None
+            if row_field_aip_id == '':
+                row_field_aip_id = None
 
             # if not None we start a new field
             if row_field is not None:
@@ -100,7 +100,7 @@ class DefaultAIPParser(AIPParser):
                     data = {
                         'ident': icao,
                         'section': section,
-                        'field_std_id': row_field_id,
+                        'field_aip_id': row_field_aip_id,
                         'field': field,
                         'alt_field': alt_field,
                         'value': '\n'.join(values),
@@ -109,9 +109,9 @@ class DefaultAIPParser(AIPParser):
                     rv.append(data)
                 values = []
                 alt_values = []
-                
-                if row_field_id is not None:
-                    field_std_id = row_field_id    
+
+                if row_field_aip_id is not None:
+                    field_aip_id = row_field_aip_id    
                 # first see if field is a single field or a pair of fields
                 fields = re.split(self.FIELD_SEPARATOR,row_field)
                 if len(fields) == 2:
@@ -132,7 +132,7 @@ class DefaultAIPParser(AIPParser):
                 'section': section,
                 'field': field,
                 'alt_field': alt_field,
-                'field_std_id': field_std_id,
+                'field_aip_id': field_aip_id,
                 'value': '\n'.join(values),
                 'alt_value': '\n'.join(alt_values)
             }

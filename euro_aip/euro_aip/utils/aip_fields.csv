@@ -1,4 +1,4 @@
-﻿section,field_id,field_std_id,description
+﻿section,field_id,field_aip_id,field_name
 admin,201,1,ARP coordinates and site at AD
 admin,202,2,Direction and distance from city
 admin,203,3,Elevation / Reference temperature / Mean Low Temperature
