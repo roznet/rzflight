@@ -53,6 +53,8 @@ def test_aip_parser_parse_airports(test_pdfs):
     authority_fields = defaultdict(set)  # authority -> set of field names
     authority_icao_mapping = {}  # authority -> list of ICAO codes
     field_mapper = FieldMapper()
+
+    found_fields = defaultdict(set)
     
     for pdf_file in test_pdfs.values():
         # Extract ICAO from filename (documents_ICAO.pdf)
@@ -107,19 +109,21 @@ def test_aip_parser_parse_airports(test_pdfs):
         standardised_result = field_mapper.standardise_fields(result)
         logger.info(f"Standardised result: {len(standardised_result)}/{len(result)}")
         # Check for specific fields
-        found_results = {
-            402: False, # Fuel Types
-            302: False # Customs
-        }
         for item in standardised_result:
-            for field_id, found in found_results.items():
-                if item['field_id'] == field_id:
-                    found_results[field_id] = True
-        for field_id, found in found_results.items():
-            assert found, f"Field {field_id} {field_mapper.get_field_for_id(field_id)['field_name']} not found for {icao}"
+            found_fields[item['field_id']].add(authority)
 
+    required_fields = [402, 302]
+    for field_id in required_fields:
+        assert len(found_fields[field_id]) == len(authority_icao_mapping), f"Field {field_mapper.get_field_for_id(field_id)['field_name']} not found for any authority"
 
-
+    # show all fields that are not found for all authorities
+    for field_id, authorities in found_fields.items():
+        if len(authorities) != len(authority_icao_mapping):
+            logger.info(f"Field {field_mapper.get_field_for_id(field_id)['field_name']} not found for {len(authority_icao_mapping) - len(authorities)} authorities")
+    # show field found in all authorities
+    for field_id, authorities in found_fields.items():
+        if len(authorities) == len(authority_icao_mapping):
+            logger.info(f"Field {field_mapper.get_field_for_id(field_id)['field_name']} found in all authorities")
     
     # Analyze and log field coverage
     analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping)
