@@ -47,7 +47,9 @@ class TestWorldAirportsSourceClass:
     @pytest.fixture
     def world_airports_source(self, temp_cache_dir):
         """Create a WorldAirportsSource instance using test files."""
-        return TestWorldAirportsSource(temp_cache_dir, 'test_airports.db')
+        # Create database path in temp directory
+        db_path = Path(temp_cache_dir) / 'test_airports.db'
+        return TestWorldAirportsSource(temp_cache_dir, str(db_path))
     
     def test_fetch_airports(self, world_airports_source):
         """Test fetching airports data from test files."""
@@ -126,6 +128,10 @@ class TestWorldAirportsSourceClass:
     
     def test_get_airport_summary(self, world_airports_source):
         """Test getting airport summary data."""
+        # First create the database with tables
+        world_airports_source.fetch_airport_database()
+        
+        # Now get the summary
         summaries = world_airports_source.get_airport_summary()
         
         assert isinstance(summaries, list)
