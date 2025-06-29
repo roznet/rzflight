@@ -1,0 +1,67 @@
+{
+  "test_entries": [
+    {
+      "ident": "LFAT",
+      "section": "admin",
+      "field": "AD Administration",
+      "value": "Le Touquet-Paris-Plage Administration",
+      "expected_std_field": "AD Administration",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "admin",
+      "field": "ARP coordinates and site at AD",
+      "value": "50.5175N 001.6208E",
+      "expected_std_field": "ARP coordinates and site at AD",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "operational",
+      "field": "AD Administration",
+      "value": "Operational Administration",
+      "expected_std_field": "AD Administration",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "operational",
+      "field": "ATS",
+      "value": "Air Traffic Services",
+      "expected_std_field": "ATS",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "handling",
+      "field": "Fuel and oil types",
+      "value": "Jet A-1, Avgas 100LL",
+      "expected_std_field": "Fuel and oil types",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "passenger",
+      "field": "Hotels",
+      "value": "Hotel information available",
+      "expected_std_field": "Hotels",
+      "expected_score": 0.9
+    },
+    {
+      "ident": "LFAT",
+      "section": "admin",
+      "field": "Unknown Field",
+      "value": "Unknown Value",
+      "expected_std_field": null,
+      "expected_score": 0.0
+    }
+  ],
+  "expected_statistics": {
+    "total_fields": 7,
+    "mapped_fields": 6,
+    "unmapped_fields": 1,
+    "mapping_rate": 0.857,
+    "average_mapping_score": 1.0
+  }
+} 

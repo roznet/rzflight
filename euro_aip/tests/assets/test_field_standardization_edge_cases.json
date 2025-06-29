@@ -1,0 +1,85 @@
+{
+  "edge_case_entries": [
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "AD Administration",
+      "value": "London Heathrow Administration",
+      "expected_std_field": "AD Administration",
+      "expected_score": 0.9,
+      "description": "Exact match for AD Administration"
+    },
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "AD ADMINISTRATION",
+      "value": "London Heathrow Administration",
+      "expected_std_field": "AD Administration",
+      "expected_score": 0.9,
+      "description": "Uppercase field name"
+    },
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "ad_administration",
+      "value": "London Heathrow Administration",
+      "expected_std_field": "AD Administration",
+      "expected_score": 0.8,
+      "description": "Snake case field name"
+    },
+    {
+      "ident": "EGLL",
+      "section": "operational",
+      "field": "ATS",
+      "value": "Air Traffic Services",
+      "expected_std_field": "ATS",
+      "expected_score": 0.9,
+      "description": "Exact match for ATS"
+    },
+    {
+      "ident": "EGLL",
+      "section": "operational",
+      "field": "ATS (Air Traffic Services)",
+      "value": "Air Traffic Services",
+      "expected_std_field": "ATS",
+      "expected_score": 0.7,
+      "description": "Field with additional text in parentheses"
+    },
+    {
+      "ident": "EGLL",
+      "section": "handling",
+      "field": "Fuel and oil types",
+      "value": "Jet A-1, Avgas 100LL",
+      "expected_std_field": "Fuel and oil types",
+      "expected_score": 0.9,
+      "description": "Exact match for fuel types"
+    },
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "",
+      "value": "Empty field",
+      "expected_std_field": null,
+      "expected_score": 0.0,
+      "description": "Empty field name"
+    },
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "   ",
+      "value": "Whitespace field",
+      "expected_std_field": null,
+      "expected_score": 0.0,
+      "description": "Whitespace-only field name"
+    },
+    {
+      "ident": "EGLL",
+      "section": "admin",
+      "field": "Completely Unknown Field Name",
+      "value": "Unknown value",
+      "expected_std_field": null,
+      "expected_score": 0.0,
+      "description": "Completely unknown field"
+    }
+  ]
+} 

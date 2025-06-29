@@ -352,6 +352,8 @@ class WorldAirportsSource(CachedSource, SourceInterface):
             List of dictionaries containing airport summary data
         """
         conn = sqlite3.connect(self.database)
+        # Set row factory to return dictionaries
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         
         try:
@@ -459,7 +461,7 @@ class WorldAirportsSource(CachedSource, SourceInterface):
             # Commit changes
             conn.commit()
             
-            # Return the summaries
+            # Return the summaries - now with proper row factory
             cur.execute('SELECT * FROM airports_runway_summary')
             return [dict(row) for row in cur.fetchall()]
             
