@@ -9,10 +9,12 @@ from datetime import datetime
 
 from .cached import CachedSource
 from ..utils.autorouter_credentials import AutorouterCredentialManager
+from euro_aip.sources.base import SourceInterface
+from ..utils.field_standardization_service import FieldStandardizationService
 
 logger = logging.getLogger(__name__)
 
-class AutorouterSource(CachedSource):
+class AutorouterSource(CachedSource, SourceInterface):
     """Source implementation for the Autorouter API."""
     
     def __init__(self, cache_dir: str, username: Optional[str] = None, password: Optional[str] = None):
@@ -251,3 +253,83 @@ class AutorouterSource(CachedSource):
                 if parsed:
                     rv.append(parsed)
         return rv
+
+    def update_model(self, model: 'EuroAipModel', airports: Optional[List[str]] = None) -> None:
+        """
+        Update the EuroAipModel with data from this source.
+        
+        Args:
+            model: The EuroAipModel to update
+            airports: Optional list of specific airports to process. If None, 
+                     the source will process all available airports.
+        """
+        from ..models import Airport, Procedure
+        
+        # Initialize field standardization service
+        field_service = FieldStandardizationService()
+        
+        # Determine which airports to process
+        if airports is None:
+            # Autorouter doesn't have find_available_airports, so we need airports to be provided
+            logger.warning("Autorouter source requires specific airports to be provided")
+            return
+        
+        logger.info(f"Updating model with {len(airports)} airports from Autorouter")
+        
+        for icao in airports:
+            try:
+                # Get or create airport in model
+                if icao not in model.airports:
+                    model.airports[icao] = Airport(ident=icao)
+                
+                airport = model.airports[icao]
+                
+                # Get basic airport data
+                airport_data = self.get_airport_data(icao)
+                if airport_data:
+                    # Extract basic airport information if available
+                    for info in airport_data:
+                        if 'name' in info and not airport.name:
+                            airport.name = info['name']
+                        if 'country' in info and not airport.country:
+                            airport.country = info['country']
+                        if 'city' in info and not airport.city:
+                            airport.city = info['city']
+                        if 'latitude' in info and not airport.latitude_deg:
+                            airport.latitude_deg = info['latitude']
+                        if 'longitude' in info and not airport.longitude_deg:
+                            airport.longitude_deg = info['longitude']
+                        if 'elevation' in info and not airport.elevation_ft:
+                            airport.elevation_ft = info['elevation']
+                
+                # Get AIP data and convert to AIPEntry objects
+                aip_data = self.get_airport_aip(icao)
+                if aip_data and 'parsed_data' in aip_data:
+                    # Create AIPEntry objects from parsed data
+                    entries = field_service.create_aip_entries_from_parsed_data(icao, aip_data['parsed_data'])
+                    
+                    if entries:
+                        airport.add_aip_entries(entries)
+                        airport.add_source('autorouter')
+                        logger.debug(f"Added {len(entries)} AIP entries for {icao}")
+                
+                # Get procedures
+                procedures_data = self.get_procedures(icao)
+                if procedures_data:
+                    for proc_data in procedures_data:
+                        if proc_data:
+                            procedure = Procedure(
+                                procedure_type=proc_data.get('type', 'unknown'),
+                                name=proc_data.get('heading', ''),
+                                data=proc_data
+                            )
+                            airport.procedures.append(procedure)
+                
+                logger.debug(f"Updated {icao} with Autorouter data")
+                
+            except Exception as e:
+                logger.error(f"Error updating {icao} with Autorouter data: {e}")
+    
+    def get_source_name(self) -> str:
+        """Get the name of this source."""
+        return 'autorouter'

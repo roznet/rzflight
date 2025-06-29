@@ -31,11 +31,12 @@ import re
 from .cached import CachedSource
 from ..parsers.aip_factory import AIPParserFactory
 from ..parsers.procedure_factory import ProcedureParserFactory
+from euro_aip.sources.base import SourceInterface
 
 logger = logging.getLogger(__name__)
 
 
-class FranceEAIPSource(CachedSource):
+class FranceEAIPSource(CachedSource, SourceInterface):
     """
     A source that provides access to French eAIP data.
     
@@ -239,4 +240,151 @@ class FranceEAIPSource(CachedSource):
         Returns:
             List of dictionaries containing procedures data
         """
-        return self.get_data('procedures', 'json', icao, max_age_days=max_age_days) 
+        return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
+
+    def update_model(self, model: 'EuroAipModel', airports: Optional[List[str]] = None) -> None:
+        """
+        Update the EuroAipModel with data from this source.
+        
+        Args:
+            model: The EuroAipModel to update
+            airports: Optional list of specific airports to process. If None, 
+                     the source will process all available airports.
+        """
+        from ..models import Airport, Procedure
+        from ..utils.field_standardization_service import FieldStandardizationService
+        
+        # Initialize field standardization service
+        field_service = FieldStandardizationService()
+        
+        # Determine which airports to process
+        if airports is None:
+            airports = self.find_available_airports()
+        
+        if not airports:
+            logger.warning("No airports found to process")
+            return
+        
+        logger.info(f"Updating model with {len(airports)} airports from France eAIP")
+        
+        for icao in airports:
+            try:
+                # Get or create airport in model
+                if icao not in model.airports:
+                    model.airports[icao] = Airport(ident=icao)
+                
+                airport = model.airports[icao]
+                
+                # Get AIP data and convert to AIPEntry objects
+                try:
+                    aip_data = self.get_airport_aip(icao)
+                    if aip_data and 'parsed_data' in aip_data:
+                        # Create AIPEntry objects from parsed data
+                        entries = field_service.create_aip_entries_from_parsed_data(icao, aip_data['parsed_data'])
+                        
+                        if entries:
+                            airport.add_aip_entries(entries)
+                            airport.add_source('france_eaip')
+                            logger.debug(f"Added {len(entries)} AIP entries for {icao}")
+                except FileNotFoundError:
+                    logger.info(f"Airport {icao} not found in France eAIP source - skipping")
+                    continue
+                
+                # Get procedures and create enhanced Procedure objects
+                try:
+                    procedures_data = self.get_procedures(icao)
+                    if procedures_data:
+                        for proc_data in procedures_data:
+                            if proc_data:
+                                # Extract runway information from procedure name
+                                runway_info = self._extract_runway_from_procedure_name(proc_data.get('name', ''))
+                                
+                                procedure = Procedure(
+                                    name=proc_data.get('name', ''),
+                                    procedure_type=proc_data.get('type', 'unknown'),
+                                    approach_type=self._extract_approach_type(proc_data.get('name', '')),
+                                    runway_ident=runway_info.get('runway_ident'),
+                                    runway_letter=runway_info.get('runway_letter'),
+                                    runway=runway_info.get('full_runway'),
+                                    category=proc_data.get('category'),
+                                    minima=proc_data.get('minima'),
+                                    notes=proc_data.get('notes'),
+                                    source='france_eaip',
+                                    authority='LFC',
+                                    raw_name=proc_data.get('name', ''),
+                                    data=proc_data
+                                )
+                                airport.add_procedure(procedure)
+                        
+                        logger.debug(f"Added {len(procedures_data)} procedures for {icao}")
+                except FileNotFoundError:
+                    logger.debug(f"No procedures found for {icao} in France eAIP source")
+                
+                logger.debug(f"Updated {icao} with France eAIP data")
+                
+            except Exception as e:
+                logger.error(f"Error updating {icao} with France eAIP data: {e}")
+                # Continue with next airport instead of failing completely
+    
+    def _extract_runway_from_procedure_name(self, procedure_name: str) -> dict:
+        """
+        Extract runway information from procedure name.
+        
+        Args:
+            procedure_name: Name of the procedure
+            
+        Returns:
+            Dictionary with runway_ident, runway_letter, and full_runway
+        """
+        import re
+        
+        # Common patterns for runway extraction
+        patterns = [
+            r'RWY\s*(\d{1,2})([LRC]?)',  # RWY 13L, RWY 31R, etc.
+            r'(\d{1,2})([LRC]?)\s*ILS',  # 13L ILS, 31R ILS, etc.
+            r'ILS\s*(\d{1,2})([LRC]?)',  # ILS 13L, ILS 31R, etc.
+            r'(\d{1,2})([LRC]?)\s*VOR',  # 13L VOR, 31R VOR, etc.
+            r'VOR\s*(\d{1,2})([LRC]?)',  # VOR 13L, VOR 31R, etc.
+            r'(\d{1,2})([LRC?)\s*NDB',   # 13L NDB, 31R NDB, etc.
+            r'NDB\s*(\d{1,2})([LRC]?)',  # NDB 13L, NDB 31R, etc.
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, procedure_name, re.IGNORECASE)
+            if match:
+                runway_ident = match.group(1)
+                runway_letter = match.group(2) if len(match.groups()) > 1 else None
+                full_runway = f"{runway_ident}{runway_letter}" if runway_letter else runway_ident
+                
+                return {
+                    'runway_ident': runway_ident,
+                    'runway_letter': runway_letter,
+                    'full_runway': full_runway
+                }
+        
+        return {'runway_ident': None, 'runway_letter': None, 'full_runway': None}
+    
+    def _extract_approach_type(self, procedure_name: str) -> Optional[str]:
+        """
+        Extract approach type from procedure name.
+        
+        Args:
+            procedure_name: Name of the procedure
+            
+        Returns:
+            Approach type (ILS, VOR, NDB, etc.) or None
+        """
+        import re
+        
+        # Common approach types
+        approach_types = ['ILS', 'VOR', 'NDB', 'RNAV', 'GNSS', 'LOC', 'LDA', 'SDF']
+        
+        for approach_type in approach_types:
+            if re.search(rf'\b{approach_type}\b', procedure_name, re.IGNORECASE):
+                return approach_type
+        
+        return None
+
+    def get_source_name(self) -> str:
+        """Get the name of this source."""
+        return 'france_eaip' 

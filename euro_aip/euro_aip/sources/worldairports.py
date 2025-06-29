@@ -8,10 +8,14 @@ import sqlite3
 import pandas as pd
 
 from .cached import CachedSource
+from .base import SourceInterface
+from ..models.euro_aip_model import EuroAipModel
+from ..models.airport import Airport
+from ..models.runway import Runway
 
 logger = logging.getLogger(__name__)
 
-class WorldAirportsSource(CachedSource):
+class WorldAirportsSource(CachedSource, SourceInterface):
     """Source implementation for World Airports data from OurAirports."""
     
     def __init__(self, cache_dir: str, database: str = 'airports.db'):
@@ -460,4 +464,105 @@ class WorldAirportsSource(CachedSource):
             return [dict(row) for row in cur.fetchall()]
             
         finally:
-            conn.close() 
+            conn.close()
+
+    def update_model(self, model: EuroAipModel, airports: Optional[List[str]] = None) -> None:
+        """
+        Update the EuroAipModel with WorldAirports data.
+        
+        Args:
+            model: The EuroAipModel to update
+            airports: Optional list of specific airports to process. If None, 
+                     processes all airports in the WorldAirports database.
+        """
+        logger.info(f"Updating model with WorldAirports data")
+        
+        try:
+            # Get airports data
+            airports_df = self.get_airports()
+            runways_df = self.get_runways()
+        except Exception as e:
+            logger.error(f"Error fetching WorldAirports data: {e}")
+            return
+        
+        # Filter airports if specific list provided
+        if airports:
+            airports_df = airports_df[airports_df['ident'].isin(airports)]
+            logger.info(f"Filtering to {len(airports_df)} specified airports")
+        
+        # Process each airport
+        for _, airport_row in airports_df.iterrows():
+            try:
+                icao = airport_row['ident']
+                
+                # Create Airport object
+                airport = Airport(
+                    ident=icao,
+                    name=airport_row.get('name'),
+                    type=airport_row.get('type'),
+                    latitude_deg=airport_row.get('latitude_deg'),
+                    longitude_deg=airport_row.get('longitude_deg'),
+                    elevation_ft=airport_row.get('elevation_ft'),
+                    continent=airport_row.get('continent'),
+                    iso_country=airport_row.get('iso_country'),
+                    iso_region=airport_row.get('iso_region'),
+                    municipality=airport_row.get('municipality'),
+                    scheduled_service=airport_row.get('scheduled_service'),
+                    gps_code=airport_row.get('gps_code'),
+                    iata_code=airport_row.get('iata_code'),
+                    local_code=airport_row.get('local_code'),
+                    home_link=airport_row.get('home_link'),
+                    wikipedia_link=airport_row.get('wikipedia_link'),
+                    keywords=airport_row.get('keywords')
+                )
+                
+                # Add source tracking
+                airport.add_source(self.get_source_name())
+                
+                # Add runways for this airport
+                airport_runways = runways_df[runways_df['airport_ident'] == icao]
+                for _, runway_row in airport_runways.iterrows():
+                    runway = Runway(
+                        airport_ident=icao,
+                        length_ft=runway_row.get('length_ft'),
+                        width_ft=runway_row.get('width_ft'),
+                        surface=runway_row.get('surface'),
+                        lighted=runway_row.get('lighted'),
+                        closed=runway_row.get('closed'),
+                        le_ident=runway_row.get('le_ident'),
+                        le_latitude_deg=runway_row.get('le_latitude_deg'),
+                        le_longitude_deg=runway_row.get('le_longitude_deg'),
+                        le_elevation_ft=runway_row.get('le_elevation_ft'),
+                        le_heading_degT=runway_row.get('le_heading_degT'),
+                        le_displaced_threshold_ft=runway_row.get('le_displaced_threshold_ft'),
+                        he_ident=runway_row.get('he_ident'),
+                        he_latitude_deg=runway_row.get('he_latitude_deg'),
+                        he_longitude_deg=runway_row.get('he_longitude_deg'),
+                        he_elevation_ft=runway_row.get('he_elevation_ft'),
+                        he_heading_degT=runway_row.get('he_heading_degT'),
+                        he_displaced_threshold_ft=runway_row.get('he_displaced_threshold_ft')
+                    )
+                    airport.add_runway(runway)
+                
+                # Add airport to model
+                model.add_airport(airport)
+                
+            except Exception as e:
+                logger.error(f"Error processing airport {icao} from WorldAirports: {e}")
+                # Continue with next airport instead of failing completely
+        
+        logger.info(f"Added {len(airports_df)} airports from WorldAirports to model")
+    
+    def find_available_airports(self) -> List[str]:
+        """
+        Find all available airports in the WorldAirports database.
+        
+        Returns:
+            List of ICAO airport codes available in WorldAirports
+        """
+        try:
+            airports_df = self.get_airports()
+            return airports_df['ident'].tolist()
+        except Exception as e:
+            logger.error(f"Error getting available airports from WorldAirports: {e}")
+            return [] 
