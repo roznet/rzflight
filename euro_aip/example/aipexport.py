@@ -16,6 +16,7 @@ from euro_aip.sources import (
 from euro_aip.models import EuroAipModel, Airport
 from euro_aip.sources.base import SourceInterface
 from euro_aip.utils.field_standardization_service import FieldStandardizationService
+from euro_aip.storage import DatabaseStorage
 
 # Configure logging
 logging.basicConfig(
@@ -200,8 +201,8 @@ class ModelBuilder:
         logger.info(f"Total unique airports found across all sources: {len(sorted_airports)}")
         return sorted_airports
 
-class SQLiteExporter:
-    """Exports EuroAipModel to SQLite database."""
+class LegacySQLiteExporter:
+    """Legacy SQLite exporter for backward compatibility."""
     
     def __init__(self, db_path: str):
         """Initialize SQLite exporter."""
@@ -272,14 +273,14 @@ class SQLiteExporter:
         ''')
         
         self.conn.commit()
-        logger.info(f"Created SQLite database schema at {self.db_path}")
+        logger.info(f"Created legacy SQLite database schema at {self.db_path}")
     
-    def export_model(self, model: EuroAipModel):
+    def save_model(self, model: EuroAipModel):
         """Export the entire model to the database."""
         if not self.conn:
             self.create_tables()
         
-        logger.info(f"Exporting {len(model.airports)} airports to SQLite")
+        logger.info(f"Exporting {len(model.airports)} airports to legacy SQLite")
         
         for airport_code, airport in model.airports.items():
             # Insert/update main airport record
@@ -344,7 +345,7 @@ class SQLiteExporter:
                 ))
         
         self.conn.commit()
-        logger.info(f"Successfully exported {len(model.airports)} airports to SQLite")
+        logger.info(f"Successfully exported {len(model.airports)} airports to legacy SQLite")
     
     def close(self):
         """Close the database connection."""
@@ -358,7 +359,7 @@ class JSONExporter:
         """Initialize JSON exporter."""
         self.json_path = json_path
     
-    def export_model(self, model: EuroAipModel):
+    def save_model(self, model: EuroAipModel):
         """Export the entire model to JSON."""
         logger.info(f"Exporting {len(model.airports)} airports to JSON")
         
@@ -382,7 +383,10 @@ class AIPExporter:
         
         # Initialize exporters based on output format
         if self.args.sqlite:
-            self.exporters['sqlite'] = SQLiteExporter(self.args.sqlite)
+            self.exporters['sqlite'] = LegacySQLiteExporter(self.args.sqlite)
+        
+        if self.args.database_storage:
+            self.exporters['database_storage'] = DatabaseStorage(self.args.database_storage)
         
         if self.args.json:
             self.exporters['json'] = JSONExporter(self.args.json)
@@ -412,7 +416,7 @@ class AIPExporter:
         for exporter_name, exporter in self.exporters.items():
             try:
                 logger.info(f"Exporting to {exporter_name}")
-                exporter.export_model(model)
+                exporter.save_model(model)
             except Exception as e:
                 logger.error(f"Error exporting to {exporter_name}: {e}")
         
@@ -449,7 +453,8 @@ def main():
     parser.add_argument('--pointdepassage-db', help='Point de Passage database file', default='airports.db')
     
     # Output configuration
-    parser.add_argument('--sqlite', help='SQLite output database file')
+    parser.add_argument('--sqlite', help='Legacy SQLite output database file')
+    parser.add_argument('--database-storage', help='New unified database storage file with change tracking')
     parser.add_argument('--json', help='JSON output file')
     
     # General options
@@ -470,7 +475,7 @@ def main():
     ])
     
     outputs_enabled = any([
-        args.sqlite, args.json
+        args.sqlite, args.database_storage, args.json
     ])
     
     if not sources_enabled:

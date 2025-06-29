@@ -302,7 +302,7 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                                 procedure = Procedure(
                                     name=proc_data.get('name', ''),
                                     procedure_type=proc_data.get('type', 'unknown'),
-                                    approach_type=self._extract_approach_type(proc_data.get('name', '')),
+                                    approach_type=proc_data.get('approach_type', ''),
                                     runway_ident=runway_info.get('runway_ident'),
                                     runway_letter=runway_info.get('runway_letter'),
                                     runway=runway_info.get('full_runway'),

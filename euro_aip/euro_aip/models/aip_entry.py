@@ -15,6 +15,7 @@ class AIPEntry:
     mapping_score: Optional[float] = None  # Similarity score from field mapper
     alt_field: Optional[str] = None  # Field name in alternative language
     alt_value: Optional[str] = None  # Value in alternative language
+    source: Optional[str] = None  # Source of the data (e.g., 'uk_eaip', 'france_eaip')
     created_at: datetime = datetime.now()
     
     def to_dict(self) -> dict:
@@ -29,6 +30,7 @@ class AIPEntry:
             'mapping_score': self.mapping_score,
             'alt_field': self.alt_field,
             'alt_value': self.alt_value,
+            'source': self.source,
             'created_at': self.created_at.isoformat()
         }
     
