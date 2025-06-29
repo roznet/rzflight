@@ -489,13 +489,30 @@ class WorldAirportsSource(CachedSource, SourceInterface):
         
         # Filter airports if specific list provided
         if airports:
-            airports_df = airports_df[airports_df['ident'].isin(airports)]
+            # Create a DataFrame with the target airports for efficient merging
+            target_airports_df = pd.DataFrame({'ident': airports})
+            airports_df = airports_df.merge(target_airports_df, on='ident', how='inner')
             logger.info(f"Filtering to {len(airports_df)} specified airports")
         
-        # Process each airport
-        for _, airport_row in airports_df.iterrows():
+        # Pre-filter runways to only include those for our target airports
+        # This is much more efficient than filtering in the loop
+        target_airport_idents = set(airports_df['ident'].tolist())
+        runways_df = runways_df[runways_df['airport_ident'].isin(target_airport_idents)]
+        
+        # Use pandas merge to join airports with their runways
+        # This is much more efficient than dictionary lookups
+        airports_with_runways = airports_df.merge(
+            runways_df, 
+            left_on='ident', 
+            right_on='airport_ident', 
+            how='left'
+        )
+        
+        # Group by airport to process each airport with its runways
+        for icao, airport_group in airports_with_runways.groupby('ident'):
             try:
-                icao = airport_row['ident']
+                # Get the first row for airport data (all rows have same airport info)
+                airport_row = airport_group.iloc[0]
                 
                 # Create Airport object
                 airport = Airport(
@@ -522,8 +539,10 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                 airport.add_source(self.get_source_name())
                 
                 # Add runways for this airport
-                airport_runways = runways_df[runways_df['airport_ident'] == icao]
-                for _, runway_row in airport_runways.iterrows():
+                # Filter out rows where runway data is NaN (airports without runways)
+                runway_rows = airport_group[airport_group['airport_ident'].notna()]
+                
+                for _, runway_row in runway_rows.iterrows():
                     runway = Runway(
                         airport_ident=icao,
                         length_ft=runway_row.get('length_ft'),

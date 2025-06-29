@@ -94,7 +94,10 @@ class ModelBuilder:
         """Build EuroAipModel from all configured sources."""
         model = EuroAipModel()
         
-        # Update model with each source
+        # Separate WorldAirports source to process it last
+        worldairports_source = self.sources.pop('worldairports', None) if 'worldairports' in self.sources else None
+        
+        # Update model with each source (excluding WorldAirports for now)
         for source_name, source in self.sources.items():
             try:
                 logger.info(f"Updating model with {source_name} source")
@@ -109,6 +112,39 @@ class ModelBuilder:
                     
             except Exception as e:
                 logger.error(f"Error updating model with {source_name}: {e}")
+        
+        # Process WorldAirports source last with appropriate filtering
+        if worldairports_source:
+            try:
+                logger.info(f"Updating model with worldairports source (filter: {self.args.worldairports_filter})")
+                
+                if self.args.worldairports_filter == 'default':
+                    # Only add airports that already exist in the model (from other sources)
+                    existing_airports = list(model.airports.keys())
+                    if existing_airports:
+                        worldairports_source.update_model(model, existing_airports)
+                        logger.info(f"Updated WorldAirports with {len(existing_airports)} existing airports")
+                    else:
+                        logger.warning("No existing airports in model, skipping WorldAirports default filter")
+                
+                elif self.args.worldairports_filter == 'europe':
+                    # Filter to European airports only
+                    european_airports = self._get_european_airports(worldairports_source)
+                    if european_airports:
+                        worldairports_source.update_model(model, european_airports)
+                        logger.info(f"Updated WorldAirports with {len(european_airports)} European airports")
+                    else:
+                        logger.warning("No European airports found in WorldAirports")
+                
+                elif self.args.worldairports_filter == 'all':
+                    # Add all airports from WorldAirports
+                    worldairports_source.update_model(model, airports)
+                    logger.info(f"Updated WorldAirports with all airports")
+                
+                logger.info(f"Final model after WorldAirports: {len(model.airports)} airports")
+                
+            except Exception as e:
+                logger.error(f"Error updating model with worldairports: {e}")
         
         # Filter to specific airports if provided
         if airports:
@@ -127,6 +163,19 @@ class ModelBuilder:
         
         logger.info(f"Final model contains {len(model.airports)} airports")
         return model
+    
+    def _get_european_airports(self, worldairports_source) -> List[str]:
+        """Get list of European airports from WorldAirports source."""
+        try:
+            airports_df = worldairports_source.get_airports()
+            european_airports = airports_df[
+                (airports_df['continent'] == 'EU') & 
+                (~airports_df['type'].isin(['heliport', 'closed']))
+            ]['ident'].tolist()
+            return european_airports
+        except Exception as e:
+            logger.error(f"Error getting European airports from WorldAirports: {e}")
+            return []
     
     def get_all_airports(self) -> List[str]:
         """Get list of all available airports from all sources that support it."""
@@ -383,6 +432,10 @@ def main():
     # Source configuration
     parser.add_argument('--worldairports', help='Enable WorldAirports source', action='store_true')
     parser.add_argument('--worldairports-db', help='WorldAirports database file', default='airports.db')
+    parser.add_argument('--worldairports-filter', 
+                       choices=['default', 'europe', 'all'], 
+                       default='default',
+                       help='WorldAirports filtering mode: default=only airports from other sources, europe=EU continent only, all=all airports')
     
     parser.add_argument('--france-eaip', help='France eAIP root directory')
     parser.add_argument('--uk-eaip', help='UK eAIP root directory')
