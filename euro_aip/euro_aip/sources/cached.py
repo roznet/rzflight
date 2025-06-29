@@ -169,7 +169,7 @@ class CachedSource(ABC):
         
         is_valid, reason = self._is_cache_valid(cache_file, max_age_days)
         if is_valid:
-            logger.info(f"{cache_file.name} retrieved from cache")
+            logger.info(f"{cache_file.name} retrieved from cache {self.source_name}")
             return self._load_from_cache(cache_key, ext)
             
         # Validate that the fetch method exists

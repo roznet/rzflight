@@ -7,3 +7,6 @@ cache
 *.kml
 .vscode
 pack
+changes.csv
+changes.json
+changes.xlsx

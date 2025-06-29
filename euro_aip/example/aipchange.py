@@ -390,6 +390,10 @@ class AIPChangeDetector:
         # Save results to file if requested
         if self.args.output:
             self._save_results(all_changes, summary, source1_name, source2_name)
+        
+        # Save CSV output if requested
+        if self.args.csv_output:
+            self._save_csv_results(all_changes, source1_name, source2_name)
     
     def _save_results(self, changes: List[Dict], summary: Dict, source1_name: str, source2_name: str):
         """Save comparison results to a file."""
@@ -410,6 +414,34 @@ class AIPChangeDetector:
             logger.info(f"Results saved to {self.args.output}")
         except Exception as e:
             logger.error(f"Error saving results to {self.args.output}: {e}")
+
+    def _save_csv_results(self, changes: List[Dict], source1_name: str, source2_name: str):
+        """Save changed fields to a CSV file."""
+        import csv
+        
+        try:
+            with open(self.args.csv_output, 'w', newline='', encoding='utf-8') as csvfile:
+                # Create CSV writer
+                writer = csv.writer(csvfile)
+                
+                # Write header
+                writer.writerow(['airport', 'fieldname', f'value_for_{source1_name}', f'value_for_{source2_name}'])
+                
+                # Write data rows
+                for result in changes:
+                    airport = result['airport']
+                    for change in result['changes']:
+                        field = change['field']
+                        source1_value = change[f'{source1_name}_value']
+                        source2_value = change[f'{source2_name}_value']
+                        
+                        # Write row with airport, field name and values
+                        writer.writerow([airport, field, source1_value, source2_value])
+                
+            logger.info(f"CSV results saved to {self.args.csv_output} with {sum(len(result['changes']) for result in changes)} field changes")
+            
+        except Exception as e:
+            logger.error(f"Error saving CSV results to {self.args.csv_output}: {e}")
 
 def add_source_arguments(parser: argparse.ArgumentParser, source_num: int):
     """
@@ -455,6 +487,7 @@ def main():
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-f', '--fields', help='Comma-separated list of fields to compare (default: all fields)', nargs='*')
     parser.add_argument('-o', '--output', help='Output file to save results (JSON format)')
+    parser.add_argument('--csv-output', help='Output file to save changed fields in CSV format')
     parser.add_argument('-v', '--verbose', help='Verbose output', action='store_true')
     
     # Add arguments for both sources

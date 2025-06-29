@@ -1,10 +1,6 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
             "name": "Python Debugger: Autorouter EGKB",
             "type": "debugpy",
@@ -16,7 +12,11 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["autorouter", "EGKB", "-n"]
+            "args": [
+                "autorouter",
+                "EGKB",
+                "-n"
+            ]
         },
         {
             "name": "Python Debugger: France eAIP LFQA",
@@ -29,7 +29,11 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["--root-dir", "cache/eaip_17_apr_2025",  "france_eaip"]
+            "args": [
+                "--root-dir",
+                "cache/eaip_17_apr_2025",
+                "france_eaip"
+            ]
         },
         {
             "name": "Python Debugger: UK eAIP EGMC",
@@ -42,7 +46,13 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["--root-dir", "cache/AIRAC 06-25",  "-f", "uk_eaip", "EGMC"]
+            "args": [
+                "--root-dir",
+                "cache/AIRAC 06-25",
+                "-f",
+                "uk_eaip",
+                "EGMC"
+            ]
         },
         {
             "name": "Python Debugger: World Airports",
@@ -55,7 +65,9 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["worldairports"]
+            "args": [
+                "worldairports"
+            ]
         },
         {
             "name": "Python Debugger: Point de Passage",
@@ -68,7 +80,11 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["pointdepassage", "-j", "cache/joe_20210529.pdf"]
+            "args": [
+                "pointdepassage",
+                "-j",
+                "cache/joe_20210529.pdf"
+            ]
         },
         {
             "name": "Python Debugger: Query Database",
@@ -81,7 +97,109 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": ["querydb", "-w", "ident = 'LFAT' or ident = 'EGKB'", "-v"]
-
+            "args": [
+                "querydb",
+                "-w",
+                "ident = 'LFAT' or ident = 'EGKB'",
+                "-v"
+            ]
+        },
+        {
+            "name": "Python Debugger: Interactive AIP",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aip.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "${input:aipArgs}"
+        },
+        {
+            "name": "Python Debugger: Interactive AIP Change",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aipchange.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "${input:aipChangeArgs}"
+        },
+        {
+            "name": "Python Debugger: Python File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}"
+        },
+        {
+            "name": "Python Debugger: Python File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "args": "${input:FileArgs}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "FileArgs",
+            "description": "Enter arguments for aipchange.py",
+            "default": "",
+            "type": "promptString"
+        },
+        {
+            "id": "aipArgs",
+            "description": "Enter arguments for aip.py",
+            "default": "autorouter EGKB -n",
+            "type": "promptString"
+        },
+        {
+            "id": "aipChangeArgs",
+            "description": "Enter arguments for aipchange.py",
+            "default": "--source1 france_eaip --root-dir1 cache/eaip_17_apr_2025 --source2 autorouter --csv-output changes.csv LFQA",
+            "type": "promptString"
+        },
+        {
+            "id": "airports",
+            "description": "Enter airport codes (space-separated) or leave empty for all",
+            "default": "EGLL EGKK",
+            "type": "promptString"
+        },
+        {
+            "id": "source1",
+            "description": "Select source 1 type",
+            "default": "france_eaip",
+            "type": "pickString",
+            "options": ["france_eaip", "uk_eaip", "autorouter", "worldairports", "pointdepassage"]
+        },
+        {
+            "id": "source2",
+            "description": "Select source 2 type",
+            "default": "autorouter",
+            "type": "pickString",
+            "options": ["france_eaip", "uk_eaip", "autorouter", "worldairports", "pointdepassage"]
+        },
+        {
+            "id": "source1Args",
+            "description": "Enter source 1 arguments (e.g., --root-dir1 /path/to/data --force-refresh1)",
+            "default": "--root-dir1 /path/to/france/data",
+            "type": "promptString"
+        },
+        {
+            "id": "source2Args",
+            "description": "Enter source 2 arguments (e.g., --username2 user --password2 pass)",
+            "default": "--username2 user --password2 pass",
+            "type": "promptString"
+        },
+        {
+            "id": "additionalArgs",
+            "description": "Enter additional arguments (e.g., --fields airport_name,icao_code --verbose --output results.json)",
+            "default": "--verbose",
+            "type": "promptString"
+        }
     ]
 }
