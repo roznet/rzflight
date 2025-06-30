@@ -10,7 +10,7 @@ from .france_eaip import FranceEAIPSource
 from .uk_eaip import UKEAIPSource
 from .worldairports import WorldAirportsSource
 from .database import DatabaseSource
-from .point_de_passage import PointDePassageJournalOfficiel
+from .point_de_passage import PointDePassageJournalOfficielSource
 
 __all__ = [
     'AutorouterSource',
@@ -18,5 +18,5 @@ __all__ = [
     'UKEAIPSource',
     'WorldAirportsSource',
     'DatabaseSource',
-    'PointDePassageJournalOfficiel'
+    'PointDePassageJournalOfficielSource'
 ]

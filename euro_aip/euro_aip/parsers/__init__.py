@@ -9,6 +9,7 @@ from .aip_lkc import LKCAIPParser
 from .aip_ekc import EKCAIPParser
 from .aip_egc import EGCAIPParser
 from .aip_dual import DualFormatAIPParser
+from .bordercrossing import BorderCrossingParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
 from .procedure_default import DefaultProcedureParser
 from .procedure_lfc import LFCProcedureParser
@@ -44,6 +45,7 @@ __all__ = [
     'EKCAIPParser',
     'EGCAIPParser',
     'DualFormatAIPParser',
+    'BorderCrossingParser',
     'ProcedureParserFactory',
     'PROCEDURE_DEFAULT_AUTHORITY',
     'DefaultProcedureParser',

@@ -23,11 +23,11 @@ class Airport:
     home_link: Optional[str] = None
     wikipedia_link: Optional[str] = None
     keywords: Optional[str] = None
-    
-    # Relationships
-    runways: List['Runway'] = field(default_factory=list)
-    aip_entries: List['AIPEntry'] = field(default_factory=list)
-    procedures: List['Procedure'] = field(default_factory=list)
+
+    # AIP data
+    point_of_entry: Optional[bool] = None
+    avgas : Optional[bool] = None
+    jet_a : Optional[bool] = None
     
     # Source tracking
     sources: Set[str] = field(default_factory=set)

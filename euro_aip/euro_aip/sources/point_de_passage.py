@@ -16,17 +16,18 @@ import logging
 from pathlib import Path
 from typing import List, Set, Optional
 from pdfminer.high_level import extract_text
-from .database import DatabaseSource
+from .base import SourceInterface
+from ..models.euro_aip_model import EuroAipModel
 
 logger = logging.getLogger(__name__)
 
-class PointDePassageJournalOfficiel:
+class PointDePassageJournalOfficielSource(SourceInterface):
     """
     A source that parses Points de Passage information from Journal Officiel PDFs.
     
-    This source reads a PDF file and extracts airport ICAO codes that are
-    designated as Points de Passage. It uses a database source to validate
-    the extracted airport codes.
+    This source reads a PDF file and extracts airport names that are
+    designated as Points de Passage. It then matches these names against
+    existing airports in the model to set the point_of_entry flag.
     
     The source PDF should be downloaded from:
     https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009
@@ -37,21 +38,20 @@ class PointDePassageJournalOfficiel:
     formatted as "(number) airport name, additional information".
     """
     
-    def __init__(self, pdf_path: str, database_source: DatabaseSource):
+    def __init__(self, pdf_path: str):
         """
         Initialize the source.
         
         Args:
             pdf_path: Path to the Journal Officiel PDF file. The PDF should be
                      downloaded from https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009
-            database_source: DatabaseSource instance for airport validation
         """
         self.pdf_path = Path(pdf_path)
         if not self.pdf_path.exists():
             raise FileNotFoundError(f"PDF file not found: {pdf_path}")
             
-        self.database = database_source
-        self._airports: Set[str] = set()
+        self._points_de_passage_names: Set[str] = set()
+        self._processed = False
 
     def _extract_text_from_pdf(self) -> str:
         """
@@ -98,81 +98,157 @@ class PointDePassageJournalOfficiel:
                 
         return airports
 
-    def _validate_airports(self, airport_names: Set[str]) -> Set[str]:
+    def _extract_points_de_passage_names(self) -> Set[str]:
         """
-        Validate airport names against the database using fuzzy matching.
-        
-        Args:
-            airport_names: Set of airport names to validate
-            
-        Returns:
-            Set[str]: Set of valid ICAO codes
-        """
-        valid_icao_codes = set()
-        
-        # First, build a map of all French airports
-        airport_map = {}
-        with self.database.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT ident, name FROM airports WHERE ident LIKE 'LF%'")
-            for row in cursor.fetchall():
-                airport_map[row['name']] = {'ident': row['ident'], 'name': row['name']}
-
-        def find_ident(name: str) -> Optional[dict]:
-            # Direct match
-            for k in airport_map:
-                if name in k:
-                    return airport_map[k]
-
-            # Simplified match (remove spaces and hyphens)
-            simplified = name.replace(' ', '').replace('-', '')
-            for k in airport_map:
-                simplifiedk = k.replace(' ', '').replace('-', '')
-                if simplified in simplifiedk:
-                    return airport_map[k]
-
-            # Fuzzy match using word parts
-            subs = [x for x in re.split('[- ]+', name) if len(x) > 3]
-            maxfound = 0
-            found = None
-            for k in airport_map:
-                count = 0
-                for sub in subs:
-                    if sub in k:
-                        count += 1
-                if count > maxfound:
-                    found = airport_map[k]
-                    maxfound = count
-
-            return found
-
-        # Process each airport name
-        for name in airport_names:
-            found = find_ident(name)
-            if not found and 'Tavaux' in name:
-                found = find_ident('Dole-Jura')
-            if found:
-                valid_icao_codes.add(found['ident'])
-            else:
-                logger.warning(f"Airport not found in database: {name}")
-                    
-        return valid_icao_codes
-
-    def get_points_de_passage(self) -> List[str]:
-        """
-        Get the list of Points de Passage airports.
+        Extract Points de Passage airport names from the PDF.
         
         Returns:
-            List[str]: List of ICAO codes for Points de Passage airports
+            Set[str]: Set of airport names from the PDF
         """
-        if not self._airports:
+        if not self._processed:
             # Extract text from PDF
             text = self._extract_text_from_pdf()
             
             # Find airport patterns
-            airport_names = self._find_airport_patterns(text)
+            self._points_de_passage_names = self._find_airport_patterns(text)
+            self._processed = True
             
-            # Validate against database
-            self._airports = self._validate_airports(airport_names)
+        return self._points_de_passage_names
+
+    def _is_airport_match(self, pdf_name: str, airport_name: str) -> bool:
+        """
+        Check if an airport name from the PDF matches an airport in the model.
+        
+        Uses fuzzy matching to handle variations in naming.
+        
+        Args:
+            pdf_name: Airport name from the PDF
+            airport_name: Airport name from the model
             
-        return sorted(list(self._airports)) 
+        Returns:
+            bool: True if the names match
+        """
+        # Direct match
+        if pdf_name.lower() == airport_name.lower():
+            return True
+            
+        # Check if PDF name is contained in airport name
+        if pdf_name.lower() in airport_name.lower():
+            return True
+            
+        # Check if airport name is contained in PDF name
+        if airport_name.lower() in pdf_name.lower():
+            return True
+            
+        # Simplified match (remove spaces and hyphens)
+        simplified_pdf = pdf_name.replace(' ', '').replace('-', '').lower()
+        simplified_airport = airport_name.replace(' ', '').replace('-', '').lower()
+        
+        if simplified_pdf in simplified_airport or simplified_airport in simplified_pdf:
+            return True
+            
+        # Fuzzy match using word parts
+        pdf_words = [x for x in re.split('[- ]+', pdf_name) if len(x) > 3]
+        airport_words = [x for x in re.split('[- ]+', airport_name) if len(x) > 3]
+        
+        # Count matching words
+        matches = 0
+        for pdf_word in pdf_words:
+            for airport_word in airport_words:
+                if pdf_word.lower() in airport_word.lower() or airport_word.lower() in pdf_word.lower():
+                    matches += 1
+                    break
+        
+        # If more than half the words match, consider it a match
+        if matches > 0 and matches >= min(len(pdf_words), len(airport_words)) / 2:
+            return True
+            
+        # Special cases
+        if 'Tavaux' in pdf_name and 'Dole' in airport_name:
+            return True
+            
+        return False
+
+    def update_model(self, model: EuroAipModel, airports: Optional[List[str]] = None) -> None:
+        """
+        Update the EuroAipModel with Points de Passage data.
+        
+        This method:
+        1. Extracts airport names from the PDF
+        2. Matches them against existing airports in the model
+        3. Sets the point_of_entry flag to True for matching airports
+        
+        Args:
+            model: The EuroAipModel to update
+            airports: Optional list of specific airports to process. If None, 
+                     processes all airports in the model.
+        """
+        logger.info(f"Updating model with Points de Passage data from {self.pdf_path}")
+        
+        # Extract Points de Passage names from PDF
+        pdf_airport_names = self._extract_points_de_passage_names()
+        logger.info(f"Found {len(pdf_airport_names)} Points de Passage airports in PDF")
+        
+        # Determine which airports to process
+        airports_to_process = airports if airports is not None else list(model.airports.keys())
+        
+        # Track matches for logging
+        matches_found = 0
+        
+        # Process each airport in the model
+        for icao in airports_to_process:
+            if icao not in model.airports:
+                continue
+                
+            airport = model.airports[icao]
+            
+            # Check if this airport matches any name from the PDF
+            for pdf_name in pdf_airport_names:
+                if self._is_airport_match(pdf_name, airport.name or ''):
+                    # Set point_of_entry flag
+                    airport.point_of_entry = True
+                    airport.add_source(self.get_source_name())
+                    matches_found += 1
+                    logger.debug(f"Matched '{pdf_name}' to airport {icao} ({airport.name})")
+                    break
+        
+        logger.info(f"Updated {matches_found} airports with Points de Passage designation")
+        
+        # Log unmatched PDF names for debugging
+        unmatched = []
+        for pdf_name in pdf_airport_names:
+            matched = False
+            for icao in airports_to_process:
+                if icao in model.airports:
+                    airport = model.airports[icao]
+                    if self._is_airport_match(pdf_name, airport.name or ''):
+                        matched = True
+                        break
+            if not matched:
+                unmatched.append(pdf_name)
+        
+        if unmatched:
+            logger.warning(f"Could not match {len(unmatched)} Points de Passage airports: {unmatched[:10]}...")
+
+    def find_available_airports(self) -> List[str]:
+        """
+        Find all available airports that this source can process.
+        
+        Since this source only sets flags on existing airports, it doesn't
+        discover new airports, so it returns an empty list.
+        
+        Returns:
+            Empty list (this source doesn't discover airports)
+        """
+        return []
+
+    def get_points_de_passage(self) -> List[str]:
+        """
+        Get the list of Points de Passage airport names from the PDF.
+        
+        This method is kept for backward compatibility.
+        
+        Returns:
+            List[str]: List of airport names from the PDF
+        """
+        return sorted(list(self._extract_points_de_passage_names())) 
