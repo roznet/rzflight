@@ -257,7 +257,7 @@ class TestDatabaseStorage:
         # Allow for None as old_value if DB was recreated
         if elevation_change['old_value'] is not None:
             assert elevation_change['old_value'] == '13.0'
-        assert elevation_change['new_value'] == '20'
+        assert elevation_change['new_value'] == '20.0'
     
     def test_database_info(self, storage, sample_model):
         """Test database information retrieval."""

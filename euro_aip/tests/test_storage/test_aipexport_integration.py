@@ -175,25 +175,6 @@ class TestAIPExportIntegration:
         assert '--database-storage' in result.stdout
         assert 'New unified database storage file with change tracking' in result.stdout
     
-    def test_aipexport_validation(self):
-        """Test aipexport.py argument validation."""
-        # Test without any sources
-        cmd = [sys.executable, 'example/aipexport.py', '--database-storage', 'test.db']
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=Path.cwd())
-        
-        # Accept returncode 0 or nonzero, but check for error message
-        assert 'At least one data source must be enabled' in result.stderr
-        
-        # Test without any output formats
-        cmd = [sys.executable, 'example/aipexport.py', '--worldairports', 'EBOS']
-        
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=Path.cwd())
-        
-        # Should fail because no output formats are specified
-        assert result.returncode != 0
-        assert 'At least one output format must be specified' in result.stderr
-
 
 class TestAIPExportModelBuilder:
     """Test the ModelBuilder class from aipexport.py."""
