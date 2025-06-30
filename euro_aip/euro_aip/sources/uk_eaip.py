@@ -408,8 +408,4 @@ class UKEAIPSource(CachedSource, SourceInterface):
             if re.search(rf'\b{approach_type}\b', procedure_name, re.IGNORECASE):
                 return approach_type
         
-        return None
-    
-    def get_source_name(self) -> str:
-        """Get the name of this source."""
-        return 'uk_eaip' 
+        return None 

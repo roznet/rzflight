@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from ..models.euro_aip_model import EuroAipModel
+import re
 
 class SourceInterface(ABC):
     """
@@ -44,8 +45,16 @@ class SourceInterface(ABC):
     def get_source_name(self) -> str:
         """
         Get the name of this source.
-        
+        Removes 'Source' suffix and returns the class name (minus suffix) as a single lowercase word, with no underscores.
+        For example:
+        - FranceEAIPSource -> franceeaip
+        - UKEAIPSource -> ukeaip
+        - AutorouterSource -> autorouter
+        - WorldAirportsSource -> worldairports
         Returns:
             String identifier for this source
         """
-        return self.__class__.__name__.lower() 
+        class_name = self.__class__.__name__.lower()
+        if class_name.endswith('source'):
+            class_name = class_name[:-6]
+        return class_name

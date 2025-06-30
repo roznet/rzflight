@@ -329,7 +329,3 @@ class AutorouterSource(CachedSource, SourceInterface):
                 
             except Exception as e:
                 logger.error(f"Error updating {icao} with Autorouter data: {e}")
-    
-    def get_source_name(self) -> str:
-        """Get the name of this source."""
-        return 'autorouter'

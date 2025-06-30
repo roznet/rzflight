@@ -13,6 +13,7 @@ from ..models.airport import Airport
 from ..models.runway import Runway
 from ..models.procedure import Procedure
 from ..models.aip_entry import AIPEntry
+from .field_definitions import AirportFields, RunwayFields, SchemaManager
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class DatabaseStorage:
             database_path: Path to the SQLite database file
         """
         self.database_path = Path(database_path)
+        self.schema_manager = SchemaManager()
         self._ensure_database_exists()
     
     def _ensure_database_exists(self):
@@ -43,61 +45,29 @@ class DatabaseStorage:
             self._migrate_schema_if_needed()
     
     def _create_schema(self):
-        """Create the database schema."""
+        """Create the database schema using field definitions."""
         with self._get_connection() as conn:
-            # Core tables (current state)
-            conn.execute('''
-                CREATE TABLE airports (
-                    icao_code TEXT PRIMARY KEY,
-                    name TEXT,
-                    type TEXT,
-                    latitude_deg REAL,
-                    longitude_deg REAL,
-                    elevation_ft REAL,
-                    continent TEXT,
-                    iso_country TEXT,
-                    iso_region TEXT,
-                    municipality TEXT,
-                    scheduled_service TEXT,
-                    gps_code TEXT,
-                    iata_code TEXT,
-                    local_code TEXT,
-                    home_link TEXT,
-                    wikipedia_link TEXT,
-                    keywords TEXT,
-                    sources TEXT,
-                    created_at TEXT,
-                    updated_at TEXT
-                )
-            ''')
+            # Create airports table using field definitions
+            airports_sql = self.schema_manager.get_create_table_sql(
+                "airports", 
+                AirportFields.get_all_fields(), 
+                primary_key="icao_code"
+            )
+            conn.execute(airports_sql)
             
-            conn.execute('''
-                CREATE TABLE runways (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    airport_icao TEXT,
-                    le_ident TEXT,
-                    he_ident TEXT,
-                    length_ft REAL,
-                    width_ft REAL,
-                    surface TEXT,
-                    lighted INTEGER,
-                    closed INTEGER,
-                    le_latitude_deg REAL,
-                    le_longitude_deg REAL,
-                    le_elevation_ft REAL,
-                    le_heading_degT REAL,
-                    le_displaced_threshold_ft REAL,
-                    he_latitude_deg REAL,
-                    he_longitude_deg REAL,
-                    he_elevation_ft REAL,
-                    he_heading_degT REAL,
-                    he_displaced_threshold_ft REAL,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    FOREIGN KEY (airport_icao) REFERENCES airports (icao_code)
-                )
-            ''')
+            # Create runways table using field definitions
+            runways_sql = self.schema_manager.get_create_table_sql(
+                "runways", 
+                RunwayFields.get_all_fields()
+            )
+            # Add auto-incrementing id column
+            runways_sql = runways_sql.replace(
+                "CREATE TABLE runways (",
+                "CREATE TABLE runways (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            )
+            conn.execute(runways_sql)
             
+            # Create procedures table (keeping existing structure for now)
             conn.execute('''
                 CREATE TABLE procedures (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -120,6 +90,7 @@ class DatabaseStorage:
                 )
             ''')
             
+            # Create AIP entries table (keeping existing structure for now)
             conn.execute('''
                 CREATE TABLE aip_entries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +137,7 @@ class DatabaseStorage:
                     field_name TEXT,
                     old_value TEXT,
                     new_value TEXT,
+                    field_type TEXT,
                     source TEXT,
                     changed_at TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code)
@@ -180,6 +152,7 @@ class DatabaseStorage:
                     field_name TEXT,
                     old_value TEXT,
                     new_value TEXT,
+                    field_type TEXT,
                     source TEXT,
                     changed_at TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code),
@@ -233,15 +206,52 @@ class DatabaseStorage:
             logger.info(f"Created database schema at {self.database_path}")
     
     def _migrate_schema_if_needed(self):
-        """Migrate schema if needed (placeholder for future migrations)."""
-        # For now, just check if we have the basic tables
+        """Migrate schema if needed using the schema manager."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            
+            # Check if we have the basic tables
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='airports'")
             if not cursor.fetchone():
                 logger.warning("Database exists but schema is outdated. Recreating schema.")
-                # Drop all existing tables and recreate
                 self._recreate_schema()
+                return
+            
+            # Check if we have the model_metadata table (new schema)
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='model_metadata'")
+            if not cursor.fetchone():
+                # Old schema without metadata table - add it
+                logger.info("Adding model_metadata table to existing schema")
+                cursor.execute('''
+                    CREATE TABLE model_metadata (
+                        key TEXT PRIMARY KEY,
+                        value TEXT,
+                        updated_at TEXT
+                    )
+                ''')
+                cursor.execute('''
+                    INSERT INTO model_metadata (key, value, updated_at)
+                    VALUES (?, ?, ?)
+                ''', ('schema_version', '1', datetime.now().isoformat()))
+                conn.commit()
+                logger.info("Added model_metadata table to existing schema")
+                return
+            
+            # Get current version
+            cursor.execute("SELECT value FROM model_metadata WHERE key = 'schema_version'")
+            row = cursor.fetchone()
+            current_version = int(row['value']) if row else 1
+            
+            # Migrate if needed
+            new_version = self.schema_manager.migrate_schema(conn, current_version)
+            
+            if new_version != current_version:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO model_metadata (key, value, updated_at)
+                    VALUES (?, ?, ?)
+                ''', ('schema_version', str(new_version), datetime.now().isoformat()))
+                conn.commit()
+                logger.info(f"Migrated schema from version {current_version} to {new_version}")
     
     def _recreate_schema(self):
         """Drop all tables and recreate the schema."""
@@ -303,7 +313,7 @@ class DatabaseStorage:
         self._save_airport_aip_entries(conn, airport)
     
     def _save_airport_basic(self, conn: sqlite3.Connection, airport: Airport) -> None:
-        """Save basic airport information."""
+        """Save basic airport information using field definitions."""
         # Check for changes in basic fields
         current_airport = self._get_current_airport(conn, airport.ident)
         changes = []
@@ -319,33 +329,45 @@ class DatabaseStorage:
         for change in changes:
             conn.execute('''
                 INSERT INTO airport_field_changes 
-                (airport_icao, field_name, old_value, new_value, source, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (airport_icao, field_name, old_value, new_value, field_type, source, changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 airport.ident, change['field_name'], change['old_value'], 
-                change['new_value'], change['source'], change['changed_at']
+                change['new_value'], change['field_type'], change['source'], change['changed_at']
             ))
         
-        # Update or insert airport record
-        conn.execute('''
+        # Build dynamic INSERT/REPLACE statement using field definitions
+        fields = AirportFields.get_all_fields()
+        field_names = [field.name for field in fields]
+        placeholders = ','.join(['?' for _ in fields])
+        
+        # Prepare values using field definitions for proper formatting
+        values = []
+        for field in fields:
+            if field.name == 'icao_code':
+                values.append(airport.ident)
+            elif field.name == 'sources':
+                values.append(','.join(airport.sources))
+            elif field.name == 'created_at':
+                values.append(airport.created_at.isoformat())
+            elif field.name == 'updated_at':
+                values.append(airport.updated_at.isoformat())
+            else:
+                # Get value from airport object and format it
+                value = getattr(airport, field.name, None)
+                formatted_value = field.format_for_storage(value)
+                values.append(formatted_value)
+        
+        # Execute INSERT OR REPLACE
+        sql = f'''
             INSERT OR REPLACE INTO airports 
-            (icao_code, name, type, latitude_deg, longitude_deg, elevation_ft,
-             continent, iso_country, iso_region, municipality, scheduled_service,
-             gps_code, iata_code, local_code, home_link, wikipedia_link, keywords,
-             sources, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            airport.ident, airport.name, airport.type,
-            airport.latitude_deg, airport.longitude_deg, airport.elevation_ft,
-            airport.continent, airport.iso_country, airport.iso_region,
-            airport.municipality, airport.scheduled_service, airport.gps_code,
-            airport.iata_code, airport.local_code, airport.home_link,
-            airport.wikipedia_link, airport.keywords, ','.join(airport.sources),
-            airport.created_at.isoformat(), airport.updated_at.isoformat()
-        ))
+            ({','.join(field_names)})
+            VALUES ({placeholders})
+        '''
+        conn.execute(sql, values)
     
     def _save_airport_runways(self, conn: sqlite3.Connection, airport: Airport) -> None:
-        """Save airport runways with change tracking."""
+        """Save airport runways with change tracking using field definitions."""
         current_runways = self._get_current_runways(conn, airport.ident)
         
         for runway in airport.runways:
@@ -357,61 +379,81 @@ class DatabaseStorage:
                     current_runway = curr
                     break
             
-            # Detect changes
+            # Detect changes using field definitions
             changes = self._detect_runway_changes(current_runway, runway)
             
             # Save changes to history
             for change in changes:
                 conn.execute('''
                     INSERT INTO runway_changes 
-                    (airport_icao, runway_id, field_name, old_value, new_value, source, changed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (airport_icao, runway_id, field_name, old_value, new_value, field_type, source, changed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     airport.ident, change.get('runway_id'), change['field_name'],
-                    change['old_value'], change['new_value'], change['source'], change['changed_at']
+                    change['old_value'], change['new_value'], change['field_type'], 
+                    change['source'], change['changed_at']
                 ))
             
-            # Insert or update runway
+            # Insert or update runway using field definitions
             if current_runway:
                 # Update existing runway
-                conn.execute('''
-                    UPDATE runways SET
-                    length_ft = ?, width_ft = ?, surface = ?, lighted = ?, closed = ?,
-                    le_latitude_deg = ?, le_longitude_deg = ?, le_elevation_ft = ?,
-                    le_heading_degT = ?, le_displaced_threshold_ft = ?,
-                    he_latitude_deg = ?, he_longitude_deg = ?, he_elevation_ft = ?,
-                    he_heading_degT = ?, he_displaced_threshold_ft = ?, updated_at = ?
-                    WHERE id = ?
-                ''', (
-                    runway.length_ft, runway.width_ft, runway.surface, runway.lighted, runway.closed,
-                    runway.le_latitude_deg, runway.le_longitude_deg, runway.le_elevation_ft,
-                    runway.le_heading_degT, runway.le_displaced_threshold_ft,
-                    runway.he_latitude_deg, runway.he_longitude_deg, runway.he_elevation_ft,
-                    runway.he_heading_degT, runway.he_displaced_threshold_ft,
-                    datetime.now().isoformat(), current_runway['id']
-                ))
+                self._update_runway(conn, current_runway['id'], runway)
             else:
                 # Insert new runway
-                cursor = conn.execute('''
-                    INSERT INTO runways 
-                    (airport_icao, le_ident, he_ident, length_ft, width_ft, surface,
-                     lighted, closed, le_latitude_deg, le_longitude_deg, le_elevation_ft,
-                     le_heading_degT, le_displaced_threshold_ft, he_latitude_deg,
-                     he_longitude_deg, he_elevation_ft, he_heading_degT,
-                     he_displaced_threshold_ft, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    airport.ident, runway.le_ident, runway.he_ident,
-                    runway.length_ft, runway.width_ft, runway.surface,
-                    runway.lighted, runway.closed, runway.le_latitude_deg,
-                    runway.le_longitude_deg, runway.le_elevation_ft,
-                    runway.le_heading_degT, runway.le_displaced_threshold_ft,
-                    runway.he_latitude_deg, runway.he_longitude_deg,
-                    runway.he_elevation_ft, runway.he_heading_degT,
-                    runway.he_displaced_threshold_ft,
-                    getattr(runway, 'created_at', datetime.now()).isoformat() if hasattr(runway, 'created_at') else datetime.now().isoformat(),
-                    datetime.now().isoformat()
-                ))
+                self._insert_runway(conn, airport.ident, runway)
+    
+    def _insert_runway(self, conn: sqlite3.Connection, airport_icao: str, runway: Runway) -> None:
+        """Insert a new runway using field definitions."""
+        fields = RunwayFields.get_all_fields()
+        field_names = [field.name for field in fields]
+        placeholders = ','.join(['?' for _ in fields])
+        
+        # Prepare values using field definitions
+        values = []
+        for field in fields:
+            if field.name == 'airport_icao':
+                values.append(airport_icao)
+            elif field.name == 'created_at':
+                values.append(getattr(runway, 'created_at', datetime.now()).isoformat() if hasattr(runway, 'created_at') else datetime.now().isoformat())
+            elif field.name == 'updated_at':
+                values.append(datetime.now().isoformat())
+            else:
+                value = getattr(runway, field.name, None)
+                values.append(field.format_for_storage(value))
+        
+        sql = f'''
+            INSERT INTO runways 
+            ({','.join(field_names)})
+            VALUES ({placeholders})
+        '''
+        conn.execute(sql, values)
+    
+    def _update_runway(self, conn: sqlite3.Connection, runway_id: int, runway: Runway) -> None:
+        """Update an existing runway using field definitions."""
+        # Get change-tracked fields (exclude metadata and identifiers)
+        fields = [f for f in RunwayFields.get_change_tracked_fields() if f.name not in ['airport_icao', 'le_ident', 'he_ident']]
+        
+        set_clauses = []
+        values = []
+        
+        for field in fields:
+            set_clauses.append(f"{field.name} = ?")
+            value = getattr(runway, field.name, None)
+            values.append(field.format_for_storage(value))
+        
+        # Add updated_at
+        set_clauses.append("updated_at = ?")
+        values.append(datetime.now().isoformat())
+        
+        # Add runway_id for WHERE clause
+        values.append(runway_id)
+        
+        sql = f'''
+            UPDATE runways SET
+            {', '.join(set_clauses)}
+            WHERE id = ?
+        '''
+        conn.execute(sql, values)
     
     def _save_airport_procedures(self, conn: sqlite3.Connection, airport: Airport) -> None:
         """Save airport procedures with change tracking."""
@@ -543,39 +585,42 @@ class DatabaseStorage:
         ))
     
     def _detect_airport_changes(self, current: Optional[Dict], new: Airport) -> List[Dict]:
-        """Detect changes in airport basic fields."""
+        """Detect changes in airport basic fields using field definitions."""
         changes = []
         now = datetime.now().isoformat()
         
+        # Use field definitions for change tracking
+        tracked_fields = AirportFields.get_change_tracked_fields()
+        
         if current is None:
             # New airport - all fields are changes
-            for field_name in ['name', 'type', 'latitude_deg', 'longitude_deg', 'elevation_ft',
-                              'continent', 'iso_country', 'iso_region', 'municipality',
-                              'scheduled_service', 'gps_code', 'iata_code', 'local_code',
-                              'home_link', 'wikipedia_link', 'keywords']:
-                value = getattr(new, field_name)
+            for field in tracked_fields:
+                value = getattr(new, field.name, None)
                 if value is not None:
                     changes.append({
-                        'field_name': field_name,
+                        'field_name': field.name,
                         'old_value': None,
-                        'new_value': str(value),
+                        'new_value': field.format_for_comparison(value),
+                        'field_type': field.field_type.value,
                         'source': list(new.sources)[0] if new.sources else 'unknown',
                         'changed_at': now
                     })
         else:
             # Check for changes in existing airport
-            for field_name in ['name', 'type', 'latitude_deg', 'longitude_deg', 'elevation_ft',
-                              'continent', 'iso_country', 'iso_region', 'municipality',
-                              'scheduled_service', 'gps_code', 'iata_code', 'local_code',
-                              'home_link', 'wikipedia_link', 'keywords']:
-                old_value = current.get(field_name)
-                new_value = getattr(new, field_name)
+            for field in tracked_fields:
+                old_value = current.get(field.name)
+                new_value = getattr(new, field.name, None)
                 
-                if old_value != new_value:
+                # Format both values for comparison
+                old_formatted = field.format_for_comparison(old_value)
+                new_formatted = field.format_for_comparison(new_value)
+                
+                if old_formatted != new_formatted:
                     changes.append({
-                        'field_name': field_name,
-                        'old_value': str(old_value) if old_value is not None else None,
-                        'new_value': str(new_value) if new_value is not None else None,
+                        'field_name': field.name,
+                        'old_value': str(old_formatted) if old_formatted is not None else None,
+                        'new_value': str(new_formatted) if new_formatted is not None else None,
+                        'field_type': field.field_type.value,
                         'source': list(new.sources)[0] if new.sources else 'unknown',
                         'changed_at': now
                     })
@@ -583,41 +628,42 @@ class DatabaseStorage:
         return changes
     
     def _detect_runway_changes(self, current: Optional[Dict], new: Runway) -> List[Dict]:
-        """Detect changes in runway fields."""
+        """Detect changes in runway fields using field definitions."""
         changes = []
         now = datetime.now().isoformat()
         
+        # Use field definitions for change tracking
+        tracked_fields = RunwayFields.get_change_tracked_fields()
+        
         if current is None:
             # New runway - all fields are changes
-            for field_name in ['length_ft', 'width_ft', 'surface', 'lighted', 'closed',
-                              'le_latitude_deg', 'le_longitude_deg', 'le_elevation_ft',
-                              'le_heading_degT', 'le_displaced_threshold_ft',
-                              'he_latitude_deg', 'he_longitude_deg', 'he_elevation_ft',
-                              'he_heading_degT', 'he_displaced_threshold_ft']:
-                value = getattr(new, field_name)
+            for field in tracked_fields:
+                value = getattr(new, field.name, None)
                 if value is not None:
                     changes.append({
-                        'field_name': field_name,
+                        'field_name': field.name,
                         'old_value': None,
-                        'new_value': str(value),
+                        'new_value': field.format_for_comparison(value),
+                        'field_type': field.field_type.value,
                         'source': 'unknown',  # Runway doesn't have source tracking
                         'changed_at': now
                     })
         else:
             # Check for changes in existing runway
-            for field_name in ['length_ft', 'width_ft', 'surface', 'lighted', 'closed',
-                              'le_latitude_deg', 'le_longitude_deg', 'le_elevation_ft',
-                              'le_heading_degT', 'le_displaced_threshold_ft',
-                              'he_latitude_deg', 'he_longitude_deg', 'he_elevation_ft',
-                              'he_heading_degT', 'he_displaced_threshold_ft']:
-                old_value = current.get(field_name)
-                new_value = getattr(new, field_name)
+            for field in tracked_fields:
+                old_value = current.get(field.name)
+                new_value = getattr(new, field.name, None)
                 
-                if old_value != new_value:
+                # Format both values for comparison
+                old_formatted = field.format_for_comparison(old_value)
+                new_formatted = field.format_for_comparison(new_value)
+                
+                if old_formatted != new_formatted:
                     changes.append({
-                        'field_name': field_name,
-                        'old_value': str(old_value) if old_value is not None else None,
-                        'new_value': str(new_value) if new_value is not None else None,
+                        'field_name': field.name,
+                        'old_value': str(old_formatted) if old_formatted is not None else None,
+                        'new_value': str(new_formatted) if new_formatted is not None else None,
+                        'field_type': field.field_type.value,
                         'source': 'unknown',
                         'changed_at': now
                     })
@@ -694,6 +740,12 @@ class DatabaseStorage:
             VALUES (?, ?, ?)
         ''', ('statistics', json.dumps(stats), datetime.now().isoformat()))
         
+        # Update schema version
+        conn.execute('''
+            INSERT OR REPLACE INTO model_metadata (key, value, updated_at)
+            VALUES (?, ?, ?)
+        ''', ('schema_version', str(self.schema_manager.version), datetime.now().isoformat()))
+        
         # Update source information
         for source in model.sources_used:
             airports_from_source = len(model.get_airports_by_source(source))
@@ -729,61 +781,100 @@ class DatabaseStorage:
         return model
     
     def _load_airport(self, conn: sqlite3.Connection, icao: str) -> Optional[Airport]:
-        """Load a single airport with all its data."""
+        """Load a single airport with all its data using field definitions."""
         # Load basic airport info
         cursor = conn.execute('SELECT * FROM airports WHERE icao_code = ?', (icao,))
         row = cursor.fetchone()
         if not row:
             return None
         
+        # Create airport object using field definitions for proper type conversion
+        airport_data = {}
+        for field in AirportFields.get_all_fields():
+            value = row[field.name]
+            
+            # Convert value based on field type
+            if field.field_type.value == "INTEGER" and value is not None:
+                if field.name in ['lighted', 'closed']:  # Boolean fields
+                    airport_data[field.name] = bool(value)
+                else:
+                    airport_data[field.name] = int(value)
+                    if field.name == 'elevation_ft':
+                        logger.debug(f"Loading elevation_ft: {value} -> {airport_data[field.name]}")
+            elif field.field_type.value == "REAL" and value is not None:
+                airport_data[field.name] = float(value)
+            elif field.field_type.value == "TEXT" and field.name in ['created_at', 'updated_at'] and value:
+                # Parse datetime strings
+                try:
+                    airport_data[field.name] = datetime.fromisoformat(value)
+                except ValueError:
+                    airport_data[field.name] = value
+            else:
+                airport_data[field.name] = value
+        
         # Create airport object
         airport = Airport(
-            ident=row['icao_code'],
-            name=row['name'],
-            type=row['type'],
-            latitude_deg=row['latitude_deg'],
-            longitude_deg=row['longitude_deg'],
-            elevation_ft=row['elevation_ft'],
-            continent=row['continent'],
-            iso_country=row['iso_country'],
-            iso_region=row['iso_region'],
-            municipality=row['municipality'],
-            scheduled_service=row['scheduled_service'],
-            gps_code=row['gps_code'],
-            iata_code=row['iata_code'],
-            local_code=row['local_code'],
-            home_link=row['home_link'],
-            wikipedia_link=row['wikipedia_link'],
-            keywords=row['keywords']
+            ident=airport_data['icao_code'],
+            name=airport_data['name'],
+            type=airport_data['type'],
+            latitude_deg=airport_data['latitude_deg'],
+            longitude_deg=airport_data['longitude_deg'],
+            elevation_ft=airport_data['elevation_ft'],
+            continent=airport_data['continent'],
+            iso_country=airport_data['iso_country'],
+            iso_region=airport_data['iso_region'],
+            municipality=airport_data['municipality'],
+            scheduled_service=airport_data['scheduled_service'],
+            gps_code=airport_data['gps_code'],
+            iata_code=airport_data['iata_code'],
+            local_code=airport_data['local_code'],
+            home_link=airport_data['home_link'],
+            wikipedia_link=airport_data['wikipedia_link'],
+            keywords=airport_data['keywords']
         )
         
         # Load sources
-        if row['sources']:
-            for source in row['sources'].split(','):
+        if airport_data['sources']:
+            for source in airport_data['sources'].split(','):
                 airport.add_source(source)
         
-        # Load runways
+        # Load runways using field definitions
         cursor = conn.execute('SELECT * FROM runways WHERE airport_icao = ?', (icao,))
         for row in cursor.fetchall():
+            runway_data = {}
+            for field in RunwayFields.get_all_fields():
+                value = row[field.name]
+                
+                # Convert value based on field type
+                if field.field_type.value == "INTEGER" and value is not None:
+                    if field.name in ['lighted', 'closed']:  # Boolean fields
+                        runway_data[field.name] = bool(value)
+                    else:
+                        runway_data[field.name] = int(value)
+                elif field.field_type.value == "REAL" and value is not None:
+                    runway_data[field.name] = float(value)
+                else:
+                    runway_data[field.name] = value
+            
             runway = Runway(
                 airport_ident=icao,
-                le_ident=row['le_ident'],
-                he_ident=row['he_ident'],
-                length_ft=row['length_ft'],
-                width_ft=row['width_ft'],
-                surface=row['surface'],
-                lighted=bool(row['lighted']) if row['lighted'] is not None else None,
-                closed=bool(row['closed']) if row['closed'] is not None else None,
-                le_latitude_deg=row['le_latitude_deg'],
-                le_longitude_deg=row['le_longitude_deg'],
-                le_elevation_ft=row['le_elevation_ft'],
-                le_heading_degT=row['le_heading_degT'],
-                le_displaced_threshold_ft=row['le_displaced_threshold_ft'],
-                he_latitude_deg=row['he_latitude_deg'],
-                he_longitude_deg=row['he_longitude_deg'],
-                he_elevation_ft=row['he_elevation_ft'],
-                he_heading_degT=row['he_heading_degT'],
-                he_displaced_threshold_ft=row['he_displaced_threshold_ft']
+                le_ident=runway_data['le_ident'],
+                he_ident=runway_data['he_ident'],
+                length_ft=runway_data['length_ft'],
+                width_ft=runway_data['width_ft'],
+                surface=runway_data['surface'],
+                lighted=runway_data['lighted'],
+                closed=runway_data['closed'],
+                le_latitude_deg=runway_data['le_latitude_deg'],
+                le_longitude_deg=runway_data['le_longitude_deg'],
+                le_elevation_ft=runway_data['le_elevation_ft'],
+                le_heading_degT=runway_data['le_heading_degT'],
+                le_displaced_threshold_ft=runway_data['le_displaced_threshold_ft'],
+                he_latitude_deg=runway_data['he_latitude_deg'],
+                he_longitude_deg=runway_data['he_longitude_deg'],
+                he_elevation_ft=runway_data['he_elevation_ft'],
+                he_heading_degT=runway_data['he_heading_degT'],
+                he_displaced_threshold_ft=runway_data['he_displaced_threshold_ft']
             )
             airport.add_runway(runway)
         
@@ -864,7 +955,7 @@ class DatabaseStorage:
             cursor = conn.execute('''
                 SELECT rc.*, r.le_ident, r.he_ident 
                 FROM runway_changes rc
-                JOIN runways r ON rc.runway_id = r.id
+                LEFT JOIN runways r ON rc.runway_id = r.id
                 WHERE rc.airport_icao = ? AND rc.changed_at >= date('now', '-{} days')
                 ORDER BY rc.changed_at DESC
             '''.format(days), (icao,))

@@ -21,7 +21,7 @@ class TestWorldAirportsSource(WorldAirportsSource):
     
     def get_source_name(self) -> str:
         """Override to return the same source name as the original class."""
-        return 'WorldAirportsSource'
+        return 'worldairports'
     
     def fetch_airports(self) -> pd.DataFrame:
         """Override to use local test files instead of downloading."""
@@ -172,7 +172,7 @@ class TestWorldAirportsSourceClass:
             assert airport.type is not None
             
             # Check that airport has source tracking
-            assert 'WorldAirportsSource' in airport.sources
+            assert 'worldairports' in airport.sources
     
     def test_update_model_with_specific_airports(self, world_airports_source):
         """Test updating model with specific airports only."""
