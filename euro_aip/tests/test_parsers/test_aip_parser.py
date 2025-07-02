@@ -108,7 +108,7 @@ def test_aip_parser_parse_airports(test_pdfs):
 
         standardised_result = field_mapper.standardise_fields(result)
         logger.info(f"Standardised result: {len(standardised_result)}/{len(result)}")
-        # Check for specific fields
+            # Check for specific fields
         for item in standardised_result:
             found_fields[item['field_id']].add(authority)
 

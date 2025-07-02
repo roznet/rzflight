@@ -4,6 +4,9 @@ Border Crossing Parser for extracting airport names from HTML tables.
 This parser is designed to extract airport names from HTML documents that contain
 numbered lists in the format "(number) airport name" in table format. It handles unicode and special characters.
 
+The parser tracks country sections, paragraph metadata, and maintains context
+for each airport entry including country, paragraph styles, and formatting.
+
 Source 
 https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:52023XC0609(06)
 or
@@ -12,8 +15,8 @@ https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:52023XC0609(06)
 
 import re
 import logging
-from typing import Dict, List, Any, Set
-from bs4 import BeautifulSoup
+from typing import Dict, List, Any, Set, Optional
+from bs4 import BeautifulSoup, Tag
 from .aip_base import AIPParser
 
 logger = logging.getLogger(__name__)
@@ -23,19 +26,15 @@ class BorderCrossingParser(AIPParser):
     Parser for extracting border crossing/immigration airport names from HTML tables.
     
     This parser looks for tables with rows containing numbered entries in the format
-    "(number) Airport Name" and extracts the airport names. It's designed to handle
-    unicode characters and special characters from various languages.
+    "(number) Airport Name" and extracts the airport names. It tracks country sections,
+    paragraph metadata, and maintains context for each airport entry.
     """
     
     def __init__(self):
         """Initialize the BorderCrossingParser."""
         super().__init__()
         
-        # Regex pattern to match numbered entries: (number) followed by text
-        # This pattern handles:
-        # - Numbers in parentheses: (1), (2), (123), etc.
-        # - Unicode word characters: letters, numbers, spaces, hyphens, apostrophes
-        # - Special characters common in airport names
+        # Regex pattern to match numbered entries: (number)
         self.pattern = re.compile(
             r'\(\d+\)',
             re.UNICODE | re.MULTILINE
@@ -50,87 +49,166 @@ class BorderCrossingParser(AIPParser):
             # Pattern for "number - text" (dash separator)
             re.compile(r'\d+\s*-\s*', re.UNICODE | re.MULTILINE),
         ]
+        
+        # Pattern to detect country names (all uppercase words)
+        self.country_pattern = re.compile(r'^[A-Z\s]+$', re.UNICODE)
+        
+        # Common country names to validate
+        self.known_countries = {
+            'GERMANY', 'FRANCE', 'ITALY', 'SPAIN', 'NETHERLANDS', 'BELGIUM', 'AUSTRIA',
+            'SWITZERLAND', 'DENMARK', 'SWEDEN', 'NORWAY', 'FINLAND', 'POLAND',
+            'CZECH REPUBLIC', 'SLOVAKIA', 'HUNGARY', 'ROMANIA', 'BULGARIA',
+            'GREECE', 'PORTUGAL', 'IRELAND', 'LUXEMBOURG', 'SLOVENIA', 'CROATIA',
+            'LATVIA', 'LITHUANIA', 'ESTONIA', 'MALTA', 'CYPRUS'
+        }
 
-    def _extract_names_from_text(self, text: str) -> Set[str]:
+    def _is_country_name(self, text: str) -> bool:
         """
-        Extract airport names from text using regex patterns.
+        Check if text represents a country name.
         
         Args:
-            text: Text content to search in
+            text: Text to check
             
         Returns:
-            Set of extracted airport names
+            True if text is a country name
         """
-        names = set()
+        text = text.strip()
         
-        # Try the main pattern first
-        matches = self.pattern.findall(text)
-        for match in matches:
-            name = match.strip()
-            if name and len(name) > 2:  # Filter out very short matches
-                names.add(name)
+        logger.debug(f"Checking if '{text}' is a country name")
         
-        # Try alternative patterns if main pattern didn't find much
-        if len(names) < 5:  # If we found very few matches, try alternatives
-            for pattern in self.alternative_patterns:
-                matches = pattern.findall(text)
-                for match in matches:
-                    name = match.strip()
-                    if name and len(name) > 2:
-                        names.add(name)
+        # Check if it matches the pattern for all uppercase
+        if not self.country_pattern.match(text):
+            logger.debug(f"  - Does not match uppercase pattern")
+            return False
         
-        return names
+        # Check if it's a known country
+        if text in self.known_countries:
+            logger.debug(f"  - Found in known countries list")
+            return True
+        
+        
+        return False
 
-    def _extract_names_from_table_row(self, row) -> Set[str]:
+    def _extract_paragraph_metadata(self, element: Tag) -> Dict[str, Any]:
+        """
+        Extract metadata from a paragraph element.
+        
+        Args:
+            element: BeautifulSoup element
+            
+        Returns:
+            Dictionary containing paragraph metadata
+        """
+        text = element.get_text(strip=True)
+        
+        # Get classes from the main element
+        element_classes = element.get('class', [])
+        
+        # Find all nested span elements and collect their classes
+        span_classes = []
+        for span in element.find_all('span'):
+            span_class = span.get('class', [])
+            if span_class:
+                span_classes.extend(span_class)
+        
+        # Combine all classes (element + spans)
+        all_classes = element_classes + span_classes
+        
+        metadata = {
+            'text': text,
+            'is_uppercase': text.isupper() if text else False,
+            'is_lowercase': text.islower() if text else False,
+            'is_title_case': text.istitle() if text else False,
+            'tag_name': element.name,
+            'classes': all_classes,  # All classes from element and nested spans
+            'element_classes': element_classes,  # Classes from the main element only
+            'span_classes': span_classes,  # Classes from nested spans only
+            'id': element.get('id'),
+        }
+        
+        return metadata
+
+    def _extract_names_from_table_row(self, row: Tag, current_country: str, 
+                                    current_metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Extract airport names from a single table row.
         
         Args:
             row: BeautifulSoup row element
+            current_country: Currently active country
+            current_metadata: Current paragraph metadata
             
         Returns:
-            Set of extracted airport names
+            List of dictionaries containing airport data
         """
-        names = set()
+        results = []
         
         # Get all cells in the row
         cells = row.find_all(['td', 'th'])
         
         # Check if this row has exactly 2 columns
         if len(cells) == 2:
-            first_cell_text = cells[0].get_text(strip=True)
-            second_cell_text = cells[1].get_text(strip=True)
+            # Get text from first cell (number)
+            first_cell = cells[0]
+            first_cell_text = first_cell.get_text(strip=True)
+            
+            # Get text from second cell (airport name)
+            second_cell = cells[1]
+            second_cell_text = second_cell.get_text(strip=True)
+            
+            logger.debug(f"Processing row: '{first_cell_text}' -> '{second_cell_text}'")
             
             # Check if first column contains a number in parentheses
-            if self.pattern.match(first_cell_text) or any(pattern.match(first_cell_text) for pattern in self.alternative_patterns):
+            if (self.pattern.match(first_cell_text) or 
+                any(pattern.match(first_cell_text) for pattern in self.alternative_patterns)):
+                
+                # Extract the number from the first column
+                number_match = re.search(r'\d+', first_cell_text)
+                number = number_match.group() if number_match else first_cell_text
+                
                 # Extract name from second column
                 name = second_cell_text.strip()
                 if name and len(name) > 2:
-                    names.add(name)
-                    logger.debug(f"Found airport name: {name}")
+                    result = {
+                        'airport_name': name,
+                        'country': current_country,
+                        'number': number,
+                        'source': 'border_crossing_parser',
+                        'extraction_method': 'html_table_parsing',
+                        'metadata': current_metadata.copy(),  # Copy current metadata
+                        'row_data': {
+                            'first_column': first_cell_text,
+                            'second_column': second_cell_text
+                        }
+                    }
+                    results.append(result)
+                    logger.debug(f"Found airport: {name} in {current_country} (#{number})")
         
-        return names
+        return results
 
-    def _extract_names_from_table(self, table) -> Set[str]:
+    def _extract_names_from_table(self, table: Tag, current_country: str, 
+                                current_metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Extract airport names from a single table.
         
         Args:
             table: BeautifulSoup table element
+            current_country: Currently active country
+            current_metadata: Current paragraph metadata
             
         Returns:
-            Set of extracted airport names
+            List of dictionaries containing airport data
         """
-        names = set()
+        results = []
         
         # Get all rows in the table
         rows = table.find_all('tr')
         
         for row in rows:
-            row_names = self._extract_names_from_table_row(row)
-            names.update(row_names)
+            row_results = self._extract_names_from_table_row(row, current_country, current_metadata)
+            results.extend(row_results)
         
-        return names
+        return results
 
     def parse(self, html_data: bytes, icao: str) -> List[Dict[str, Any]]:
         """
@@ -141,46 +219,68 @@ class BorderCrossingParser(AIPParser):
             icao: ICAO airport code (not used in this parser)
             
         Returns:
-            List of dictionaries containing extracted airport names
+            List of dictionaries containing extracted airport names with metadata
         """
         logger.info(f"Parsing border crossing data for {icao}")
         
         # Parse HTML with BeautifulSoup
         soup = BeautifulSoup(html_data, 'html.parser')
         
-        # Find all tables in the HTML
-        tables = soup.find_all('table')
+        # Initialize tracking variables
+        current_country = None
+        current_metadata = {}
+        current_metadata_keys = {}
+        results = []
         
-        if not tables:
-            logger.warning("No tables found in HTML")
-            # Fallback to text extraction if no tables found
-            text = soup.get_text()
-            names = self._extract_names_from_text(text)
-        else:
-            # Extract names from all tables
-            names = set()
-            for i, table in enumerate(tables):
-                logger.debug(f"Processing table {i+1}/{len(tables)}")
-                table_names = self._extract_names_from_table(table)
-                names.update(table_names)
-                logger.debug(f"Found {len(table_names)} names in table {i+1}")
+        # Find all elements in the document
+        all_elements = soup.find_all(['p', 'table'])
         
-        # Convert to list and sort for consistent output
-        airport_names = sorted(list(names))
+        logger.info(f"Found {len(all_elements)} elements to process")
         
-        logger.info(f"Extracted {len(airport_names)} airport names")
+        for element in all_elements:
+            try:
+                # Check if this is a country name paragraph
+                if element.name == 'p':
+                    if element.find_parent('table'):
+                        continue
+                    text = element.get_text(strip=True)
+                    logger.debug(f"Processing paragraph: '{text[:50]}...'")
+                    
+                    # Check if this is a country name
+                    if self._is_country_name(text):
+                        current_country = text
+                        current_metadata = {}
+                        current_metadata_keys = {}
+                        logger.info(f"Found country section: {current_country}")
+                        continue
+                    
+                    # Extract metadata for this paragraph
+                    metadata = self._extract_paragraph_metadata(element)
+                    
+                    # Update current metadata based on style
+                    class_key = "_".join(metadata['classes'])
+                    style_key = f"{metadata['tag_name']}_{metadata['is_uppercase']}_{class_key}"
+                    if style_key not in current_metadata_keys:
+                        current_metadata_keys[style_key] = len(current_metadata_keys)
+                    current_metadata[f'{current_metadata_keys[style_key]}'] = metadata['text']
+                
+                # Check if this is a table
+                elif element.name == 'table':
+                    if current_country:
+                        logger.debug(f"Processing table in country: {current_country}")
+                        table_results = self._extract_names_from_table(element, current_country, current_metadata)
+                        results.extend(table_results)
+                        logger.debug(f"Found {len(table_results)} airports in this table")
+                    else:
+                        logger.debug("Skipping table - no country context")
+                
+            except Exception as e:
+                logger.warning(f"Error processing element {getattr(element, 'name', 'unknown')}: {e}")
+                continue
         
-        # Return as list of dictionaries for consistency with other parsers
-        result = []
-        for name in airport_names:
-            result.append({
-                'airport_name': name,
-                'source': 'border_crossing_parser',
-                'icao': icao,  # The ICAO code this was parsed for
-                'extraction_method': 'html_table_parsing'
-            })
+        logger.info(f"Extracted {len(results)} airport names from {current_country or 'unknown'} countries")
         
-        return result
+        return results
 
     def get_supported_authorities(self) -> List[str]:
         """
