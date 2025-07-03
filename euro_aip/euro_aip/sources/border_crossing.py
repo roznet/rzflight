@@ -59,6 +59,7 @@ class BorderCrossingSource(CachedSource):
                 ("official_journal_2024_4287", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202404287"),
                 ("official_journal_2024_2713", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202402713"),
                 ("official_journal_2023_1423", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202301423"),
+                ("uk_gov_2024_12", "https://www.gov.uk/government/publications/general-aviation-operators-and-pilots-notification-of-flights/general-aviation-report-guidance-accessible#where-aircraft-can-arrive-and-depart")
             ]
         
         self.inputs = self._normalize_inputs(inputs)
