@@ -54,8 +54,11 @@ class BorderCrossingSource(CachedSource):
         # Default URLs if none provided
         if inputs is None:
             inputs = [
-                ("official_journal_2023", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:52023XC0609(06)"),
-                ("official_journal_pdf", "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:52023XC0609(06)")
+                ("official_journal_2023_0609", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:52023XC0609(06)"),
+                ("official_journal_2024_6003", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202406003"),
+                ("official_journal_2024_4287", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202404287"),
+                ("official_journal_2024_2713", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202402713"),
+                ("official_journal_2023_1423", "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=OJ:C_202301423"),
             ]
         
         self.inputs = self._normalize_inputs(inputs)
