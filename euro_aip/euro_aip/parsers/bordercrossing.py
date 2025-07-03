@@ -226,6 +226,14 @@ class BorderCrossingParser(AIPParser):
         # Parse HTML with BeautifulSoup
         soup = BeautifulSoup(html_data, 'html.parser')
         
+        # Check if this is a UK govuk-template format
+        if soup.find(class_='govuk-template'):
+            logger.info("Detected UK govuk-template format, using UK parser")
+            return self.parse_uk(html_data, icao)
+        
+        # Continue with existing EU format parsing
+        logger.info("Using EU format parser")
+        
         # Initialize tracking variables
         current_country = None
         current_metadata = {}
@@ -234,6 +242,7 @@ class BorderCrossingParser(AIPParser):
         
         # Find all elements in the document
         all_elements = soup.find_all(['p', 'table'])
+        
         
         logger.info(f"Found {len(all_elements)} elements to process")
         
@@ -280,6 +289,121 @@ class BorderCrossingParser(AIPParser):
         
         logger.info(f"Extracted {len(results)} airport names from {current_country or 'unknown'} countries")
         
+        return results
+
+    def parse_uk(self, html_data: bytes, icao: str) -> List[Dict[str, Any]]:
+        """
+        Parse UK format HTML data to extract border crossing airport names.
+        
+        Args:
+            html_data: Raw HTML data
+            icao: ICAO airport code (not used in this parser)
+            
+        Returns:
+            List of dictionaries containing extracted airport names with metadata
+        """
+        logger.info(f"Parsing UK border crossing data for {icao}")
+        
+        # Parse HTML with BeautifulSoup
+        soup = BeautifulSoup(html_data, 'html.parser')
+        
+        results = []
+        
+        # Find all tables
+        tables = soup.find_all('table')
+        logger.info(f"Found {len(tables)} tables to process")
+        
+        for table in tables:
+            try:
+                # Check if this table has 5 columns and first column header is "Airports"
+                rows = table.find_all('tr')
+                if len(rows) < 2:  # Need at least header and one data row
+                    continue
+                
+                # Get header row
+                header_row = rows[0]
+                header_cells = header_row.find_all(['th', 'td'])
+                
+                # Check if we have 5 columns and first header is "Airports"
+                if len(header_cells) != 5:
+                    continue
+                
+                first_header = header_cells[0].get_text(strip=True)
+                if first_header != "Airport":
+                    continue
+                
+                logger.info(f"Found UK format table with 5 columns, first header: {first_header}")
+                
+                # Extract column headers (skip first one as it's "Airports")
+                column_headers = []
+                for i in range(1, len(header_cells)):
+                    header_text = header_cells[i].get_text(strip=True)
+                    column_headers.append(header_text)
+                
+                logger.info(f"Column headers: {column_headers}")
+                
+                # Process data rows (skip header row)
+                for row in rows[1:]:
+                    try:
+                        cells = row.find_all(['td', 'th'])
+                        if len(cells) != 5:
+                            continue
+                        
+                        # Get airport name from first column
+                        airport_cell = cells[0]
+                        airport_text = airport_cell.get_text(strip=True)
+                        
+                        # Check if airport name contains ICAO code pattern
+                        # Pattern: "some name - EG[A-Z0-9][A-Z0-9]"
+                        import re
+                        icao_pattern = r'(.+?)\s*-\s*(E[A-Z][A-Z0-9][A-Z0-9])'
+                        match = re.search(icao_pattern, airport_text)
+                        
+                        if not match:
+                            logger.debug(f"Skipping row with no ICAO code: {airport_text}")
+                            continue
+                        
+                        airport_name = match.group(1).strip()
+                        icao_code = match.group(2)
+                        
+                        logger.debug(f"Found airport: {airport_name} (ICAO: {icao_code})")
+                        
+                        # Collect metadata from other columns
+                        metadata = {}
+                        for i in range(1, len(cells)):
+                            if i-1 < len(column_headers):
+                                header_key = column_headers[i-1]
+                                cell_value = cells[i].get_text(strip=True)
+                                if cell_value:  # Only add non-empty values
+                                    metadata[header_key] = cell_value
+                        
+                        # Create result entry matching the format of the EU parser
+                        result = {
+                            'airport_name': airport_name,
+                            'icao_code': icao_code,
+                            'country': 'UNITED KINGDOM',
+                            'source': 'border_crossing_parser_uk',
+                            'extraction_method': 'uk_html_table_parsing',
+                            'metadata': metadata,
+                            'row_data': {
+                                'full_airport_text': airport_text,
+                                'column_headers': column_headers,
+                                'all_cell_values': [cell.get_text(strip=True) for cell in cells]
+                            }
+                        }
+                        
+                        results.append(result)
+                        logger.debug(f"Added airport: {airport_name} ({icao_code})")
+                        
+                    except Exception as e:
+                        logger.warning(f"Error processing row: {e}")
+                        continue
+                
+            except Exception as e:
+                logger.warning(f"Error processing table: {e}")
+                continue
+        
+        logger.info(f"Extracted {len(results)} UK airport entries")
         return results
 
     def get_supported_authorities(self) -> List[str]:
