@@ -25,15 +25,18 @@ class DatabaseStorage:
     automatic change detection and history tracking.
     """
     
-    def __init__(self, database_path: str):
+    def __init__(self, database_path: str, save_only_std_fields: bool = True):
         """
         Initialize the database storage.
         
         Args:
             database_path: Path to the SQLite database file
+            save_only_std_fields: If True, only save AIP entries with std_field_id. 
+                                 If False, save all AIP entries. Defaults to True.
         """
         self.database_path = Path(database_path)
         self.schema_manager = SchemaManager()
+        self.save_only_std_fields = save_only_std_fields
         self._ensure_database_exists()
     
     def _ensure_database_exists(self):
@@ -518,6 +521,11 @@ class DatabaseStorage:
         current_entries = self._get_current_aip_entries(conn, airport.ident)
         
         for entry in airport.aip_entries:
+            # Skip entries without std_field_id if save_only_std_fields is True
+            if self.save_only_std_fields and entry.std_field_id is None:
+                logger.debug(f"Skipping non-standardized AIP entry: {entry.section}.{entry.field} for {airport.ident}")
+                continue
+            
             # Check for existing entry
             key = (entry.section, entry.field, entry.source)
             current_entry = current_entries.get(key)
@@ -999,4 +1007,24 @@ class DatabaseStorage:
             if row:
                 info['statistics'] = json.loads(row['value'])
             
-            return info 
+            return info
+    
+    def set_save_only_std_fields(self, save_only_std_fields: bool) -> None:
+        """
+        Change the setting for saving only standardized fields.
+        
+        Args:
+            save_only_std_fields: If True, only save AIP entries with std_field_id. 
+                                 If False, save all AIP entries.
+        """
+        self.save_only_std_fields = save_only_std_fields
+        logger.info(f"Set save_only_std_fields to {save_only_std_fields}")
+    
+    def get_save_only_std_fields(self) -> bool:
+        """
+        Get the current setting for saving only standardized fields.
+        
+        Returns:
+            Current setting for save_only_std_fields
+        """
+        return self.save_only_std_fields 

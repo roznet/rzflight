@@ -34,6 +34,11 @@ class Airport:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     
+    # Relationships
+    runways: List['Runway'] = field(default_factory=list)
+    aip_entries: List['AIPEntry'] = field(default_factory=list)
+    procedures: List['Procedure'] = field(default_factory=list)
+    
     def add_source(self, source_name: str):
         """Add a source to the tracking set."""
         self.sources.add(source_name)

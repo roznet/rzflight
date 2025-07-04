@@ -265,6 +265,19 @@ class BorderCrossingSource(CachedSource):
         Args:
             model: The EuroAipModel to update
         """
+        results = []
+        for input in self.inputs:
+            data = self.get_border_crossing_data(input[0])
+            for entry in data:
+                if 'icao_code' not in entry:
+                    continue
+                if entry['icao_code'] not in model.airports:
+                    continue
+                airport = model.airports[entry['icao_code']]
+                entry['airport'] = airport
+                results.append(entry)
+
+        logger.info(f"Updated model with {len(results)} airports")
         # TODO: Implement model update logic
         # This would involve:
         # 1. Getting border crossing data
