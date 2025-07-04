@@ -16,10 +16,10 @@ import logging
 
 from .cached import CachedSource
 from ..parsers.bordercrossing import BorderCrossingParser
-from ..utils.fuzzy_matcher import FuzzyMatcher
 from ..utils.country_mapper import CountryMapper
 from ..utils.airport_name_cleaner import AirportNameCleaner
 from ..models.border_crossing_entry import BorderCrossingEntry
+from ..utils.fuzzy_matcher import FuzzyMatcher, SimilarityMethod
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +272,8 @@ class BorderCrossingSource(CachedSource):
             model: The EuroAipModel to update
         """
         fuzzy_matcher = FuzzyMatcher()
+        fuzzy_matcher.set_enabled_methods({SimilarityMethod.WORD_OVERLAP, 
+                                           SimilarityMethod.SEQUENCE_MATCHER})
         matched_count = 0
         unmatched_count = 0
         
