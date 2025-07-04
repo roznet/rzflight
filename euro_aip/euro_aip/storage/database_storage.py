@@ -13,6 +13,8 @@ from ..models.airport import Airport
 from ..models.runway import Runway
 from ..models.procedure import Procedure
 from ..models.aip_entry import AIPEntry
+from ..models.border_crossing_entry import BorderCrossingEntry
+from ..models.border_crossing_change import BorderCrossingChange
 from .field_definitions import AirportFields, RunwayFields, SchemaManager
 
 logger = logging.getLogger(__name__)
@@ -178,6 +180,35 @@ class DatabaseStorage:
                 )
             ''')
             
+            # Border crossing tables
+            conn.execute('''
+                CREATE TABLE border_crossing_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    airport_name TEXT NOT NULL,
+                    country_iso TEXT NOT NULL,
+                    icao_code TEXT,
+                    source TEXT NOT NULL,
+                    extraction_method TEXT,
+                    metadata_json TEXT,
+                    matched_airport_icao TEXT,
+                    match_score REAL,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (matched_airport_icao) REFERENCES airports (icao_code)
+                )
+            ''')
+            
+            conn.execute('''
+                CREATE TABLE border_crossing_changes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    airport_name TEXT NOT NULL,
+                    country_iso TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    changed_at TEXT
+                )
+            ''')
+            
             # Metadata tables
             conn.execute('''
                 CREATE TABLE model_metadata (
@@ -204,6 +235,12 @@ class DatabaseStorage:
             conn.execute('CREATE INDEX idx_aip_entries_airport_section ON aip_entries (airport_icao, section)')
             conn.execute('CREATE INDEX idx_runways_airport ON runways (airport_icao)')
             conn.execute('CREATE INDEX idx_procedures_airport ON procedures (airport_icao)')
+            
+            # Border crossing indexes
+            conn.execute('CREATE INDEX idx_border_crossing_matched_airport ON border_crossing_entries (matched_airport_icao)')
+            conn.execute('CREATE INDEX idx_border_crossing_country ON border_crossing_entries (country_iso)')
+            conn.execute('CREATE INDEX idx_border_crossing_source ON border_crossing_entries (source)')
+            conn.execute('CREATE INDEX idx_border_crossing_changes_time ON border_crossing_changes (changed_at)')
             
             conn.commit()
             logger.info(f"Created database schema at {self.database_path}")
@@ -294,6 +331,11 @@ class DatabaseStorage:
         with self._get_connection() as conn:
             for airport in model.airports.values():
                 self._save_airport(conn, airport)
+            
+            # Save border crossing data
+            border_crossing_entries = model.get_all_border_crossing_entries()
+            if border_crossing_entries:
+                self.save_border_crossing_data(border_crossing_entries, conn)
             
             # Update metadata
             self._update_metadata(conn, model)
@@ -784,8 +826,13 @@ class DatabaseStorage:
                     model.airports[icao] = airport
                     for source in airport.sources:
                         model.sources_used.add(source)
+            
+            # Load border crossing data
+            border_crossing_entries = self.load_border_crossing_data()
+            if border_crossing_entries:
+                model.add_border_crossing_entries(border_crossing_entries)
         
-        logger.info(f"Loaded model with {len(model.airports)} airports")
+        logger.info(f"Loaded model with {len(model.airports)} airports and {len(model.get_all_border_crossing_entries())} border crossing entries")
         return model
     
     def _load_airport(self, conn: sqlite3.Connection, icao: str) -> Optional[Airport]:
@@ -1027,4 +1074,240 @@ class DatabaseStorage:
         Returns:
             Current setting for save_only_std_fields
         """
-        return self.save_only_std_fields 
+        return self.save_only_std_fields
+    
+    # Border crossing methods
+    
+    def save_border_crossing_data(self, entries: List[BorderCrossingEntry], conn: Optional[sqlite3.Connection] = None) -> None:
+        """
+        Save border crossing entries to the database with change tracking.
+        
+        Args:
+            entries: List of border crossing entries to save
+            conn: Optional existing database connection. If None, creates a new connection.
+        """
+        logger.info(f"Saving {len(entries)} border crossing entries to database")
+        
+        if conn is None:
+            # Create our own connection
+            with self._get_connection() as conn:
+                self._save_border_crossing_data_internal(conn, entries)
+                conn.commit()
+        else:
+            # Use provided connection (no commit, caller handles it)
+            self._save_border_crossing_data_internal(conn, entries)
+        
+        logger.info(f"Successfully saved {len(entries)} border crossing entries")
+    
+    def _save_border_crossing_data_internal(self, conn: sqlite3.Connection, entries: List[BorderCrossingEntry]) -> None:
+        """Internal method to save border crossing data using provided connection."""
+        # Get current entries for change detection
+        current_entries = self._get_current_border_crossing_entries(conn)
+        
+        # Detect changes
+        changes = self._detect_border_crossing_changes(current_entries, entries)
+        
+        # Save changes to history
+        for change in changes:
+            conn.execute('''
+                INSERT INTO border_crossing_changes 
+                (airport_name, country_iso, action, source, changed_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                change.airport_name, change.country_iso, change.action,
+                change.source, change.changed_at.isoformat()
+            ))
+        
+        # Clear current entries and insert new ones
+        conn.execute('DELETE FROM border_crossing_entries')
+        
+        # Insert new entries
+        for entry in entries:
+            data = entry.to_dict()
+            conn.execute('''
+                INSERT INTO border_crossing_entries 
+                (airport_name, country_iso, icao_code, source, extraction_method,
+                 metadata_json, matched_airport_icao, match_score, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data['airport_name'], data['country_iso'], data['icao_code'],
+                data['source'], data['extraction_method'], data['metadata_json'],
+                data['matched_airport_icao'], data['match_score'],
+                data['created_at'], data['updated_at']
+            ))
+    
+    def load_border_crossing_data(self) -> List[BorderCrossingEntry]:
+        """
+        Load border crossing entries from the database.
+        
+        Returns:
+            List of border crossing entries
+        """
+        logger.info("Loading border crossing entries from database")
+        
+        entries = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('SELECT * FROM border_crossing_entries')
+            for row in cursor.fetchall():
+                entry = BorderCrossingEntry.from_dict(dict(row))
+                entries.append(entry)
+        
+        logger.info(f"Loaded {len(entries)} border crossing entries")
+        return entries
+    
+    def get_border_crossing_changes(self, days: int = 30) -> List[BorderCrossingChange]:
+        """
+        Get border crossing changes within the last N days.
+        
+        Args:
+            days: Number of days to look back
+            
+        Returns:
+            List of border crossing changes
+        """
+        changes = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT * FROM border_crossing_changes 
+                WHERE changed_at >= date('now', '-{} days')
+                ORDER BY changed_at DESC
+            '''.format(days))
+            
+            for row in cursor.fetchall():
+                change = BorderCrossingChange.from_dict(dict(row))
+                changes.append(change)
+        
+        return changes
+    
+    def get_border_crossing_airports(self) -> List[Dict[str, Any]]:
+        """
+        Get all airports that are border crossing points.
+        
+        Returns:
+            List of dictionaries with airport and border crossing info
+        """
+        airports = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT a.*, b.airport_name as border_crossing_name, b.source, b.match_score
+                FROM airports a
+                JOIN border_crossing_entries b ON a.icao_code = b.matched_airport_icao
+                WHERE b.matched_airport_icao IS NOT NULL
+            ''')
+            
+            for row in cursor.fetchall():
+                airports.append(dict(row))
+        
+        return airports
+    
+    def get_border_crossing_by_country(self, country_iso: str) -> List[Dict[str, Any]]:
+        """
+        Get border crossing entries for a specific country.
+        
+        Args:
+            country_iso: ISO country code
+            
+        Returns:
+            List of border crossing entries for the country
+        """
+        entries = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT * FROM border_crossing_entries 
+                WHERE country_iso = ?
+                ORDER BY airport_name
+            ''', (country_iso,))
+            
+            for row in cursor.fetchall():
+                entries.append(dict(row))
+        
+        return entries
+    
+    def get_border_crossing_statistics(self) -> Dict[str, Any]:
+        """
+        Get border crossing statistics.
+        
+        Returns:
+            Dictionary with statistics
+        """
+        stats = {}
+        with self._get_connection() as conn:
+            # Total entries
+            cursor = conn.execute('SELECT COUNT(*) as count FROM border_crossing_entries')
+            stats['total_entries'] = cursor.fetchone()['count']
+            
+            # Matched vs unmatched
+            cursor = conn.execute('''
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(matched_airport_icao) as matched,
+                    COUNT(*) - COUNT(matched_airport_icao) as unmatched
+                FROM border_crossing_entries
+            ''')
+            row = cursor.fetchone()
+            stats['matched_count'] = row['matched']
+            stats['unmatched_count'] = row['unmatched']
+            stats['match_rate'] = row['matched'] / row['total'] if row['total'] > 0 else 0
+            
+            # By country
+            cursor = conn.execute('''
+                SELECT country_iso, COUNT(*) as count
+                FROM border_crossing_entries
+                GROUP BY country_iso
+                ORDER BY count DESC
+            ''')
+            stats['by_country'] = {row['country_iso']: row['count'] for row in cursor.fetchall()}
+            
+            # By source
+            cursor = conn.execute('''
+                SELECT source, COUNT(*) as count
+                FROM border_crossing_entries
+                GROUP BY source
+                ORDER BY count DESC
+            ''')
+            stats['by_source'] = {row['source']: row['count'] for row in cursor.fetchall()}
+        
+        return stats
+    
+    def _get_current_border_crossing_entries(self, conn: sqlite3.Connection) -> List[BorderCrossingEntry]:
+        """Get current border crossing entries from database."""
+        entries = []
+        cursor = conn.execute('SELECT * FROM border_crossing_entries')
+        for row in cursor.fetchall():
+            entry = BorderCrossingEntry.from_dict(dict(row))
+            entries.append(entry)
+        return entries
+    
+    def _detect_border_crossing_changes(self, current_entries: List[BorderCrossingEntry], 
+                                      new_entries: List[BorderCrossingEntry]) -> List[BorderCrossingChange]:
+        """Detect changes in border crossing entries."""
+        changes = []
+        now = datetime.now()
+        
+        # Create sets for efficient comparison
+        current_set = {(e.airport_name, e.country_iso, e.source) for e in current_entries}
+        new_set = {(e.airport_name, e.country_iso, e.source) for e in new_entries}
+        
+        # Find added entries
+        added = new_set - current_set
+        for airport_name, country_iso, source in added:
+            changes.append(BorderCrossingChange(
+                airport_name=airport_name,
+                country_iso=country_iso,
+                action='ADDED',
+                source=source,
+                changed_at=now
+            ))
+        
+        # Find removed entries
+        removed = current_set - new_set
+        for airport_name, country_iso, source in removed:
+            changes.append(BorderCrossingChange(
+                airport_name=airport_name,
+                country_iso=country_iso,
+                action='REMOVED',
+                source=source,
+                changed_at=now
+            ))
+        
+        return changes 

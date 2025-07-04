@@ -9,6 +9,7 @@ from .airport import Airport
 from .runway import Runway
 from .aip_entry import AIPEntry
 from .procedure import Procedure
+from .border_crossing_entry import BorderCrossingEntry
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ class EuroAipModel:
     
     # Main data store: map from ICAO code to Airport object
     airports: Dict[str, Airport] = field(default_factory=dict)
+    
+    # Border crossing data: map from country ISO to airport name to entry
+    border_crossing_entries: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
     
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)
@@ -223,10 +227,12 @@ class EuroAipModel:
         airports_with_runways = len(self.get_airports_with_runways())
         airports_with_procedures = len(self.get_airports_with_procedures())
         airports_with_aip_data = len(self.get_airports_with_aip_data())
+        airports_with_border_crossing = len(self.get_border_crossing_airports())
         
         total_runways = sum(len(airport.runways) for airport in self.airports.values())
         total_procedures = sum(len(airport.procedures) for airport in self.airports.values())
         total_aip_entries = sum(len(airport.aip_entries) for airport in self.airports.values())
+        total_border_crossing_entries = len(self.get_all_border_crossing_entries())
         
         # Count procedures by type
         procedure_types = {}
@@ -235,15 +241,21 @@ class EuroAipModel:
                 proc_type = procedure.procedure_type.lower()
                 procedure_types[proc_type] = procedure_types.get(proc_type, 0) + 1
         
+        # Get border crossing statistics
+        border_crossing_stats = self.get_border_crossing_statistics()
+        
         return {
             'total_airports': total_airports,
             'airports_with_runways': airports_with_runways,
             'airports_with_procedures': airports_with_procedures,
             'airports_with_aip_data': airports_with_aip_data,
+            'airports_with_border_crossing': airports_with_border_crossing,
             'total_runways': total_runways,
             'total_procedures': total_procedures,
             'total_aip_entries': total_aip_entries,
+            'total_border_crossing_entries': total_border_crossing_entries,
             'procedure_types': procedure_types,
+            'border_crossing': border_crossing_stats,
             'sources_used': list(self.sources_used),
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
@@ -258,6 +270,13 @@ class EuroAipModel:
         """
         data = {
             'airports': {icao: airport.to_dict() for icao, airport in self.airports.items()},
+            'border_crossing_entries': {
+                country_iso: {
+                    airport_name: entry.to_dict() 
+                    for airport_name, entry in country_entries.items()
+                }
+                for country_iso, country_entries in self.border_crossing_entries.items()
+            },
             'statistics': self.get_statistics()
         }
         
@@ -275,6 +294,13 @@ class EuroAipModel:
         """
         return {
             'airports': {icao: airport.to_dict() for icao, airport in self.airports.items()},
+            'border_crossing_entries': {
+                country_iso: {
+                    airport_name: entry.to_dict() 
+                    for airport_name, entry in country_entries.items()
+                }
+                for country_iso, country_entries in self.border_crossing_entries.items()
+            },
             'statistics': self.get_statistics()
         }
     
@@ -301,7 +327,17 @@ class EuroAipModel:
             for source in airport.sources:
                 model.sources_used.add(source)
         
-        logger.info(f"Model loaded from {file_path} with {len(model.airports)} airports")
+        # Load border crossing entries
+        if 'border_crossing_entries' in data:
+            for country_iso, country_entries in data['border_crossing_entries'].items():
+                model.border_crossing_entries[country_iso] = {}
+                for airport_name, entry_data in country_entries.items():
+                    entry = BorderCrossingEntry.from_dict(entry_data)
+                    model.border_crossing_entries[country_iso][airport_name] = entry
+                    if entry.source:
+                        model.sources_used.add(entry.source)
+        
+        logger.info(f"Model loaded from {file_path} with {len(model.airports)} airports and {len(model.get_all_border_crossing_entries())} border crossing entries")
         return model
     
     def export_to_sqlite(self, db_path: str) -> None:
@@ -451,9 +487,11 @@ class EuroAipModel:
 - Airports with runways: {stats['airports_with_runways']}
 - Airports with procedures: {stats['airports_with_procedures']}
 - Airports with AIP data: {stats['airports_with_aip_data']}
+- Airports with border crossing: {stats['airports_with_border_crossing']}
 - Total runways: {stats['total_runways']}
 - Total procedures: {stats['total_procedures']}
 - Total AIP entries: {stats['total_aip_entries']}
+- Total border crossing entries: {stats['total_border_crossing_entries']}
 - Sources used: {', '.join(stats['sources_used'])}
 - Created: {stats['created_at']}
 - Updated: {stats['updated_at']}"""
@@ -545,4 +583,157 @@ class EuroAipModel:
             summary = airport.get_runway_procedures_summary()
             if summary:
                 result[icao] = summary
-        return result 
+        return result
+    
+    # Border crossing methods
+    
+    def add_border_crossing_entry(self, entry: BorderCrossingEntry) -> None:
+        """
+        Add a border crossing entry to the model.
+        
+        Args:
+            entry: BorderCrossingEntry to add
+        """
+        country_iso = entry.country_iso
+        airport_name = entry.airport_name
+        
+        if country_iso not in self.border_crossing_entries:
+            self.border_crossing_entries[country_iso] = {}
+        
+        self.border_crossing_entries[country_iso][airport_name] = entry
+        self.sources_used.add(entry.source)
+        self.updated_at = datetime.now()
+        
+        logger.debug(f"Added border crossing entry for {airport_name} in {country_iso}")
+    
+    def add_border_crossing_entries(self, entries: List[BorderCrossingEntry]) -> None:
+        """
+        Add multiple border crossing entries to the model.
+        
+        Args:
+            entries: List of BorderCrossingEntry objects to add
+        """
+        for entry in entries:
+            self.add_border_crossing_entry(entry)
+        
+        logger.info(f"Added {len(entries)} border crossing entries to model")
+    
+    def get_border_crossing_entries_by_country(self, country_iso: str) -> List[BorderCrossingEntry]:
+        """
+        Get all border crossing entries for a specific country.
+        
+        Args:
+            country_iso: ISO country code
+            
+        Returns:
+            List of border crossing entries for the country
+        """
+        if country_iso not in self.border_crossing_entries:
+            return []
+        
+        return list(self.border_crossing_entries[country_iso].values())
+    
+    def get_border_crossing_entry(self, country_iso: str, airport_name: str) -> Optional[BorderCrossingEntry]:
+        """
+        Get a specific border crossing entry.
+        
+        Args:
+            country_iso: ISO country code
+            airport_name: Name of the airport
+            
+        Returns:
+            BorderCrossingEntry if found, None otherwise
+        """
+        if country_iso not in self.border_crossing_entries:
+            return None
+        
+        return self.border_crossing_entries[country_iso].get(airport_name)
+    
+    def get_all_border_crossing_entries(self) -> List[BorderCrossingEntry]:
+        """
+        Get all border crossing entries in the model.
+        
+        Returns:
+            List of all border crossing entries
+        """
+        all_entries = []
+        for country_entries in self.border_crossing_entries.values():
+            all_entries.extend(country_entries.values())
+        return all_entries
+    
+    def get_border_crossing_countries(self) -> List[str]:
+        """
+        Get list of countries that have border crossing entries.
+        
+        Returns:
+            List of ISO country codes
+        """
+        return list(self.border_crossing_entries.keys())
+    
+    def get_border_crossing_statistics(self) -> Dict[str, Any]:
+        """
+        Get statistics about border crossing entries.
+        
+        Returns:
+            Dictionary with border crossing statistics
+        """
+        total_entries = len(self.get_all_border_crossing_entries())
+        countries_count = len(self.border_crossing_entries)
+        
+        # Count matched vs unmatched
+        matched_count = 0
+        unmatched_count = 0
+        for entry in self.get_all_border_crossing_entries():
+            if entry.matched_airport_icao:
+                matched_count += 1
+            else:
+                unmatched_count += 1
+        
+        # Count by source
+        source_counts = {}
+        for entry in self.get_all_border_crossing_entries():
+            source = entry.source or 'unknown'
+            source_counts[source] = source_counts.get(source, 0) + 1
+        
+        # Count by country
+        country_counts = {}
+        for country_iso, entries in self.border_crossing_entries.items():
+            country_counts[country_iso] = len(entries)
+        
+        return {
+            'total_entries': total_entries,
+            'countries_count': countries_count,
+            'matched_count': matched_count,
+            'unmatched_count': unmatched_count,
+            'match_rate': matched_count / total_entries if total_entries > 0 else 0,
+            'by_source': source_counts,
+            'by_country': country_counts
+        }
+    
+    def get_border_crossing_airports(self) -> List[Airport]:
+        """
+        Get all airports that are border crossing points.
+        
+        Returns:
+            List of airports that are border crossing points
+        """
+        border_airports = []
+        for entry in self.get_all_border_crossing_entries():
+            if entry.matched_airport_icao and entry.matched_airport_icao in self.airports:
+                border_airports.append(self.airports[entry.matched_airport_icao])
+        
+        return border_airports
+    
+    def update_border_crossing_airports(self) -> None:
+        """
+        Update airport objects with border crossing information.
+        This should be called after adding border crossing entries to ensure
+        airport objects have the correct point_of_entry flag and source tracking.
+        """
+        for entry in self.get_all_border_crossing_entries():
+            if entry.matched_airport_icao and entry.matched_airport_icao in self.airports:
+                airport = self.airports[entry.matched_airport_icao]
+                airport.point_of_entry = True
+                airport.add_source('border_crossing')
+        
+        logger.info(f"Updated {len(self.get_border_crossing_airports())} airports with border crossing information") 
