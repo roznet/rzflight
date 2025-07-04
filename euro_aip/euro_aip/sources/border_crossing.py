@@ -16,6 +16,9 @@ import logging
 
 from .cached import CachedSource
 from ..parsers.bordercrossing import BorderCrossingParser
+from ..utils.fuzzy_matcher import FuzzyMatcher
+from ..utils.country_mapper import CountryMapper
+from ..utils.airport_name_cleaner import AirportNameCleaner
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +67,8 @@ class BorderCrossingSource(CachedSource):
         
         self.inputs = self._normalize_inputs(inputs)
         self.parser = BorderCrossingParser()
+        self.country_mapper = CountryMapper()
+        self.name_cleaner = AirportNameCleaner()
         
         logger.info(f"Initialized BorderCrossingSource with {len(self.inputs)} inputs")
     
@@ -265,22 +270,140 @@ class BorderCrossingSource(CachedSource):
         Args:
             model: The EuroAipModel to update
         """
-        results = []
-        for input in self.inputs:
-            data = self.get_border_crossing_data(input[0])
-            for entry in data:
-                if 'icao_code' not in entry:
-                    continue
-                if entry['icao_code'] not in model.airports:
-                    continue
-                airport = model.airports[entry['icao_code']]
-                entry['airport'] = airport
-                results.append(entry)
-
-        logger.info(f"Updated model with {len(results)} airports")
-        # TODO: Implement model update logic
-        # This would involve:
-        # 1. Getting border crossing data
-        # 2. Matching airport names to ICAO codes
-        # 3. Adding border crossing information to airport objects
-        pass 
+        fuzzy_matcher = FuzzyMatcher()
+        matched_count = 0
+        unmatched_count = 0
+        
+        # Get all border crossing data
+        border_data = self.get_border_crossing_data()
+        
+        # Pre-organize airports by country for faster matching
+        airports_by_iso = {}
+        airports_by_country = {}
+        
+        for icao, airport in model.airports.items():
+            if airport.name:
+                # Use iso_country field for ISO code
+                country_iso = getattr(airport, 'iso_country', None)
+                if country_iso:
+                    if country_iso not in airports_by_iso:
+                        airports_by_iso[country_iso] = []
+                    airports_by_iso[country_iso].append((icao, airport.name))
+                    # Use country mapper to get country name
+                    country_name = self.country_mapper.get_country_name(country_iso)
+                    if country_name:
+                        if country_name not in airports_by_country:
+                            airports_by_country[country_name] = []
+                        airports_by_country[country_name].append((icao, airport.name))
+        
+        logger.info(f"Organized {len(model.airports)} airports by country for matching")
+        
+        for entry in border_data:
+            airport_icao = None
+            
+            # First, try to use ICAO code if available
+            if 'icao_code' in entry and entry['icao_code']:
+                airport_icao = entry['icao_code']
+                if airport_icao in model.airports:
+                    airport = model.airports[airport_icao]
+                    matched_count += 1
+                    logger.debug(f"Matched border crossing entry for {airport_icao} using ICAO code")
+                else:
+                    logger.debug(f"ICAO code {airport_icao} not found in model")
+                    airport_icao = None
+            
+            # If no ICAO code or not found, try fuzzy matching on airport name
+            if not airport_icao and 'airport_name' in entry and entry['airport_name']:
+                airport_name = entry['airport_name']
+                country_name = entry.get('country', '').strip()
+                
+                # Get country ISO code from border crossing data
+                country_iso = self.country_mapper.get_iso_code(country_name)
+                
+                # Determine which airport list to search
+                candidates = []
+                
+                # First try to match by country ISO code
+                if country_iso and country_iso in airports_by_iso:
+                    candidates = airports_by_iso[country_iso]
+                    logger.debug(f"Searching {len(candidates)} airports in country {country_iso} ({country_name})")
+                
+                # If no candidates found by ISO, try by country name
+                elif country_name and country_name in airports_by_country:
+                    candidates = airports_by_country[country_name]
+                    logger.debug(f"Searching {len(candidates)} airports in country {country_name}")
+                
+                # If still no candidates, search all airports (fallback)
+                if not candidates:
+                    candidates = [(icao, name) for icao, name in airports_by_iso.get(country_iso, [])]
+                    candidates.extend([(icao, name) for icao, name in airports_by_country.get(country_name, [])])
+                    
+                    # If still no candidates, use all airports
+                    if not candidates:
+                        candidates = [(icao, airport.name) for icao, airport in model.airports.items() if airport.name]
+                        logger.debug(f"No country-specific candidates found, searching all {len(candidates)} airports")
+                
+                if candidates:
+                    # Clean the airport name for better matching
+                    cleaned_name = self.name_cleaner.clean_name(airport_name)
+                    
+                    # Try matching with cleaned name first
+                    result = None
+                    if cleaned_name and cleaned_name != airport_name:
+                        result = fuzzy_matcher.find_best_match_with_id(
+                            cleaned_name, 
+                            candidates, 
+                            threshold=0.6
+                        )
+                    
+                    # If no match with cleaned name, try original name
+                    if not result:
+                        result = fuzzy_matcher.find_best_match_with_id(
+                            airport_name, 
+                            candidates, 
+                            threshold=0.6
+                        )
+                    
+                    # If still no match, try with all variants
+                    if not result:
+                        name_variants = self.name_cleaner.get_cleaned_variants(airport_name)
+                        for variant in name_variants:
+                            if variant != airport_name and variant != cleaned_name:
+                                result = fuzzy_matcher.find_best_match_with_id(
+                                    variant, 
+                                    candidates, 
+                                    threshold=0.6
+                                )
+                                if result:
+                                    break
+                    
+                    if result:
+                        matched_icao, matched_name, score = result
+                        airport_icao = matched_icao
+                        airport = model.airports[airport_icao]
+                        matched_count += 1
+                        logger.debug(f"Fuzzy matched '{airport_name}' to '{matched_name}' ({matched_icao}) with score {score:.2f}")
+                    else:
+                        unmatched_count += 1
+                        logger.debug(f"No fuzzy match found for airport name: {airport_name} in country: {country_name}")
+                else:
+                    unmatched_count += 1
+                    logger.debug(f"No airport candidates available for country: {country_name}")
+            
+            # If we found a matching airport, add border crossing information
+            if airport_icao and airport_icao in model.airports:
+                airport = model.airports[airport_icao]
+                
+                # Add border crossing data to airport
+                airport.point_of_entry = True
+                
+                # Add source tracking
+                airport.add_source('border_crossing')
+                
+                # Log the match
+                logger.debug(f"Added border crossing data to {airport_icao} ({airport.name})")
+        
+        logger.info(f"Border crossing update complete: {matched_count} matched, {unmatched_count} unmatched")
+        
+        if unmatched_count > 0:
+            logger.warning(f"{unmatched_count} border crossing entries could not be matched to airports in the model") 
