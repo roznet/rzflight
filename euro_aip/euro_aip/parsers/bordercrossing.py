@@ -169,20 +169,67 @@ class BorderCrossingParser(AIPParser):
                 # Extract name from second column
                 name = second_cell_text.strip()
                 if name and len(name) > 2:
+                    # Check 1: Extract content in parentheses at the end of the name
+                    comment = ""
+                    # Pattern to match content in parentheses at the end of the string
+                    parenthesis_pattern = r'^(.*?)\s*\(([^)]+)\)\s*$'
+                    match = re.match(parenthesis_pattern, name)
+                    
+                    if match:
+                        # Extract the name without parentheses and the comment
+                        name = match.group(1).strip()
+                        comment = match.group(2).strip()
+                        logger.debug(f"Extracted comment from parentheses: '{comment}' for name: '{name}'")
+                    
+                    # Check 2: Look for airport/airfield/air border references in metadata
+                    is_airport = False
+                    airport_keywords = ['airport', 'airfield', 'air border']
+                    
+                    # Check in current metadata values
+                    for key, value in current_metadata.items():
+                        if isinstance(value, str):
+                            value_lower = value.lower()
+                            if any(keyword in value_lower for keyword in airport_keywords):
+                                is_airport = True
+                                logger.debug(f"Found airport reference in metadata '{key}': '{value}'")
+                                break
+                    
+                    # Also check in the name itself
+                    name_lower = name.lower()
+                    if any(keyword in name_lower for keyword in airport_keywords):
+                        is_airport = True
+                        logger.debug(f"Found airport reference in name: '{name}'")
+
+                    metadata = {}
+                    for key, value in current_metadata.items():
+                        if not value.startswith('Replacement of'):
+                            metadata[key] = value
+                    metadata['is_airport'] = is_airport
+                    metadata['comment'] = comment
+                    
+                    # Create result with enhanced metadata
                     result = {
                         'airport_name': name,
                         'country': current_country,
                         'number': number,
                         'source': 'border_crossing_parser',
                         'extraction_method': 'html_table_parsing',
-                        'metadata': current_metadata.copy(),  # Copy current metadata
+                        'is_airport': is_airport,
+                        'metadata': metadata,  # Copy current metadata
                         'row_data': {
                             'first_column': first_cell_text,
                             'second_column': second_cell_text
                         }
                     }
+                    
+                    # Add comment to metadata if it exists
+                    if comment:
+                        result['metadata']['comment'] = comment
+                    else:
+                        result['metadata']['comment'] = ""
+                    
                     results.append(result)
-                    logger.debug(f"Found airport: {name} in {current_country} (#{number})")
+                    logger.debug(f"Found airport: {name} in {current_country} (#{number}, is_airport: {is_airport}, comment: '{comment}')")
         
         return results
 
