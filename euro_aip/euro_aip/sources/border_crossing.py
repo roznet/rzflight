@@ -405,6 +405,7 @@ class BorderCrossingSource(CachedSource):
                 airport_name=entry.get('airport_name', ''),
                 country_iso=self.country_mapper.get_iso_code(entry.get('country', '')) or '',
                 icao_code=airport_icao,
+                is_airport=entry.get('is_airport', False),
                 source=entry.get('source', ''),
                 extraction_method=entry.get('extraction_method', ''),
                 metadata=entry.get('metadata', {}),

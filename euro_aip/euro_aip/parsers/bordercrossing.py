@@ -193,12 +193,6 @@ class BorderCrossingParser(AIPParser):
                                 is_airport = True
                                 logger.debug(f"Found airport reference in metadata '{key}': '{value}'")
                                 break
-                    
-                    # Also check in the name itself
-                    name_lower = name.lower()
-                    if any(keyword in name_lower for keyword in airport_keywords):
-                        is_airport = True
-                        logger.debug(f"Found airport reference in name: '{name}'")
 
                     metadata = {}
                     for key, value in current_metadata.items():
@@ -423,6 +417,9 @@ class BorderCrossingParser(AIPParser):
                                 cell_value = cells[i].get_text(strip=True)
                                 if cell_value:  # Only add non-empty values
                                     metadata[header_key] = cell_value
+
+                        metadata['is_airport'] = True
+                        metadata['comment'] = ""
                         
                         # Create result entry matching the format of the EU parser
                         result = {
@@ -432,6 +429,7 @@ class BorderCrossingParser(AIPParser):
                             'source': 'border_crossing_parser_uk',
                             'extraction_method': 'uk_html_table_parsing',
                             'metadata': metadata,
+                            'is_airport': True,
                             'row_data': {
                                 'full_airport_text': airport_text,
                                 'column_headers': column_headers,

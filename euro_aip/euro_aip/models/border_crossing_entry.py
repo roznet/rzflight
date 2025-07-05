@@ -13,6 +13,7 @@ class BorderCrossingEntry:
     """Model for border crossing airport entries."""
     
     def __init__(self, airport_name: str, country_iso: str, icao_code: Optional[str] = None,
+                 is_airport: Optional[bool] = None,
                  source: Optional[str] = None, extraction_method: Optional[str] = None,
                  metadata: Optional[Dict[str, Any]] = None, matched_airport_icao: Optional[str] = None,
                  match_score: Optional[float] = None, created_at: Optional[datetime] = None,
@@ -35,6 +36,7 @@ class BorderCrossingEntry:
         self.airport_name = airport_name
         self.country_iso = country_iso
         self.icao_code = icao_code
+        self.is_airport = is_airport
         self.source = source
         self.extraction_method = extraction_method
         self.metadata = metadata or {}
@@ -49,6 +51,7 @@ class BorderCrossingEntry:
             'airport_name': self.airport_name,
             'country_iso': self.country_iso,
             'icao_code': self.icao_code,
+            'is_airport': self.is_airport,
             'source': self.source,
             'extraction_method': self.extraction_method,
             'metadata_json': json.dumps(self.metadata) if self.metadata else None,
@@ -86,6 +89,7 @@ class BorderCrossingEntry:
             airport_name=data['airport_name'],
             country_iso=data['country_iso'],
             icao_code=data.get('icao_code'),
+            is_airport=data.get('is_airport'),
             source=data.get('source'),
             extraction_method=data.get('extraction_method'),
             metadata=metadata,

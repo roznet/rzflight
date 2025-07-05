@@ -195,7 +195,7 @@ class BorderCrossingExporter:
         if not airports:
             logger.warning("No airports found, but proceeding with export (border crossing data may not be matched)")
         
-        logger.info(f"Building model for airports: {airports if airports else 'all available'}")
+        logger.info(f"Building model for airports: {len(airports) if airports else 'all available'}")
         
         # Build the model
         model = self.model_builder.build_model()

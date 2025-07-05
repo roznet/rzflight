@@ -187,6 +187,7 @@ class DatabaseStorage:
                     airport_name TEXT NOT NULL,
                     country_iso TEXT NOT NULL,
                     icao_code TEXT,
+                    is_airport INTEGER,
                     source TEXT NOT NULL,
                     extraction_method TEXT,
                     metadata_json TEXT,
@@ -281,6 +282,19 @@ class DatabaseStorage:
             cursor.execute("SELECT value FROM model_metadata WHERE key = 'schema_version'")
             row = cursor.fetchone()
             current_version = int(row['value']) if row else 1
+            
+            # Check if border_crossing_entries table exists and needs migration
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='border_crossing_entries'")
+            if cursor.fetchone():
+                # Check if is_airport column exists
+                cursor.execute("PRAGMA table_info(border_crossing_entries)")
+                columns = [col[1] for col in cursor.fetchall()]
+                
+                if 'is_airport' not in columns:
+                    logger.info("Adding is_airport column to border_crossing_entries table")
+                    cursor.execute('ALTER TABLE border_crossing_entries ADD COLUMN is_airport INTEGER')
+                    conn.commit()
+                    logger.info("Added is_airport column to border_crossing_entries table")
             
             # Migrate if needed
             new_version = self.schema_manager.migrate_schema(conn, current_version)
@@ -1126,13 +1140,13 @@ class DatabaseStorage:
             data = entry.to_dict()
             conn.execute('''
                 INSERT INTO border_crossing_entries 
-                (airport_name, country_iso, icao_code, source, extraction_method,
+                (airport_name, country_iso, icao_code, is_airport, source, extraction_method,
                  metadata_json, matched_airport_icao, match_score, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 data['airport_name'], data['country_iso'], data['icao_code'],
-                data['source'], data['extraction_method'], data['metadata_json'],
-                data['matched_airport_icao'], data['match_score'],
+                data.get('is_airport'), data['source'], data['extraction_method'], 
+                data['metadata_json'], data['matched_airport_icao'], data['match_score'],
                 data['created_at'], data['updated_at']
             ))
     
@@ -1249,6 +1263,21 @@ class DatabaseStorage:
             stats['unmatched_count'] = row['unmatched']
             stats['match_rate'] = row['matched'] / row['total'] if row['total'] > 0 else 0
             
+            # Airport vs non-airport entries
+            cursor = conn.execute('''
+                SELECT 
+                    COUNT(*) as total,
+                    COUNT(CASE WHEN is_airport = 1 THEN 1 END) as airports,
+                    COUNT(CASE WHEN is_airport = 0 THEN 1 END) as non_airports,
+                    COUNT(CASE WHEN is_airport IS NULL THEN 1 END) as unknown
+                FROM border_crossing_entries
+            ''')
+            row = cursor.fetchone()
+            stats['airport_entries'] = row['airports']
+            stats['non_airport_entries'] = row['non_airports']
+            stats['unknown_type_entries'] = row['unknown']
+            stats['airport_rate'] = row['airports'] / row['total'] if row['total'] > 0 else 0
+            
             # By country
             cursor = conn.execute('''
                 SELECT country_iso, COUNT(*) as count
@@ -1266,8 +1295,57 @@ class DatabaseStorage:
                 ORDER BY count DESC
             ''')
             stats['by_source'] = {row['source']: row['count'] for row in cursor.fetchall()}
+            
+            # By extraction method
+            cursor = conn.execute('''
+                SELECT extraction_method, COUNT(*) as count
+                FROM border_crossing_entries
+                GROUP BY extraction_method
+                ORDER BY count DESC
+            ''')
+            stats['by_extraction_method'] = {row['extraction_method']: row['count'] for row in cursor.fetchall()}
         
         return stats
+    
+    def get_border_crossing_airports_only(self) -> List[Dict[str, Any]]:
+        """
+        Get only border crossing entries that are confirmed airports.
+        
+        Returns:
+            List of dictionaries with airport border crossing info
+        """
+        airports = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT * FROM border_crossing_entries 
+                WHERE is_airport = 1
+                ORDER BY airport_name
+            ''')
+            
+            for row in cursor.fetchall():
+                airports.append(dict(row))
+        
+        return airports
+    
+    def get_border_crossing_non_airports(self) -> List[Dict[str, Any]]:
+        """
+        Get border crossing entries that are not airports.
+        
+        Returns:
+            List of dictionaries with non-airport border crossing info
+        """
+        non_airports = []
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT * FROM border_crossing_entries 
+                WHERE is_airport = 0
+                ORDER BY airport_name
+            ''')
+            
+            for row in cursor.fetchall():
+                non_airports.append(dict(row))
+        
+        return non_airports
     
     def _get_current_border_crossing_entries(self, conn: sqlite3.Connection) -> List[BorderCrossingEntry]:
         """Get current border crossing entries from database."""
