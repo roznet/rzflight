@@ -152,33 +152,53 @@ class BorderCrossingEntry:
             'updated_at': max(self.updated_at, other.updated_at)
         }
         
+        # Track if meaningful data was merged (not just metadata)
+        meaningful_changes = False
+        
         # Merge ICAO codes - prefer non-None values
         if not merged_data['icao_code'] and other.icao_code:
             merged_data['icao_code'] = other.icao_code
+            meaningful_changes = True
         
         # Merge is_airport - prefer True over None/False
         if merged_data['is_airport'] is None and other.is_airport is not None:
             merged_data['is_airport'] = other.is_airport
+            meaningful_changes = True
         elif merged_data['is_airport'] is False and other.is_airport is True:
             merged_data['is_airport'] = True
-        
-        # Merge sources - combine unique sources
-        sources = set()
-        if self.source:
-            sources.add(self.source)
-        if other.source:
-            sources.add(other.source)
-        merged_data['source'] = ';'.join(sorted(sources)) if sources else None
+            meaningful_changes = True
         
         # Merge extraction methods - prefer more specific ones
         if not merged_data['extraction_method'] and other.extraction_method:
             merged_data['extraction_method'] = other.extraction_method
+            meaningful_changes = True
         elif merged_data['extraction_method'] and other.extraction_method:
             # Prefer more specific extraction methods
             if 'csv' in other.extraction_method.lower() and 'html' in merged_data['extraction_method'].lower():
                 merged_data['extraction_method'] = other.extraction_method
+                meaningful_changes = True
         
-        # Merge metadata - combine all unique keys
+        # Merge matched airport ICAO - prefer the one with higher match score
+        if not merged_data['matched_airport_icao'] and other.matched_airport_icao:
+            merged_data['matched_airport_icao'] = other.matched_airport_icao
+            merged_data['match_score'] = other.match_score
+            meaningful_changes = True
+        elif merged_data['matched_airport_icao'] and other.matched_airport_icao:
+            # Keep the one with higher match score
+            if (other.match_score or 0) > (merged_data['match_score'] or 0):
+                merged_data['matched_airport_icao'] = other.matched_airport_icao
+                merged_data['match_score'] = other.match_score
+                meaningful_changes = True
+        
+        # Merge sources - only add new source if meaningful changes occurred
+        if meaningful_changes and other.source:
+            sources = set()
+            if self.source:
+                sources.add(self.source)
+            sources.add(other.source)
+            merged_data['source'] = ';'.join(sorted(sources))
+        
+        # Merge metadata - combine all unique keys (this doesn't count as meaningful change)
         if other.metadata:
             for key, value in other.metadata.items():
                 if key not in merged_data['metadata'] or not merged_data['metadata'][key]:
@@ -187,16 +207,6 @@ class BorderCrossingEntry:
                     # For string values, prefer non-empty ones
                     if not merged_data['metadata'][key].strip() and value.strip():
                         merged_data['metadata'][key] = value
-        
-        # Merge matched airport ICAO - prefer the one with higher match score
-        if not merged_data['matched_airport_icao'] and other.matched_airport_icao:
-            merged_data['matched_airport_icao'] = other.matched_airport_icao
-            merged_data['match_score'] = other.match_score
-        elif merged_data['matched_airport_icao'] and other.matched_airport_icao:
-            # Keep the one with higher match score
-            if (other.match_score or 0) > (merged_data['match_score'] or 0):
-                merged_data['matched_airport_icao'] = other.matched_airport_icao
-                merged_data['match_score'] = other.match_score
         
         return BorderCrossingEntry(**merged_data)
     

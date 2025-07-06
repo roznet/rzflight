@@ -180,6 +180,9 @@ class BorderCrossingParser(AIPParser):
                         name = match.group(1).strip()
                         comment = match.group(2).strip()
                         logger.debug(f"Extracted comment from parentheses: '{comment}' for name: '{name}'")
+
+                    # remove punctuation at the end of name
+                    name = re.sub(r'[^\w\s]$', '', name)
                     
                     # Check 2: Look for airport/airfield/air border references in metadata
                     is_airport = False

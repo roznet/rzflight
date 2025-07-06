@@ -58,6 +58,38 @@ def test_entry_merging():
         match_score=0.95
     )
     
+    # Create a third entry with only metadata differences
+    entry3 = BorderCrossingEntry(
+        airport_name="Brussels National Airport",
+        country_iso="BE",
+        icao_code="EBBR",  # Same ICAO
+        is_airport=True,  # Same flag
+        source="border_crossing_api",
+        extraction_method="csv_parsing",  # Same method
+        metadata={
+            'type': 'Airport',
+            'comment': 'Main international airport',
+            'airfield_name': 'Brussels National',
+            'extra_metadata': 'Some additional info'  # Only metadata difference
+        }
+    )
+    
+    # Create a fourth entry that truly has only metadata differences (no meaningful changes)
+    entry4 = BorderCrossingEntry(
+        airport_name="Brussels National Airport",
+        country_iso="BE",
+        icao_code="EBBR",  # Same ICAO as entry3
+        is_airport=True,  # Same flag as entry3
+        source="border_crossing_api",
+        extraction_method="csv_parsing",  # Same method as entry3
+        metadata={
+            'type': 'Airport',
+            'comment': 'Main international airport',
+            'airfield_name': 'Brussels National',
+            'different_metadata': 'Another metadata field'  # Only metadata difference
+        }
+    )
+    
     print("Entry 1:")
     print(f"  ICAO: {entry1.icao_code}")
     print(f"  Is Airport: {entry1.is_airport}")
@@ -74,22 +106,55 @@ def test_entry_merging():
     print(f"  Metadata keys: {list(entry2.metadata.keys())}")
     print()
     
+    print("Entry 3 (metadata only differences):")
+    print(f"  ICAO: {entry3.icao_code}")
+    print(f"  Is Airport: {entry3.is_airport}")
+    print(f"  Source: {entry3.source}")
+    print(f"  Match Score: {entry3.match_score}")
+    print(f"  Metadata keys: {list(entry3.metadata.keys())}")
+    print()
+    
+    print("Entry 4 (metadata only differences):")
+    print(f"  ICAO: {entry4.icao_code}")
+    print(f"  Is Airport: {entry4.is_airport}")
+    print(f"  Source: {entry4.source}")
+    print(f"  Match Score: {entry4.match_score}")
+    print(f"  Metadata keys: {list(entry4.metadata.keys())}")
+    print()
+    
     # Test completeness comparison
     print("Completeness comparison:")
     print(f"  Entry 1 more complete than Entry 2: {entry1.is_more_complete_than(entry2)}")
     print(f"  Entry 2 more complete than Entry 1: {entry2.is_more_complete_than(entry1)}")
     print()
     
-    # Merge entries
+    # Merge entries with meaningful changes
     merged_entry = entry1.merge_with(entry2)
     
-    print("Merged Entry:")
+    print("Merged Entry (with meaningful changes):")
     print(f"  ICAO: {merged_entry.icao_code}")
     print(f"  Is Airport: {merged_entry.is_airport}")
     print(f"  Source: {merged_entry.source}")
     print(f"  Match Score: {merged_entry.match_score}")
     print(f"  Metadata keys: {list(merged_entry.metadata.keys())}")
     print(f"  Metadata: {merged_entry.metadata}")
+    print()
+    
+    # Test merging with only metadata differences
+    merged_entry_metadata_only = entry3.merge_with(entry4)
+    
+    print("Merged Entry (metadata only):")
+    print(f"  ICAO: {merged_entry_metadata_only.icao_code}")
+    print(f"  Is Airport: {merged_entry_metadata_only.is_airport}")
+    print(f"  Source: {merged_entry_metadata_only.source}")
+    print(f"  Match Score: {merged_entry_metadata_only.match_score}")
+    print(f"  Metadata keys: {list(merged_entry_metadata_only.metadata.keys())}")
+    print()
+    
+    # Test that sources are only combined when meaningful changes occur
+    print("Source combination test:")
+    print(f"  Entry 1 + Entry 2 (meaningful changes): {merged_entry.source}")
+    print(f"  Entry 3 + Entry 4 (metadata only): {merged_entry_metadata_only.source}")
     print()
     
     # Test with CSV source

@@ -16,9 +16,10 @@ class AirportNameCleaner:
     
     # Words to remove from airport names (case insensitive)
     WORDS_TO_REMOVE = {
-        'airport', 'airfield', 'aerodrome', 'airstrip', 'airbase',
+        'airport', 'airfield', 'aerodrome', 'airstrip', 'airbase','air base',
         'international', 'intl', 'domestic', 'regional', 'municipal',
-        'civil', 'military', 'private', 'public'
+        'civil', 'military', 'private', 'public','flugplatz',
+        'flyveplads'
     }
     
     # Common abbreviations to expand

@@ -12,7 +12,7 @@ Bulgaria,Varna Airport,Airport,,LBWN,Varna
 Bulgaria,Burgas Airport,Airport,,LBBG,Burgas
 Croatia,Zagreb,Airport,BIP,LDZA,Zagreb
 Croatia,Pula,Airport,,LDPL,Pula
-Croatia,Rijeka,Airport,,LDRK,
+Croatia,Rijeka,Airport,,LDRI,
 Croatia,Zadar,Airport,,LDZD,Zadar
 Croatia,Split,Airport,,LDSP,Split
 Croatia,Dubrovnik,Airport,,LDDU,Dubrovnik
@@ -48,7 +48,7 @@ Denmark,Herning Flyveplads,Airfield,,EKHG,Herning Skinnerh
 Denmark,Karup Lufthavn,Airport,,EKKA,Karup
 Denmark,Koldingegnens Lufthavn i Vamdrup,Airport,,EKVD,Kolding Vamdrup
 Denmark,Københavns Lufthavn i Kastrup,Airport,,EKCH,Copenhagen Kastrup
-Denmark,Lolland-Falster Lufthavn,Airport,,EKNM,Morso
+Denmark,Lolland-Falster Lufthavn,Airport,,EKMB,Morso
 Denmark,Lemvig Lufthavn,Airport,,EKLV,Lemvig
 Denmark,Odense Lufthavn,Airport,,EKOD,Odense
 Denmark,Randers Flyveplads,Airfield,,EKRD,Randers
@@ -57,7 +57,7 @@ Denmark,Bornholms Lufthavn,Airport,,EKRN,Bornholm Ronne
 Denmark,Sindal Lufthavn,Airport,,EKSN,Sindal
 Denmark,Skive Lufthavn,Airport,,EKSV,Skive
 Denmark,Stauning Lufthavn,Airport,,EKST,Sydfyn Tasinge D
-Denmark,Sydfyns Flyveplads på Tåsinge,Airfield,,EKTS,Thisted
+Denmark,Sydfyns Flyveplads på Tåsinge,Airfield,,EKST,Thisted
 Denmark,Sønderborg Lufthavn,Airport,,EKSB,Sonderborg
 Denmark,Thisted Lufthavn,Airport,,EKTS,Thisted
 Denmark,Vojens Lufthavn,Airport,,EKVJ,Stauning
@@ -89,12 +89,12 @@ Germany,Freiburg/Brg.,Airport,Baden-Württemberg,EDTF,Freiburg
 Germany,Friedrichshafen-Löwental,Airport,Baden-Württemberg,EDNY,Friedrichshafen
 Germany,Heubach (District of Schwäb. Gmünd),Airport,Baden-Württemberg,EDTH,Heubach
 Germany,Lahr,Airport,Baden-Württemberg,EDTL,Lahr
-Germany,Laupheim,Airport,Baden-Württemberg,EDNL,Leutkirch Unterzeil
-Germany,Leutkirch-Unterzeil,Airport,Baden-Württemberg,EDNJ,Neuburg Egweil
+Germany,Laupheim,Airport,Baden-Württemberg,ETHL,Leutkirch Unterzeil
+Germany,Leutkirch-Unterzeil,Airport,Baden-Württemberg,EDNL,Neuburg Egweil
 Germany,Mannheim-City,Airport,Baden-Württemberg,EDFM,Mannheim City
 Germany,Mengen,Airport,Baden-Württemberg,EDTM,Mengen Hohentengen
-Germany,Niederstetten,Airport,Baden-Württemberg,EDTN,Nabern Teck
-Germany,Schwäbisch Hall,Airport,Baden-Württemberg,EDTY,Schwabisch Hall
+Germany,Niederstetten,Airport,Baden-Württemberg,ETHN,Nabern Teck
+Germany,Schwäbisch Hall,Airport,Baden-Württemberg,EDTX,Schwabisch Hall
 Germany,Stuttgart,Airport,Baden-Württemberg,EDDS,Stuttgart
 Germany,Aschaffenburg,Airport,Bavaria,EDFC,Aschaffenburg
 Germany,Augsburg-Mühlhausen,Airport,Bavaria,EDMA,Augsburg
@@ -123,7 +123,7 @@ Germany,Fritzlar,Airport,Hesse,ETHF,Fritzlar
 Germany,Kassel-Calden,Airport,Hesse,EDVK,Kassel Calden
 Germany,Reichelsheim,Airport,Hesse,EDFB,Reichelsheim
 Germany,Wiesbaden-Erbenheim,Airport,Hesse,ETOU,Wiesbaden AAF
-Germany,Neubrandenburg-Trollenhagen,Airport,Mecklenburg-Western Pomerania,ETNU,
+Germany,Neubrandenburg-Trollenhagen,Airport,Mecklenburg-Western Pomerania,EDBN,
 Germany,Rostock-Laage,Airport,Mecklenburg-Western Pomerania,ETNL,Rostock-Laage
 Germany,Braunschweig-Waggum,Airport,Lower Saxony,EDVE,Braunschweig
 Germany,Bückeburg-Achum,Airport,Lower Saxony,ETHB,Buckeburg
@@ -154,7 +154,7 @@ Germany,Münster-Osnabrück,Airport,North Rhine-Westphalia,EDDG,Muenster Osnabru
 Germany,Nörvenich,Airport,North Rhine-Westphalia,ETNN,Norvenich
 Germany,Paderborn-Lippstadt,Airport,North Rhine-Westphalia,EDLP,Paderborn Lippstadt
 Germany,Porta Westfalica,Airport,North Rhine-Westphalia,EDVY,Porta-Westfalica
-Germany,Rheine-Bentlage,Airport,North Rhine-Westphalia,EDXE,Rheine Eschendor
+Germany,Rheine-Bentlage,Airport,North Rhine-Westphalia,ETHE,Rheine Eschendor
 Germany,Siegerland,Airport,North Rhine-Westphalia,EDGS,Siegerland
 Germany,Stadtlohn-Wenningfeld,Airport,North Rhine-Westphalia,EDLS,Stadtlohn Vreden
 Germany,Weeze-Lahrbruch,Airport,North Rhine-Westphalia,EDLV,Weeze Niederrhein
@@ -163,7 +163,7 @@ Germany,Föhren,Airport,Rhineland-Palatinate,EDRZ,Zweibrucken
 Germany,Hahn,Airport,Rhineland-Palatinate,EDFH,Frankfurt Hahn
 Germany,Koblenz-Winningen,Airport,Rhineland-Palatinate,EDRK,Koblenz Winningen
 Germany,Mainz-Finthen,Airport,Rhineland-Palatinate,EDFZ,Mainz Finthen
-Germany,Pirmasens-Pottschütthöhe,Airport,Rhineland-Palatinate,EDRF,Bad Duerkheim
+Germany,Pirmasens-Pottschütthöhe,Airport,Rhineland-Palatinate,EDRP,Bad Duerkheim
 Germany,Ramstein (US Air Base),Airport,Rhineland-Palatinate,ETAR,Ramstein AB
 Germany,Speyer,Airport,Rhineland-Palatinate,EDRY,Speyer
 Germany,Spangdahlem (US Air Base),Airport,Rhineland-Palatinate,ETAD,Spangdahlem AB
@@ -172,7 +172,7 @@ Germany,Saarbrücken-Ensheim,Airport,Saarland,EDDR,Saarbrucken
 Germany,Saarlouis/Düren,Airport,Saarland,EDRJ,Saarlouis Dueren
 Germany,Dresden,Airport,Saxony,EDDC,Dresden
 Germany,Leipzig-Halle,Airport,Saxony,EDDP,Leipzig-Halle
-Germany,Rothenburg/Oberlausitz,Airport,Saxony,EDAW,Roitzschjora
+Germany,Rothenburg/Oberlausitz,Airport,Saxony,EDFR,Roitzschjora
 Germany,Cochstedt,Airport,Saxony-Anhalt,EDBC,Magdeburg Cochstedt
 Germany,Magdeburg,Airport,Saxony-Anhalt,EDBM,Magdeburg
 Germany,Helgoland-Düne,Airport,Schleswig-Holstein,EDXH,Helgoland-Dune
@@ -214,7 +214,7 @@ Greece,Karpathos,Airport,Summer only,LGKP,Karpathos
 Greece,Mikonos,Airport,,LGMK,Mikonos
 Greece,Alexandroupoli,Airport,,LGAL,Alexandroupolis Dimokritos
 Greece,Elefsina,Airport,,LGEL,Elefsis
-Greece,Andravida,Airport,,LGAN,
+Greece,Andravida,Airport,,LGAD,
 Greece,Atsiki - Limnos,Airport,,LGLM,Lemnos
 Greece,Nea Aghialos,Airport,,LGBL,Nea Anchialos
 Greece,Argos Orestikού (Kastoriá),Airport,,LGKA,Aristotelis
@@ -300,7 +300,7 @@ France,Hyères-le Palivestre,Airport,,LFTH,Le Palyvestre Navy
 France,Istres-Le-Tubé (base n°125),Airport,,LFMI,Le Tube AB
 France,La Môle-Saint-Tropez,Airport,Seasonal,LFTZ,La Mole
 France,La Rochelle-Ile de Ré,Airport,,LFBH,La Rochelle Laleu
-France,La Roche-sur-Yon,Airport,,LFEY,Ile D yeu
+France,La Roche-sur-Yon,Airport,,LFRI,Ile D yeu
 France,Laval-Entrammes,Airport,,LFOV,Laval Entrammes
 France,Le Havre-Octeville,Airport,,LFOH,Le Havre Octeville
 France,Le Mans-Arnage,Airport,,LFRM,Le Mans Arnage
@@ -436,54 +436,53 @@ Austria,Klagenfurt,Airport,,LOWK,Klagenfurt Woerthersee
 Austria,Linz,Airport,,LOWL,Linz Hoersching
 Austria,Salzburg,Airport,,LOWS,Salzburg W.A.Mozart
 Austria,Wien,Airport,,LOWW,Vienna Schwechat
-Austria,Dobersberg,Aerodrome,,LODD,
-Austria,Eferding,Aerodrome,,LOEF,
-Austria,Feldkirch heliport,Heliport,,LOFK,
-Austria,Feldkirchen – Ossiacher See,Aerodrome,,LOFN,
-Austria,Ferlach-Glainach,Aerodrome,,LOFG,
-Austria,Freistadt,Aerodrome,,LOFR,
-Austria,Friesach-Hirt,Aerodrome,,LOFH,
-Austria,Fürstenfeld,Aerodrome,,LOFU,
+Austria,Dobersberg,Aerodrome,,LOAB,
+Austria,Eferding,Aerodrome,,LOLE,
+Austria,Feldkirchen – Ossiacher See,Aerodrome,,LOKF,
+Austria,Ferlach-Glainach,Aerodrome,,LOKG,
+Austria,Freistadt,Aerodrome,,LOLF,
+Austria,Friesach-Hirt,Aerodrome,,LOKH,
+Austria,Fürstenfeld,Aerodrome,,LOGF,
 Austria,Gmunden,Aerodrome,,LOGM,Mariazell
 Austria,Goldeck Talstation,Aerodrome,,LOGT,Timmersdorf
-Austria,Hofkirchen,Aerodrome,,LOHO,
-Austria,Hohenems-Dornbirn,Aerodrome,,LOHE,Ahrenlohe
+Austria,Hofkirchen,Aerodrome,,LOLH,
+Austria,Hohenems-Dornbirn,Aerodrome,,LOIH,Ahrenlohe
 Austria,Glock Ferlach heliport,Heliport,,LOGF,Fuerstenfeld
-Austria,Kapfenberg,Aerodrome,,LOKP,[H] Friesach/Deutsch-Ordens-Spital Kh
+Austria,Kapfenberg,Aerodrome,,LOGK,[H] Friesach/Deutsch-Ordens-Spital Kh
 Austria,Kirchdorf-Micheldorf,Aerodrome,,LOKM,Mayerhofen
-Austria,Krems-Langenlois,Aerodrome,,LOKL,Lienz Nikolsdorf
-Austria,Kufstein-Langkampfen,Aerodrome,,LOKU,[H] Klagenfurt Ukh
-Austria,Lanzen-Turnau,Aerodrome,,LOLT,Seitenstetten
-Austria,Leoben-Timmersdorf,Aerodrome,,LOLE,Eferding
-Austria,Lienz-Nikolsdorf,Aerodrome,,LOLN,
+Austria,Krems-Langenlois,Aerodrome,,LOAG,Lienz Nikolsdorf
+Austria,Kufstein-Langkampfen,Aerodrome,,LOIK,[H] Klagenfurt Ukh
+Austria,Lanzen-Turnau,Aerodrome,,LOGL,Seitenstetten
+Austria,Leoben-Timmersdorf,Aerodrome,,LOGT,Eferding
+Austria,Lienz-Nikolsdorf,Aerodrome,,LOKL,
 Austria,Ludesch heliport,Heliport,,LOLU,Gmunden
-Austria,Mariazell,Aerodrome,,LOMZ,
-Austria,Mayerhofen,Aerodrome,,LOMY,
-Austria,Niederöblarn,Aerodrome,,LONO,
-Austria,Nötsch im Gailtal,Aerodrome,,LONG,Long Marston
-Austria,Pinkafeld,Aerodrome,,LOPF,[H] Freistadt Lkh
+Austria,Mariazell,Aerodrome,,LOGM,
+Austria,Mayerhofen,Aerodrome,,LOKM,
+Austria,Niederöblarn,Aerodrome,,LOGO,
+Austria,Nötsch im Gailtal,Aerodrome,,LOKN,Long Marston
+Austria,Pinkafeld,Aerodrome,,LOGP,[H] Freistadt Lkh
 Austria,Pöchlarn-Wörth,Aerodrome,,LOPW,[H] Wels Kh
-Austria,Punitz-Güssing,Aerodrome,,LOPG,[H] Salzkammergut-Klinikum Gmunden Kh
-Austria,Reutte-Höfen,Aerodrome,,LORE,Florennes
-Austria,Ried-Kirchheim,Aerodrome,,LORK,
+Austria,Punitz-Güssing,Aerodrome,,LOGG,[H] Salzkammergut-Klinikum Gmunden Kh
+Austria,Reutte-Höfen,Aerodrome,,LOIR,Florennes
+Austria,Ried-Kirchheim,Aerodrome,,LOLK,
 Austria,St. Andrä im Lavanttal,Aerodrome,,LOSA,
-Austria,St. Donat–Mairist,Aerodrome,,LOSD,
-Austria,St. Georgen am Ybbsfeld,Aerodrome,,LOSG,
-Austria,St. Johann/Tirol,Aerodrome,,LOSJ,[H] St. Johann/Pongau
-Austria,Scharnstein,Aerodrome,,LOSC,
-Austria,Schärding-Suben,Aerodrome,,LOSS,[H] Schwarzach Kh
+Austria,St. Donat–Mairist,Aerodrome,,LOKR,
+Austria,St. Georgen am Ybbsfeld,Aerodrome,,LOLG,
+Austria,St. Johann/Tirol,Aerodrome,,LOIJ,[H] St. Johann/Pongau
+Austria,Scharnstein,Aerodrome,,LOLC,
+Austria,Schärding-Suben,Aerodrome,,LOLS,[H] Schwarzach Kh
 Austria,Schruns 'Sanatorium Dr. Schenk' heliport,Heliport,,LOSR,
-Austria,Seitenstetten,Aerodrome,,LOSE,Gormanston (closed)
-Austria,Spitzerberg,Aerodrome,,LOSP,
-Austria,Stockerau,Aerodrome,,LOST,[H] Landesklinik Tamsweg Kh
-Austria,Trieben,Aerodrome,,LOTR,
+Austria,Seitenstetten,Aerodrome,,LOLT,Gormanston (closed)
+Austria,Spitzerberg,Aerodrome,,LOAS,
+Austria,Stockerau,Aerodrome,,LOAU,[H] Landesklinik Tamsweg Kh
+Austria,Trieben,Aerodrome,,LOGI,
 Austria,Villach LKH heliport,Heliport,,LOVH,
 Austria,Völtendorf,Aerodrome,,LOVT,
 Austria,Vöslau,Aerodrome,,LOAV,Voeslau
-Austria,Weiz-Unterfladnitz,Aerodrome,,LOWZ,Zell am See
+Austria,Weiz-Unterfladnitz,Aerodrome,,LOGW,Zell am See
 Austria,Wels,Aerodrome,,LOLW,Wels
 Austria,Wiener Neustadt/Ost,Aerodrome,,LOAN,Wiener Neustadt Ost
-Austria,Wolfsberg,Aerodrome,,LOWB,
+Austria,Wolfsberg,Aerodrome,,LOKW,
 Austria,heliport Wucher Zürs – Lech am Arlberg,Heliport,,LOWZ,Zell am See
 Austria,Zell am See,Aerodrome,,LOWZ,Zell am See
 Austria,Zwatzhof heliport,Heliport,,LOZW,
@@ -508,7 +507,7 @@ Poland,Jelenia Góra,Airport,,EPJG,Jelenia Gora
 Poland,Mielec,Airport,,EPML,Mielec
 Poland,Zielona Góra–Przylep,Airport,,EPZP,Zielonagora Przylep
 Poland,Gdynia-Kosakowo,Airport,,EPOK,Kosakowo
-Poland,Kielce-Maslów,Airport,,EPKI,Kikity
+Poland,Kielce-Maslów,Airport,,EPKA,Kikity
 Portugal,Porto Airport/Airport Sá Carneiro,Airport,,LPPR,Porto
 Portugal,Lisboa Airport,Airport,,LPPT,Lisboa
 Portugal,Faro Airport,Airport,,LPFR,Faro
@@ -543,7 +542,7 @@ Slovakia,Košice Airport,Airport,,LZKZ,Kosice
 Slovakia,Poprad Airport,Airport,,LZTT,Tatry
 Slovakia,Nitra,Aerodrome,,LZNI,Nitra
 Slovakia,Piešťany,Aerodrome,,LZPP,Piestany
-Slovakia,Prievidza,Aerodrome,,LZPV,
+Slovakia,Prievidza,Aerodrome,,LZPE,
 Slovakia,Sliač,Aerodrome,,LZSL,Sliac
 Slovakia,Žilina,Aerodrome,,LZZI,Zilina
 Slovakia,Jasná,Aerodrome,,LZJS,Jasna
@@ -575,16 +574,16 @@ Sweden,Arvidsjaur,Airport,,ESNX,Arvidsjaur
 Sweden,Bromma,Airport,,ESSB,Bromma
 Sweden,Dala Airport,Airport,,ESSD,Borlange
 Sweden,Göteborg/Landvetter,Airport,,ESGG,Goteborg Landvetter
-Sweden,Halmstad,Airport,,ESTH,
+Sweden,Halmstad,Airport,,ESMT,
 Sweden,Jönköping,Airport,,ESGJ,Jonkoping
 Sweden,Kalmar,Airport,,ESMQ,Kalmar
 Sweden,Karlstad,Airport,,ESOK,Karlstad
 Sweden,Kiruna,Airport,,ESNQ,Kiruna
-Sweden,Kristianstad-Everöd,Airport,,ESTD,
+Sweden,Kristianstad-Everöd,Airport,,ESMK,
 Sweden,Linköping,Airport,,ESSL,Linkoping Saab
 Sweden,Luleå-Kallax,Airport,,ESPA,Lulea Kallax
 Sweden,Malmö-Sturup,Airport,,ESMS,Malmo Sturup
-Sweden,Norrköping,Airport,,ESKN,Stockholm Skavsta
+Sweden,Norrköping,Airport,,ESSP,
 Sweden,Pajala-Ylläs Airport,Airport,,ESUP,Pajala
 Sweden,Ronneby/Kallinge,Airport,,ESDF,Ronneby
 Sweden,Skellefteå,Airport,,ESNS,Skelleftea

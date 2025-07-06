@@ -461,16 +461,12 @@ class BorderCrossingSource(CachedSource):
                 airport_icao = entry['icao_code']
                 if airport_icao in model.airports:
                     airport = model.airports[airport_icao]
-                    matched_airport_icao = airport_icao
-                    match_score = 1.0
-                    matched_count += 1
                     logger.debug(f"Matched border crossing entry for {airport_icao} using ICAO code")
                 else:
                     logger.debug(f"ICAO code {airport_icao} not found in model")
-                    airport_icao = None
             
-            # If no ICAO code or not found, try fuzzy matching on airport name
-            if not airport_icao and 'airport_name' in entry and entry['airport_name']:
+            # try fuzzy matching on airport name
+            if 'airport_name' in entry and entry['airport_name']:
                 airport_name = entry['airport_name']
                 country_name = entry.get('country', '').strip()
                 
@@ -492,13 +488,8 @@ class BorderCrossingSource(CachedSource):
                 
                 # If still no candidates, search all airports (fallback)
                 if not candidates:
-                    candidates = [(icao, name) for icao, name in airports_by_iso.get(country_iso, [])]
-                    candidates.extend([(icao, name) for icao, name in airports_by_country.get(country_name, [])])
-                    
-                    # If still no candidates, use all airports
-                    if not candidates:
-                        candidates = [(icao, airport.name) for icao, airport in model.airports.items() if airport.name]
-                        logger.debug(f"No country-specific candidates found, searching all {len(candidates)} airports")
+                    candidates = [(icao, airport.name) for icao, airport in model.airports.items() if airport.name]
+                    logger.debug(f"No country-specific candidates found, searching all {len(candidates)} airports")
                 
                 if candidates:
                     # Clean the airport name for better matching

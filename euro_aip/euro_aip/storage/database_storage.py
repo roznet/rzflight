@@ -608,18 +608,6 @@ class DatabaseStorage:
             entry.alt_field, entry.alt_value, entry.source, 0,  # Default priority
             entry.created_at.isoformat(), datetime.now().isoformat()
         ))
-        
-        # Save to change history as creation
-        conn.execute('''
-            INSERT INTO aip_field_changes 
-            (airport_icao, section, field, old_value, new_value, std_field,
-             std_field_id, mapping_score, source, changed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
-            airport_icao, entry.section, entry.field, None, entry.value,
-            entry.std_field, entry.std_field_id, entry.mapping_score,
-            entry.source, datetime.now().isoformat()
-        ))
     
     def _save_aip_change(self, conn: sqlite3.Connection, airport_icao: str, 
                         old_entry: Dict, new_entry: AIPEntry) -> None:
@@ -657,18 +645,8 @@ class DatabaseStorage:
         tracked_fields = AirportFields.get_change_tracked_fields()
         
         if current is None:
-            # New airport - all fields are changes
-            for field in tracked_fields:
-                value = getattr(new, field.name, None)
-                if value is not None:
-                    changes.append({
-                        'field_name': field.name,
-                        'old_value': None,
-                        'new_value': field.format_for_comparison(value),
-                        'field_type': field.field_type.value,
-                        'source': list(new.sources)[0] if new.sources else 'unknown',
-                        'changed_at': now
-                    })
+            # New airport - do not record changes for first insert
+            return []
         else:
             # Check for changes in existing airport
             for field in tracked_fields:
@@ -700,18 +678,8 @@ class DatabaseStorage:
         tracked_fields = RunwayFields.get_change_tracked_fields()
         
         if current is None:
-            # New runway - all fields are changes
-            for field in tracked_fields:
-                value = getattr(new, field.name, None)
-                if value is not None:
-                    changes.append({
-                        'field_name': field.name,
-                        'old_value': None,
-                        'new_value': field.format_for_comparison(value),
-                        'field_type': field.field_type.value,
-                        'source': 'unknown',  # Runway doesn't have source tracking
-                        'changed_at': now
-                    })
+            # New runway - do not record changes for first insert
+            return []
         else:
             # Check for changes in existing runway
             for field in tracked_fields:
@@ -728,7 +696,7 @@ class DatabaseStorage:
                         'old_value': str(old_formatted) if old_formatted is not None else None,
                         'new_value': str(new_formatted) if new_formatted is not None else None,
                         'field_type': field.field_type.value,
-                        'source': 'unknown',
+                        'source': 'unknown',  # Runway doesn't have source tracking
                         'changed_at': now
                     })
         
@@ -740,18 +708,8 @@ class DatabaseStorage:
         now = datetime.now().isoformat()
         
         if current is None:
-            # New procedure - all fields are changes
-            for field_name in ['approach_type', 'runway_ident', 'runway_letter', 'runway',
-                              'category', 'minima', 'notes', 'source', 'authority', 'raw_name']:
-                value = getattr(new, field_name)
-                if value is not None:
-                    changes.append({
-                        'field_name': field_name,
-                        'old_value': None,
-                        'new_value': str(value),
-                        'source': new.source or 'unknown',
-                        'changed_at': now
-                    })
+            # New procedure - do not record changes for first insert
+            return []
         else:
             # Check for changes in existing procedure
             for field_name in ['approach_type', 'runway_ident', 'runway_letter', 'runway',
