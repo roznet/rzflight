@@ -226,7 +226,7 @@ Spain,Badajoz,Airport,,LEBZ,Talavera La Real
 Spain,Barcelona,Airport,,LEBL,Barcelona El Prat
 Spain,Bilbao,Airport,,LEBB,Bilbao
 Spain,Burgos,Airport,,LEBG,Burgos
-Spain,Castellón,Airport,,LECS,
+Spain,Castellón,Airport,,LECH,
 Spain,Ciudad Real,Airport,,LECR,[H] Helipuerto De Castromaior (A Coruna) (Hlp)
 Spain,Fuerteventura,Airport,,GCFV,Fuerteventura
 Spain,Gerona,Airport,,LEGE,Girona
@@ -411,7 +411,7 @@ Hungary,Sármellék,Airport,,LHSM,Balaton
 Hungary,Békéscsaba,Airport,Small international,LHBC,Bekescsabangar
 Hungary,Budaörs,Airport,Small international,LHBS,Budaors
 Hungary,Fertőszentmiklós,Airport,Small international,LHFM,Fertoszentmiklos
-Hungary,Győr-Pér,Airport,Small international,LHGP,
+Hungary,Győr-Pér,Airport,Small international,LHPR,
 Hungary,Kecskemét,Airport,Small international,LHKE,Kecskemet
 Hungary,Nyíregyháza,Airport,Small international,LHNY,Nyiregyhaza
 Hungary,Pápa,Airport,Small international,LHPA,Papa
@@ -426,7 +426,6 @@ Netherlands,De Kooy,Airport,,EHKD,De Kooy
 Netherlands,Eindhoven,Airport,,EHEH,Eindhoven
 Netherlands,Enschede Twente,Airport,,EHTW,Twenthe
 Netherlands,Groningen Eelde,Airport,,EHGG,Eelde
-Netherlands,Kempen,Airport,,EHKM,[H] K12-A
 Netherlands,Lelystad,Airport,,EHLE,Lelystad
 Netherlands,Maastricht-Aachen,Airport,,EHBK,Maastricht
 Netherlands,Midden Zeeland,Airport,,EHMZ,Midden Zeeland
@@ -508,7 +507,7 @@ Poland,Zielona Góra-Babimost,Airport,,EPZG,Babimost
 Poland,Jelenia Góra,Airport,,EPJG,Jelenia Gora
 Poland,Mielec,Airport,,EPML,Mielec
 Poland,Zielona Góra–Przylep,Airport,,EPZP,Zielonagora Przylep
-Poland,Gdynia-Kosakowo,Airport,,EPGK,
+Poland,Gdynia-Kosakowo,Airport,,EPOK,Kosakowo
 Poland,Kielce-Maslów,Airport,,EPKI,Kikity
 Portugal,Porto Airport/Airport Sá Carneiro,Airport,,LPPR,Porto
 Portugal,Lisboa Airport,Airport,,LPPT,Lisboa
@@ -550,7 +549,6 @@ Slovakia,Žilina,Aerodrome,,LZZI,Zilina
 Slovakia,Jasná,Aerodrome,,LZJS,Jasna
 Finland,Enontekiö,Airport,,EFET,Enontekio
 Finland,Helsinki-Hernesaari,Airport,Helicopter only,EFHF,Helsinki Malmi
-Finland,Helsinki-Malmi,Airport,,EFHF,Helsinki Malmi
 Finland,Helsinki-Vantaa,Airport,,EFHK,Helsinki Vantaa
 Finland,Ivalo,Airport,,EFIV,Ivalo
 Finland,Joensuu,Airport,,EFJO,Joensuu
@@ -609,7 +607,7 @@ Iceland,Keflavík,Airport,,BIKF,Keflavik Nas
 Iceland,Reykjavík,Airport,,BIRK,Reykjavik
 Norway,Gardermoen,Airport,,ENGM,Oslo Gardermoen
 Norway,Fagernes,Airport,,ENFG,Leirin
-Norway,Geilo,Airport,,ENGI,Sprengisandur
+Norway,Geilo,Airport,,ENDI,Sprengisandur
 Norway,Sandefjord,Airport,,ENTO,Torp
 Norway,Skien,Airport,,ENSN,Geiteryggen
 Norway,Notodden,Airport,,ENNO,Notodden
