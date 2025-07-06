@@ -45,6 +45,7 @@ class CountryMapper:
         'MALTA': 'MT',
         'CYPRUS': 'CY',
         'UNITED KINGDOM': 'GB',
+        'ICELAND': 'IS',
     }
     
     def __init__(self):

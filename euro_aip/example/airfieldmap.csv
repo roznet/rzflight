@@ -1,0 +1,653 @@
+﻿Country,Name,Type,Comment,ICAO,Airfield Name
+Belgium,Brussels National Airport (Zaventem),Airport,,EBBR,Brussels National
+Belgium,Oostende,Airport,,EBOS,Oostende
+Belgium,Deurne,Airport,,EBAW,Antwerpen Deurne
+Belgium,Bierset,Airport,,EBLG,Liege
+Belgium,Gosselies,Airport,,EBCI,Brussels South - Charleroi
+Belgium,Wevelgem,Aerodrome,,EBKT,Kortrijk-Wevelgem
+Bulgaria,Sofia Airport,Airport,,LBSF,Sofia
+Bulgaria,Plovdiv Airport,Airport,,LBPD,Plovdiv
+Bulgaria,Gorna Oryahovitsa Airport,Airport,,LBGO,Gorna Oryahovitsa
+Bulgaria,Varna Airport,Airport,,LBWN,Varna
+Bulgaria,Burgas Airport,Airport,,LBBG,Burgas
+Croatia,Zagreb,Airport,BIP,LDZA,Zagreb
+Croatia,Pula,Airport,,LDPL,Pula
+Croatia,Rijeka,Airport,,LDRK,
+Croatia,Zadar,Airport,,LDZD,Zadar
+Croatia,Split,Airport,,LDSP,Split
+Croatia,Dubrovnik,Airport,,LDDU,Dubrovnik
+Croatia,Osijek,Airport,,LDOS,Osijek
+Croatia,Mali Lošinj,Airport,,LDLO,Mali Losinj
+Croatia,Brač,Airport,,LDSB,Brac
+Czech Republic,Brno – Tuřany,Airport,Public,LKTB,Turany
+Czech Republic,Karlovy Vary,Airport,Public,LKKV,Karlovy Vary
+Czech Republic,Mnichovo Hradiště,Airport,Public,LKMH,Mnichovo Hradiste
+Czech Republic,Ostrava – Mošnov,Airport,Public,LKMT,Mosnov
+Czech Republic,Pardubice,Airport,Public,LKPD,Pardubice
+Czech Republic,Praha – Ruzyně,Airport,Public,LKPR,Prague Ruzyne
+Czech Republic,Benešov,Airport,Non-public,LKBE,Benesov
+Czech Republic,České Budějovice,Airport,Non-public,LKCS,Ceske Budejovice
+Czech Republic,Havlíčkův Brod,Airport,Non-public,LKHB,Havlickuv Brod
+Czech Republic,Hradec Králové,Airport,Non-public,LKHK,Hradec Kralove
+Czech Republic,Chomutov,Airport,Non-public,LKCH,Chomutov
+Czech Republic,Kunovice,Airport,Non-public,LKKU,Kunovice
+Czech Republic,Letňany,Airport,Non-public,LKLT,Prague Letnany
+Czech Republic,Liberec,Airport,Non-public,LKLB,Liberec
+Czech Republic,Plzeň - Líně,Airport,Non-public,LKLN,Plzen Line
+Czech Republic,Přerov,Airport,Non-public,LKPO,Prerov
+Czech Republic,Roudnice nad Labem,Airport,Non-public,LKRO,Roudnice
+Czech Republic,Vodochody,Airport,Non-public,LKVO,Vodochody
+Czech Republic,Vysoké Mýto,Airport,Non-public,LKVM,Vysoke Myto
+Czech Republic,Čáslav,Airport,Military,LKCV,Caslav
+Czech Republic,Kbely,Airport,Military,LKKB,Kbely
+Czech Republic,Náměšť,Airport,Military,LKNA,Namest
+Denmark,Billund Lufthavn,Airport,,EKBI,Billund
+Denmark,Esbjerg Lufthavn,Airport,,EKEB,Esbjerg
+Denmark,Grønholt Flyveplads,Airfield,,EKGH,Gronholt Hillerod
+Denmark,Herning Flyveplads,Airfield,,EKHG,Herning Skinnerh
+Denmark,Karup Lufthavn,Airport,,EKKA,Karup
+Denmark,Koldingegnens Lufthavn i Vamdrup,Airport,,EKVD,Kolding Vamdrup
+Denmark,Københavns Lufthavn i Kastrup,Airport,,EKCH,Copenhagen Kastrup
+Denmark,Lolland-Falster Lufthavn,Airport,,EKNM,Morso
+Denmark,Lemvig Lufthavn,Airport,,EKLV,Lemvig
+Denmark,Odense Lufthavn,Airport,,EKOD,Odense
+Denmark,Randers Flyveplads,Airfield,,EKRD,Randers
+Denmark,Københs Lufthavn i Roskilde,Airport,,EKRK,Roskilde
+Denmark,Bornholms Lufthavn,Airport,,EKRN,Bornholm Ronne
+Denmark,Sindal Lufthavn,Airport,,EKSN,Sindal
+Denmark,Skive Lufthavn,Airport,,EKSV,Skive
+Denmark,Stauning Lufthavn,Airport,,EKST,Sydfyn Tasinge D
+Denmark,Sydfyns Flyveplads på Tåsinge,Airfield,,EKTS,Thisted
+Denmark,Sønderborg Lufthavn,Airport,,EKSB,Sonderborg
+Denmark,Thisted Lufthavn,Airport,,EKTS,Thisted
+Denmark,Vojens Lufthavn,Airport,,EKVJ,Stauning
+Denmark,Ærø Lufthavn,Airport,,EKAE,Aero
+Denmark,Ålborg Lufthavn,Airport,,EKYT,Aalborg
+Denmark,Århus Lufthavn,Airport,,EKAH,Aarhus
+Denmark,Års flyveplads i Løgstør,Airfield,,EKAR,SYD ARNE
+Denmark,Vágar Lufthavn,Airport,Faroe Islands,EKVG,Vagar
+Denmark,Aasiaat Lufthavn (Egedesminde),Airport,Greenland,BGAA,
+Denmark,Ilulissat Lufthavn (Jakobshavn),Airport,Greenland,BGJN,Ilulissat/Jakobshavn
+Denmark,Kangerlussuaq Lufthavn (Søndre Strømfjord),Airport,Greenland,BGSF,Kangerlussuaq
+Denmark,Kulusuk Lufthavn,Airport,Greenland,BGKK,Kulusuk
+Denmark,Maniitsoq Lufthavn (Sukkertoppen),Airport,Greenland,BGMQ,
+Denmark,Nerlerit Inaat Lufthavn,Airport,Greenland,BGCO,Nerlerit Inaat/Constable Pynt
+Denmark,Narsarsuaq Lufthavn,Airport,Greenland,BGBW,Narsarsuaq
+Denmark,Pituffik Lufthavn (Thule),Airport,Greenland,BGTL,
+Denmark,Paamiut Lufthavn,Airport,Greenland,BGPT,Paamiut
+Denmark,Nuuk Lufthavn (Godthåb),Airport,Greenland,BGGH,Nuuk
+Denmark,Qaanaaq Lufthavn (Thule),Airport,Greenland,BGQQ,
+Denmark,Qaqortoq Lufthavn,Airport,Greenland,BGJH,[H] Qaqortoq
+Denmark,Sisimiut Lufthavn (Holsteinsborg),Airport,Greenland,BGSS,
+Denmark,Station Nord,Airport,Greenland,BGNO,Station Nord
+Denmark,Upernavik Lufthavn,Airport,Greenland,BGUP,
+Denmark,Uummannaq Lufthavn (Umanak),Airport,Greenland,BGUM,
+Germany,Aalen-Heidenheim-Elchingen,Airport,Baden-Württemberg,EDPA,Aalen Heidenheim Elchingen
+Germany,Baden Airport Karlsruhe Baden-Baden,Airport,Baden-Württemberg,EDSB,Karlsruhe Baden Baden
+Germany,Donaueschingen-Villingen,Airport,Baden-Württemberg,EDTD,Donaueschingen Villingen
+Germany,Freiburg/Brg.,Airport,Baden-Württemberg,EDTF,Freiburg
+Germany,Friedrichshafen-Löwental,Airport,Baden-Württemberg,EDNY,Friedrichshafen
+Germany,Heubach (District of Schwäb. Gmünd),Airport,Baden-Württemberg,EDTH,Heubach
+Germany,Lahr,Airport,Baden-Württemberg,EDTL,Lahr
+Germany,Laupheim,Airport,Baden-Württemberg,EDNL,Leutkirch Unterzeil
+Germany,Leutkirch-Unterzeil,Airport,Baden-Württemberg,EDNJ,Neuburg Egweil
+Germany,Mannheim-City,Airport,Baden-Württemberg,EDFM,Mannheim City
+Germany,Mengen,Airport,Baden-Württemberg,EDTM,Mengen Hohentengen
+Germany,Niederstetten,Airport,Baden-Württemberg,EDTN,Nabern Teck
+Germany,Schwäbisch Hall,Airport,Baden-Württemberg,EDTY,Schwabisch Hall
+Germany,Stuttgart,Airport,Baden-Württemberg,EDDS,Stuttgart
+Germany,Aschaffenburg,Airport,Bavaria,EDFC,Aschaffenburg
+Germany,Augsburg-Mühlhausen,Airport,Bavaria,EDMA,Augsburg
+Germany,Bayreuth – Bindlacher Berg,Airport,Bavaria,EDQD,Bayreuth
+Germany,Coburg-Brandebsteinsebene,Airport,Bavaria,EDQC,Coburg Brandensteinsebene
+Germany,Giebelstadt,Airport,Bavaria,EDQG,Giebelstadt
+Germany,Hof-Plauen,Airport,Bavaria,EDQM,Hof Plauen
+Germany,Ingolstadt,Airport,Bavaria,EDNX,Oberschleissheim
+Germany,Lechfeld,Airport,Bavaria,ETSL,Lechfeld
+Germany,Memmingerberg,Airport,Bavaria,EDJA,Memmingen  Allgau
+Germany,"München ""Franz Joseph Strauß""",Airport,Bavaria,EDDM,Munich Franz Josef Strauss
+Germany,Neuburg,Airport,Bavaria,ETSN,Neuburg
+Germany,Nürnberg,Airport,Bavaria,EDDN,Nurnberg
+Germany,Oberpfaffenhofen,Airport,Bavaria,EDMO,Oberpfaffenhofen
+Germany,Roth,Airport,Bavaria,EDQR,Ebern Sendelbac
+Germany,Straubing-Wallmühle,Airport,Bavaria,EDMS,Straubing
+Germany,Berlin-Tegel,Airport,Berlin,EDDT,Berlin Tegel
+Germany,"Berlin Brandenburg ""Willy Brandt""",Airport,Brandenburg,EDDB,Berlin Brandenburg
+Germany,Schönhagen,Airport,Brandenburg,EDAZ,Schonhagen
+Germany,Bremen,Airport,Bremen,EDDW,Bremen
+Germany,Hamburg,Airport,Hamburg,EDDH,Hamburg Fulsbuettel
+Germany,Allendorf/Eder,Airport,Hesse,EDFQ,Allendorf Eder
+Germany,Egelsbach,Airport,Hesse,EDFE,Frankfurt-Egelsbach
+Germany,Frankfurt/Main,Airport,Hesse,EDDF,Frankfurt am Main
+Germany,Fritzlar,Airport,Hesse,ETHF,Fritzlar
+Germany,Kassel-Calden,Airport,Hesse,EDVK,Kassel Calden
+Germany,Reichelsheim,Airport,Hesse,EDFB,Reichelsheim
+Germany,Wiesbaden-Erbenheim,Airport,Hesse,ETOU,Wiesbaden AAF
+Germany,Neubrandenburg-Trollenhagen,Airport,Mecklenburg-Western Pomerania,ETNU,
+Germany,Rostock-Laage,Airport,Mecklenburg-Western Pomerania,ETNL,Rostock-Laage
+Germany,Braunschweig-Waggum,Airport,Lower Saxony,EDVE,Braunschweig
+Germany,Bückeburg-Achum,Airport,Lower Saxony,ETHB,Buckeburg
+Germany,Celle,Airport,Lower Saxony,ETHC,Celle
+Germany,Damme/Dümmer-See,Airport,Lower Saxony,EDWC,Damme
+Germany,Diepholz,Airport,Lower Saxony,ETND,Diepholz
+Germany,Emden,Airport,Lower Saxony,EDWE,Emden
+Germany,Fassberg,Airport,Lower Saxony,ETHS,Fassberg
+Germany,Hannover,Airport,Lower Saxony,EDDV,Hannover
+Germany,Leer-Nüttermoor,Airport,Lower Saxony,EDWF,Leer Papenburg
+Germany,Nordholz,Airport,Lower Saxony,ETMN,Nordholz
+Germany,Osnabrück-Atterheide,Airport,Lower Saxony,EDWO,Osnabrueck Atterheide
+Germany,Wilhelmshaven-Mariensiel,Airport,Lower Saxony,EDWI,Wilhelmshaven Mariensiel
+Germany,Wittmundhafen,Airport,Lower Saxony,ETNT,Wittmundhafen
+Germany,Wunstorf,Airport,Lower Saxony,ETNW,Wunstorf
+Germany,Aachen-Merzbrück,Airport,North Rhine-Westphalia,EDKA,Aachen Merzbruck
+Germany,Arnsberg,Airport,North Rhine-Westphalia,EDLA,Arnsberg Menden
+Germany,Bielefeld-Windelsbleiche,Airport,North Rhine-Westphalia,EDLI,Bielefeld
+Germany,Bonn-Hardthöhe,Airport,North Rhine-Westphalia,ETNN,Norvenich
+Germany,Dortmund-Wickede,Airport,North Rhine-Westphalia,EDLW,Dortmund-Wickede
+Germany,Düsseldorf,Airport,North Rhine-Westphalia,EDDL,Duesseldorf
+Germany,Essen-Mülheim,Airport,North Rhine-Westphalia,EDLE,Essen Mulheim
+Germany,Bonn Hangelar,Airport,North Rhine-Westphalia,EDKB,Bonn Hangelar
+Germany,Köln/Bonn,Airport,North Rhine-Westphalia,EDDK,Koln Bonn
+Germany,Marl/Loemühle,Airport,North Rhine-Westphalia,EDLM,Marl Loemuehle
+Germany,Mönchengladbach,Airport,North Rhine-Westphalia,EDLN,Monchengladbach
+Germany,Münster-Osnabrück,Airport,North Rhine-Westphalia,EDDG,Muenster Osnabrueck
+Germany,Nörvenich,Airport,North Rhine-Westphalia,ETNN,Norvenich
+Germany,Paderborn-Lippstadt,Airport,North Rhine-Westphalia,EDLP,Paderborn Lippstadt
+Germany,Porta Westfalica,Airport,North Rhine-Westphalia,EDVY,Porta-Westfalica
+Germany,Rheine-Bentlage,Airport,North Rhine-Westphalia,EDXE,Rheine Eschendor
+Germany,Siegerland,Airport,North Rhine-Westphalia,EDGS,Siegerland
+Germany,Stadtlohn-Wenningfeld,Airport,North Rhine-Westphalia,EDLS,Stadtlohn Vreden
+Germany,Weeze-Lahrbruch,Airport,North Rhine-Westphalia,EDLV,Weeze Niederrhein
+Germany,Büchel,Airport,Rhineland-Palatinate,ETSB,Buchel
+Germany,Föhren,Airport,Rhineland-Palatinate,EDRZ,Zweibrucken
+Germany,Hahn,Airport,Rhineland-Palatinate,EDFH,Frankfurt Hahn
+Germany,Koblenz-Winningen,Airport,Rhineland-Palatinate,EDRK,Koblenz Winningen
+Germany,Mainz-Finthen,Airport,Rhineland-Palatinate,EDFZ,Mainz Finthen
+Germany,Pirmasens-Pottschütthöhe,Airport,Rhineland-Palatinate,EDRF,Bad Duerkheim
+Germany,Ramstein (US Air Base),Airport,Rhineland-Palatinate,ETAR,Ramstein AB
+Germany,Speyer,Airport,Rhineland-Palatinate,EDRY,Speyer
+Germany,Spangdahlem (US Air Base),Airport,Rhineland-Palatinate,ETAD,Spangdahlem AB
+Germany,Zweibrücken,Airport,Rhineland-Palatinate,EDRZ,Zweibrucken
+Germany,Saarbrücken-Ensheim,Airport,Saarland,EDDR,Saarbrucken
+Germany,Saarlouis/Düren,Airport,Saarland,EDRJ,Saarlouis Dueren
+Germany,Dresden,Airport,Saxony,EDDC,Dresden
+Germany,Leipzig-Halle,Airport,Saxony,EDDP,Leipzig-Halle
+Germany,Rothenburg/Oberlausitz,Airport,Saxony,EDAW,Roitzschjora
+Germany,Cochstedt,Airport,Saxony-Anhalt,EDBC,Magdeburg Cochstedt
+Germany,Magdeburg,Airport,Saxony-Anhalt,EDBM,Magdeburg
+Germany,Helgoland-Düne,Airport,Schleswig-Holstein,EDXH,Helgoland-Dune
+Germany,Hohn,Airport,Schleswig-Holstein,ETNH,Hohn
+Germany,Kiel-Holtenau,Airport,Schleswig-Holstein,EDHK,Kiel Holtenau
+Germany,Lübeck-Blankensee,Airport,Schleswig-Holstein,EDHL,Lubeck Blankensee
+Germany,Schleswig/Jagel,Airport,Schleswig-Holstein,ETNS,Schleswig
+Germany,Westerland/Sylt,Airport,Schleswig-Holstein,EDXW,Westerland Sylt
+Germany,Altenburg-Nobitz,Airport,Thuringia,EDAC,Altenburg Nobitz
+Germany,Erfurt-Weimar,Airport,Thuringia,EDDE,Erfurt
+Estonia,Kuressaare airport,Airport,,EEKE,Kuressaare
+Estonia,Kärdla airport,Airport,,EEKA,Kardla
+Estonia,Pärnu airport,Airport,,EEPU,Parnu
+Estonia,Tallinn airport,Airport,,EETN,Tallinn
+Estonia,Linnahall helicopter terminal,Heliport,,EETN,Tallinn
+Estonia,Tartu airport,Airport,,EETU,Tartu
+Estonia,Ämari airport,Airport,,EEEI,Amari
+Greece,Athina (Athens),Airport,,LGAV,Athens Elefterios Venizelos
+Greece,Heraklion,Airport,,LGIR,Heraklion Nikos Kazantzakis
+Greece,Thessaloniki,Airport,,LGTS,Thessaloniki Makedonia
+Greece,Rodos (Rhodes),Airport,,LGRP,Rhodes Diagoras
+Greece,Kerkira (Corfou),Airport,,LGKR,Corfu Ioannis Kapodistrias
+Greece,Antimachia (Kos),Airport,,LGKO,Kos
+Greece,Chania,Airport,,LGSA,Chania Souda
+Greece,Pithagorio Samos,Airport,,LGSM,Samos
+Greece,Mitilini,Airport,,LGMT,Mytilene Lesbos
+Greece,Ioannina,Airport,,LGIO,Ioannina
+Greece,Araxos,Airport,,LGRX,Araxos
+Greece,Sitia,Airport,,LGST,Sitia
+Greece,Chios,Airport,Summer only,LGHI,Chios
+Greece,Argostoli,Airport,,LGKF,Kefalonia
+Greece,Kalamata,Airport,,LGKL,Kalamata
+Greece,Kavala,Airport,,LGKV,Kavala Megas Alexandros
+Greece,Aktio-Vonitsas,Airport,,LGPZ,Aktio
+Greece,Zakinthos,Airport,,LGZA,Zakynthos Dionysios Solomos
+Greece,Thira,Airport,,LGSR,Santorini
+Greece,Skiathos,Airport,,LGSK,Skiathos Alexandros Papadiamantis
+Greece,Karpathos,Airport,Summer only,LGKP,Karpathos
+Greece,Mikonos,Airport,,LGMK,Mikonos
+Greece,Alexandroupoli,Airport,,LGAL,Alexandroupolis Dimokritos
+Greece,Elefsina,Airport,,LGEL,Elefsis
+Greece,Andravida,Airport,,LGAN,
+Greece,Atsiki - Limnos,Airport,,LGLM,Lemnos
+Greece,Nea Aghialos,Airport,,LGBL,Nea Anchialos
+Greece,Argos Orestikού (Kastoriá),Airport,,LGKA,Aristotelis
+Spain,Albacete,Airport,,LEAB,Albacete
+Spain,Alicante,Airport,,LEAL,Alicante
+Spain,Almería,Airport,,LEAM,Almeria
+Spain,Asturias,Airport,,LEAS,Asturias
+Spain,Badajoz,Airport,,LEBZ,Talavera La Real
+Spain,Barcelona,Airport,,LEBL,Barcelona El Prat
+Spain,Bilbao,Airport,,LEBB,Bilbao
+Spain,Burgos,Airport,,LEBG,Burgos
+Spain,Castellón,Airport,,LECS,
+Spain,Ciudad Real,Airport,,LECR,[H] Helipuerto De Castromaior (A Coruna) (Hlp)
+Spain,Fuerteventura,Airport,,GCFV,Fuerteventura
+Spain,Gerona,Airport,,LEGE,Girona
+Spain,Gran Canaria,Airport,,GCLP,Gran Canaria - Gando
+Spain,Granada,Airport,,LEGR,Granada
+Spain,Huesca-Pirineos,Airport,,LEHC,Huesca Pirineos
+Spain,Ibiza,Airport,,LEIB,Ibiza
+Spain,Jerez de la Frontera,Airport,,LEJR,Jerez
+Spain,La Coruña,Airport,,LECO,A Coruna
+Spain,La Palma,Airport,,GCLA,La Palma
+Spain,Lanzarote,Airport,,GCRR,Lanzarote
+Spain,León,Airport,,LELN,Leon
+Spain,Lleida-Alguaire,Airport,,LEDA,Lleida
+Spain,Logroño-Agoncillo,Airport,,LELO,[H] Logrono
+Spain,Madrid-Barajas,Airport,,LEMD,Madrid - Barajas
+Spain,Málaga,Airport,,LEMG,Malaga
+Spain,Matacán (Salamanca),Airport,,LESA,Salamanca
+Spain,Menorca,Airport,,LEMH,Menorca
+Spain,Murcia,Airport,,LEMI,Murcia
+Spain,Palma de Mallorca,Airport,,LEPA,Palma De Mallorca
+Spain,Pamplona,Airport,,LEPP,Pamplona
+Spain,Reus,Airport,,LERS,Reus
+Spain,San Sebastián,Airport,,LESO,San Sebastian
+Spain,Santander,Airport,,LEXJ,Santander
+Spain,Santiago,Airport,,LEST,Santiago
+Spain,Sevilla,Airport,,LEZL,Sevilla
+Spain,Tenerife North,Airport,,GCXO,Tenerife Norte - Los rodeos
+Spain,Tenerife South,Airport,,GCTS,Tenerife Sur
+Spain,Teruel,Airport,,LETL,Teruel
+Spain,Valencia,Airport,,LEVC,Valencia
+Spain,Valladolid,Airport,,LEVD,Valladolid - Villanubla
+Spain,Vigo,Airport,,LEVX,Vigo
+Spain,Vitoria,Airport,,LEVT,Vitoria
+Spain,Zaragoza,Airport,,LEZG,Zaragoza AB
+France,Ajaccio-Napoléon-Bonaparte,Airport,,LFKJ,Ajaccio Napoleon Bonaparte
+France,Albert-Bray,Airport,,LFAQ,Albert Bray
+France,Angers-Marcé,Airport,,LFJR,Angers Marce
+France,Angoulême-Brie-Champniers,Airport,,LFBU,Angouleme Brie Champniers
+France,Annecy-Methet,Airport,,LFLP,Annecy Meythet
+France,Auxerre-Branches,Airport,,LFLA,Auxerre Branches
+France,Avignon-Caumont,Airport,,LFMV,Avignon Caumont
+France,Bâle-Mulhouse,Airport,,LFSB,Basle-Mulhouse
+France,Bastia-Poretta,Airport,,LFKB,Poretta
+France,Beauvais-Tillé,Airport,,LFOB,Beauvais Tille
+France,Bergerac-Dordonge-Périgord,Airport,,LFBE,Bergerac Roumaniere
+France,Béziers-Vias,Airport,,LFMU,Beziers Vias
+France,Biarritz-Pays Basque,Airport,,LFBZ,Biarritz Bayonne Anglet
+France,Bordeaux-Mérignac,Airport,,LFBD,Bordeaux Merignac
+France,Brest-Bretagne,Airport,,LFRB,Brest Guipavas
+France,Brive-Souillac,Airport,,LFSL,Brive Souillac
+France,Caen-Carpiquet,Airport,,LFRK,Caen Carpiquet
+France,Calais-Dunkerque,Airport,,LFAC,Calais Dunkerque
+France,Calvi-Sainte-Catherine,Airport,,LFKC,Calvi St Catherine
+France,Cannes-Mandelieu,Airport,,LFMD,Cannes Mandelieu
+France,Carcassonne-Salvaza,Airport,,LFMK,Salvaza Carcassonne
+France,Châlons-Vatry,Airport,,LFOK,Chalons Vatry
+France,Chambéry-Aix-les-Bains,Airport,,LFLB,Chambery Aix-Les-Bains
+France,Châteauroux-Déols,Airport,,LFLX,Chateauroux Deols
+France,Cherbourg-Mauperthus,Airport,,LFRC,Cherbourg Maupertus
+France,Clermont-Ferrand-Auvergne,Airport,,LFLC,Clermont Ferrand Aulnat
+France,Colmar-Houssen,Airport,,LFGA,Colmar Houssen
+France,Deauville-Normandie,Airport,,LFRG,Deauville Saint Gatien
+France,Dijon-Longvic,Airport,,LFSD,Dijon Longvic
+France,Dinard-Pleurtuit-Saint-Malo,Airport,,LFRD,Dinard Pleurtuit Saint Malo
+France,Dôle-Tavaux,Airport,,LFGJ,Dole Tavaux
+France,Épinal-Mirecourt,Airport,,LFSG,Epinal Mirecourt
+France,Évreux (base n°105),Airport,,LFOE,Fauville
+France,Figari-Sud Corse,Airport,,LFKF,Figari/Sud Corse
+France,Grenoble-Alpes-Isère,Airport,,LFLS,Grenoble St Geoirs
+France,Hyères-le Palivestre,Airport,,LFTH,Le Palyvestre Navy
+France,Istres-Le-Tubé (base n°125),Airport,,LFMI,Le Tube AB
+France,La Môle-Saint-Tropez,Airport,Seasonal,LFTZ,La Mole
+France,La Rochelle-Ile de Ré,Airport,,LFBH,La Rochelle Laleu
+France,La Roche-sur-Yon,Airport,,LFEY,Ile D yeu
+France,Laval-Entrammes,Airport,,LFOV,Laval Entrammes
+France,Le Havre-Octeville,Airport,,LFOH,Le Havre Octeville
+France,Le Mans-Arnage,Airport,,LFRM,Le Mans Arnage
+France,Le Touquet-Côte d'Opale,Airport,,LFAT,Le Touquet Cote d'Opale
+France,Lille-Lesquin,Airport,,LFQQ,Lille Lesquin
+France,Limoges-Bellegarde,Airport,,LFBL,Limoges Bellegarde
+France,Lorient-Lann-Bihoué,Airport,,LFRH,Lorient Lann Bihoue
+France,Lyon-Bron,Airport,,LFLY,Lyon Bron
+France,Lyon-Saint-Exupéry,Airport,,LFLL,Lyon Saint Exupery
+France,Marseille-Provence,Airport,,LFML,Marseille/Provence
+France,Metz-Nancy-Lorraine,Airport,,LFJL,Metz Nancy Lorraine
+France,Monaco-Héliport,Heliport,,LNMC,Heliport Monaco
+France,Montpellier-Méditérranée,Airport,,LFMT,Montpellier/Mediterranee
+France,Nantes-Atlantique,Airport,,LFRS,Nantes-Atlantique
+France,Nice-Côte d'Azur,Airport,,LFMN,Nice Cote d Azur
+France,Nîmes-Garons,Airport,,LFTW,Garons Navy
+France,Orléans-Bricy (base n°123),Airport,,LFOJ,Bricy
+France,Orléans-Saint-Denis-de-l'Hôtel,Airport,,LFOZ,Orleans Saint Denis
+France,Paris-Charles de Gaulle,Airport,,LFPG,Paris Charles De Gaulle
+France,Paris-Issy-les-Moulineaux,Airport,,LFPI,Paris Issy les Moulineaux
+France,Paris-le Bourget,Airport,,LFPB,Paris Le Bourget
+France,Paris-Orly,Airport,,LFPO,Paris Orly
+France,Pau-Pyrénées,Airport,,LFBP,Pau Pyrenees
+France,Perpignan-Rivesaltes,Airport,,LFMP,Rivesaltes
+France,Poitiers-Biard,Airport,,LFBI,Poitiers Biard
+France,Quimper-Pluguffan,Airport,Seasonal,LFQT,Merville Calonne
+France,Rennes Saint-Jacques,Airport,,LFRN,Rennes St Jacques
+France,Rodez-Aveyron,Airport,,LFCR,Rodez Marcillac
+France,Rouen-Vallée de Seine,Airport,,LFOP,Rouen Vallee de la Seine
+France,Saint-Brieuc-Armor,Airport,,LFRT,Saint Brieuc Armor
+France,Saint-Etienne Loire,Airport,,LFMH,Saint Etienne Boutheon
+France,Saint-Nazaire-Montoir,Airport,,LFRZ,Saint Nazaire Montoir
+France,Strasbourg-Entzheim,Airport,,LFST,Entzheim
+France,Tarbes-Lourdes-Pyrénées,Airport,,LFBT,Tarbes Ossun Lourdes
+France,Toulouse-Blagnac,Airport,,LFBO,Toulouse Blagnac
+France,Toulouse-Francazal,Airport,,LFBF,Francazal AB
+France,Tours-Val de Loire,Airport,,LFOT,Tours Val De Loire AB
+France,Troyes-Barberey,Airport,,LFQB,Troyes Barberey
+France,Valence – Chabeuil,Airport,,LFLU,Valence Chabeuil
+France,Vélizy-Villacoublay (base n°107),Airport,,LFPV,Velizy
+Italy,Alghero (SS),Airport,,LIEA,Alghero
+Italy,Ancona,Airport,,LIPY,Falconara
+Italy,Aosta,Airport,,LIMW,Aosta
+Italy,Bari,Airport,,LIBD,Bari Palese Macchie
+Italy,Bergamo,Airport,,LIME,Bergamo Orio Al Serio
+Italy,Biella,Airport,,LILE,Biella Cerrione
+Italy,Bologna,Airport,,LIPE,Bologna
+Italy,Bolzano,Airport,,LIPB,Bolzano
+Italy,Brescia,Airport,,LIPO,Montichiari
+Italy,Brindisi,Airport,,LIBR,Casale
+Italy,Cagliari,Airport,,LIEE,Cagliari Elmas
+Italy,Catania,Airport,,LICC,Catania Fontanarossa
+Italy,Crotone,Airport,,LIBC,Crotone
+Italy,Cuneo Levaldigi,Airport,,LIMZ,Levaldigi
+Italy,Comiso,Airport,,LICB,Comiso Vincenzo Magliocco
+Italy,Fano (PU),Airport,,LIDF,Fano
+Italy,Firenze,Airport,,LIRQ,Firenze
+Italy,Foggia,Airport,,LIBF,Gino Lisa
+Italy,Forlì,Airport,,LIPK,Forli
+Italy,Genova,Airport,,LIMJ,Genova Sestri
+Italy,Grosseto,Airport,,LIRS,Grosseto
+Italy,Lamezia Terme (CZ),Airport,,LICA,Lamezia Terme
+Italy,Lampedusa (AG),Airport,,LICD,Lampedusa
+Italy,Lecce,Airport,,LIBN,Lecce
+Italy,Marina di Campo (LI),Airport,,LIRJ,Marina Di Campo
+Italy,Milano Linate,Airport,,LIML,Milano Linate
+Italy,Napoli,Airport,,LIRN,Naples Capodichino
+Italy,Olbia,Airport,,LIEO,Olbia Costa Smeralda
+Italy,Oristano,Airport,,LIER,Oristano Fenosu
+Italy,Palermo,Airport,,LICJ,Palermo
+Italy,Pantelleria (TP),Airport,,LICG,Pantelleria
+Italy,Parma,Airport,,LIMP,Parma
+Italy,Perugia,Airport,,LIRZ,Perugia
+Italy,Pescara,Airport,,LIBP,Pescara
+Italy,Pisa,Airport,,LIRP,Pisa
+Italy,Reggio di Calabria,Airport,,LICR,Reggio Calabria
+Italy,Rimini,Airport,,LIPR,Rimini Mil
+Italy,Roma Ciampino,Airport,,LIRA,Ciampino
+Italy,Roma Fiumicino,Airport,,LIRF,Roma Fiumicino Leonardo Da Vinci
+Italy,Roma Urbe,Airport,,LIRU,Urbe
+Italy,Ronchi dei Legionari (GO),Airport,,LIPQ,Trieste Ronchi Dei Legionari
+Italy,Salerno,Airport,,LIRI,Pontecagnano
+Italy,Siena,Airport,,LIQS,Ampugnano
+Italy,Taranto-Grottaglie,Airport,,LIBG,Grottaglie
+Italy,Torino,Airport,,LIMF,Torino Caselle
+Italy,Trapani,Airport,,LICT,Trapani Birgi
+Italy,Tortoli (NU),Airport,,LIET,Tortoli
+Italy,Treviso,Airport,,LIPH,Treviso
+Italy,Varese Malpensa,Airport,,LIMC,Milano Malpensa
+Italy,Venezia,Airport,,LIPZ,Venezia Tessera
+Italy,Verona,Airport,,LIPX,Villafranca
+Italy,Villanova d'Albenga (SV),Airport,,LIMG,Albenga
+Cyprus,International airport of Larnaka,Airport,,LCLK,Larnaca
+Cyprus,International airport of Pafos,Airport,,LCPH,Pafos Intl
+Latvia,Daugavpils lidlauks,Airfield,,EVDA,Daugavpils
+Latvia,Liepājas lidosta,Airport,,EVLA,Liepaja Intl
+Latvia,Rīgas lidosta,Airport,,EVRA,Riga Intl
+Latvia,Tukuma lidlauks,Airfield,,EVTU,
+Latvia,Ventspils lidosta,Airport,,EVVA,Ventspils Intl
+Lithuania,Vilnius airport,Airport,,EYVI,Vilnius Intl
+Lithuania,Kaunas airport,Airport,,EYKA,Kaunas Intl
+Lithuania,Palanga airport,Airport,,EYPA,Palanga Intl
+Lithuania,Zokniai airport,Airport,,EYZK,
+Luxembourg,Luxembourg,Airport,,ELLX,Luxembourg
+Hungary,Budapest Liszt Ferenc International Airport,Airport,,LHBP,Budapest Ferihegy
+Hungary,Debrecen,Airport,,LHDC,Debrecen
+Hungary,Sármellék,Airport,,LHSM,Balaton
+Hungary,Békéscsaba,Airport,Small international,LHBC,Bekescsabangar
+Hungary,Budaörs,Airport,Small international,LHBS,Budaors
+Hungary,Fertőszentmiklós,Airport,Small international,LHFM,Fertoszentmiklos
+Hungary,Győr-Pér,Airport,Small international,LHGP,
+Hungary,Kecskemét,Airport,Small international,LHKE,Kecskemet
+Hungary,Nyíregyháza,Airport,Small international,LHNY,Nyiregyhaza
+Hungary,Pápa,Airport,Small international,LHPA,Papa
+Hungary,Pécs-Pogány,Airport,Small international,LHPP,Pecs South
+Hungary,Siófok-Balatonkiliti,Airport,Small international,LHSK,Siofok Kiliti
+Hungary,Szeged,Airport,Small international,LHSG,
+Hungary,Szolnok,Airport,Small international,LHSN,Szolnok
+Malta,Malta International Airport Luqa,Airport,,LMML,La Valette Luqa
+Netherlands,Amsterdam Schiphol,Airport,,EHAM,Amsterdam Schiphol
+Netherlands,Breda,Airport,,EHSE,Seppe
+Netherlands,De Kooy,Airport,,EHKD,De Kooy
+Netherlands,Eindhoven,Airport,,EHEH,Eindhoven
+Netherlands,Enschede Twente,Airport,,EHTW,Twenthe
+Netherlands,Groningen Eelde,Airport,,EHGG,Eelde
+Netherlands,Kempen,Airport,,EHKM,[H] K12-A
+Netherlands,Lelystad,Airport,,EHLE,Lelystad
+Netherlands,Maastricht-Aachen,Airport,,EHBK,Maastricht
+Netherlands,Midden Zeeland,Airport,,EHMZ,Midden Zeeland
+Netherlands,Rotterdam,Airport,,EHRD,Rotterdam
+Austria,Graz,Airport,,LOWG,Graz Thalerhof
+Austria,Innsbruck,Airport,,LOWI,Innsbruck Kranebitten
+Austria,Klagenfurt,Airport,,LOWK,Klagenfurt Woerthersee
+Austria,Linz,Airport,,LOWL,Linz Hoersching
+Austria,Salzburg,Airport,,LOWS,Salzburg W.A.Mozart
+Austria,Wien,Airport,,LOWW,Vienna Schwechat
+Austria,Dobersberg,Aerodrome,,LODD,
+Austria,Eferding,Aerodrome,,LOEF,
+Austria,Feldkirch heliport,Heliport,,LOFK,
+Austria,Feldkirchen – Ossiacher See,Aerodrome,,LOFN,
+Austria,Ferlach-Glainach,Aerodrome,,LOFG,
+Austria,Freistadt,Aerodrome,,LOFR,
+Austria,Friesach-Hirt,Aerodrome,,LOFH,
+Austria,Fürstenfeld,Aerodrome,,LOFU,
+Austria,Gmunden,Aerodrome,,LOGM,Mariazell
+Austria,Goldeck Talstation,Aerodrome,,LOGT,Timmersdorf
+Austria,Hofkirchen,Aerodrome,,LOHO,
+Austria,Hohenems-Dornbirn,Aerodrome,,LOHE,Ahrenlohe
+Austria,Glock Ferlach heliport,Heliport,,LOGF,Fuerstenfeld
+Austria,Kapfenberg,Aerodrome,,LOKP,[H] Friesach/Deutsch-Ordens-Spital Kh
+Austria,Kirchdorf-Micheldorf,Aerodrome,,LOKM,Mayerhofen
+Austria,Krems-Langenlois,Aerodrome,,LOKL,Lienz Nikolsdorf
+Austria,Kufstein-Langkampfen,Aerodrome,,LOKU,[H] Klagenfurt Ukh
+Austria,Lanzen-Turnau,Aerodrome,,LOLT,Seitenstetten
+Austria,Leoben-Timmersdorf,Aerodrome,,LOLE,Eferding
+Austria,Lienz-Nikolsdorf,Aerodrome,,LOLN,
+Austria,Ludesch heliport,Heliport,,LOLU,Gmunden
+Austria,Mariazell,Aerodrome,,LOMZ,
+Austria,Mayerhofen,Aerodrome,,LOMY,
+Austria,Niederöblarn,Aerodrome,,LONO,
+Austria,Nötsch im Gailtal,Aerodrome,,LONG,Long Marston
+Austria,Pinkafeld,Aerodrome,,LOPF,[H] Freistadt Lkh
+Austria,Pöchlarn-Wörth,Aerodrome,,LOPW,[H] Wels Kh
+Austria,Punitz-Güssing,Aerodrome,,LOPG,[H] Salzkammergut-Klinikum Gmunden Kh
+Austria,Reutte-Höfen,Aerodrome,,LORE,Florennes
+Austria,Ried-Kirchheim,Aerodrome,,LORK,
+Austria,St. Andrä im Lavanttal,Aerodrome,,LOSA,
+Austria,St. Donat–Mairist,Aerodrome,,LOSD,
+Austria,St. Georgen am Ybbsfeld,Aerodrome,,LOSG,
+Austria,St. Johann/Tirol,Aerodrome,,LOSJ,[H] St. Johann/Pongau
+Austria,Scharnstein,Aerodrome,,LOSC,
+Austria,Schärding-Suben,Aerodrome,,LOSS,[H] Schwarzach Kh
+Austria,Schruns 'Sanatorium Dr. Schenk' heliport,Heliport,,LOSR,
+Austria,Seitenstetten,Aerodrome,,LOSE,Gormanston (closed)
+Austria,Spitzerberg,Aerodrome,,LOSP,
+Austria,Stockerau,Aerodrome,,LOST,[H] Landesklinik Tamsweg Kh
+Austria,Trieben,Aerodrome,,LOTR,
+Austria,Villach LKH heliport,Heliport,,LOVH,
+Austria,Völtendorf,Aerodrome,,LOVT,
+Austria,Vöslau,Aerodrome,,LOAV,Voeslau
+Austria,Weiz-Unterfladnitz,Aerodrome,,LOWZ,Zell am See
+Austria,Wels,Aerodrome,,LOLW,Wels
+Austria,Wiener Neustadt/Ost,Aerodrome,,LOAN,Wiener Neustadt Ost
+Austria,Wolfsberg,Aerodrome,,LOWB,
+Austria,heliport Wucher Zürs – Lech am Arlberg,Heliport,,LOWZ,Zell am See
+Austria,Zell am See,Aerodrome,,LOWZ,Zell am See
+Austria,Zwatzhof heliport,Heliport,,LOZW,
+Austria,Langenlebarn,Aerodrome,Military only,LOXT,Tulln
+Austria,Zeltweg,Aerodrome,Military only,LOXZ,Zeltweg
+Poland,Poznań-Ławica,Airport,,EPPO,Lawica
+Poland,Bydgoszcz,Airport,,EPBY,Szwederowo
+Poland,Łódż-Lublinek,Airport,,EPLL,Lublinek
+Poland,Świdnik k/Lublina,Airport,,EPSW,Swidnik Lotnisko
+Poland,Kraków-Balice,Airport,,EPKK,Balice
+Poland,Katowice-Pyrzowice,Airport,,EPKT,Pyrzowice
+Poland,Wroclaw-Strachowice,Airport,,EPWR,Strachowice
+Poland,Gdańsk-Rębiechowo,Airport,,EPGD,Lech Walesa
+Poland,Rzeszów-Jasionka,Airport,,EPRZ,Jasionka
+Poland,Warsaw-Okęcie,Airport,,EPWA,Warsaw Okecie - Frederic Chopin
+Poland,Warsaw-Modlin,Airport,,EPMO,Modlin
+Poland,Szczecin-Goleniów,Airport,,EPSC,Goleniow
+Poland,Radom-Sadków,Airport,,EPRA,Radom
+Poland,Mazury,Airport,,EPMA,Chocznia
+Poland,Zielona Góra-Babimost,Airport,,EPZG,Babimost
+Poland,Jelenia Góra,Airport,,EPJG,Jelenia Gora
+Poland,Mielec,Airport,,EPML,Mielec
+Poland,Zielona Góra–Przylep,Airport,,EPZP,Zielonagora Przylep
+Poland,Gdynia-Kosakowo,Airport,,EPGK,
+Poland,Kielce-Maslów,Airport,,EPKI,Kikity
+Portugal,Porto Airport/Airport Sá Carneiro,Airport,,LPPR,Porto
+Portugal,Lisboa Airport,Airport,,LPPT,Lisboa
+Portugal,Faro Airport,Airport,,LPFR,Faro
+Portugal,Beja Airport,Airport,,LPBJ,Beja
+Portugal,Funchal Airport/International Airport of Madeira,Airport,Madeira,LPMA,Madeira
+Portugal,Porto Santo Airport,Airport,Madeira,LPPS,Porto Santo
+Portugal,Ponta Delgada Airport / Airport João Paulo II,Airport,Azores,LPPD,Ponta Delgada
+Portugal,Santa Maria Airport,Airport,Azores,LPAZ,Santa Maria
+Portugal,Civilian Air Terminal of Lajes,Airport,Azores,LPLA,Lajes
+Romania,Henri Coandă Bucharest,Airport,,LROP,Bucarest Otopeni Intl
+Romania,Cluj-Napoca,Airport,,LRCL,Cluj Napoca
+Romania,Sibiu,Airport,,LRSB,Sibiu
+Romania,Traian Vuia Timișoara,Airport,,LRTR,Traian Vuia
+Romania,Transilvania Târgu Mureş,Airport,,LRTM,Transilvania Targu Mures
+Romania,George Enescu Bacău,Airport,,LRBC,Bacau
+Romania,Mihail Kogălniceanu Constanța,Airport,,LRCK,Constanta - Mihail Kogalniceanu
+Romania,Satu Mare,Airport,,LRSM,Satu Mare
+Romania,Suceava,Airport,,LRSV,Stefan Cel Mare
+Romania,Iaşi,Airport,,LRIA,Iasi
+Romania,Arad,Airport,,LRAR,Arad
+Romania,Baia Mare,Airport,,LRBM,Tautii Magheraus
+Romania,Craiova,Airport,,LRCV,Craiova
+Romania,Tulcea,Airport,,LRTC,Cataloi
+Romania,Aurel Vlaicu Bucharest Băneasa,Airport,,LRBS,Bucarest Baneasa
+Romania,Oradea,Airport,,LROD,Oradea
+Romania,Braşov,Airport,,LRBV,Brasov-Ghimbav
+Slovenia,Ljubljana–Brnik,Airport,,LJLJ,Ljubljana
+Slovenia,Maribor–Slivnica,Airport,,LJMB,Maribor
+Slovenia,Portorož–Portorose,Airport,,LJPZ,Portoroz
+Slovakia,Bratislava Airport,Airport,,LZIB,Bratislava Mr Stefanik
+Slovakia,Košice Airport,Airport,,LZKZ,Kosice
+Slovakia,Poprad Airport,Airport,,LZTT,Tatry
+Slovakia,Nitra,Aerodrome,,LZNI,Nitra
+Slovakia,Piešťany,Aerodrome,,LZPP,Piestany
+Slovakia,Prievidza,Aerodrome,,LZPV,
+Slovakia,Sliač,Aerodrome,,LZSL,Sliac
+Slovakia,Žilina,Aerodrome,,LZZI,Zilina
+Slovakia,Jasná,Aerodrome,,LZJS,Jasna
+Finland,Enontekiö,Airport,,EFET,Enontekio
+Finland,Helsinki-Hernesaari,Airport,Helicopter only,EFHF,Helsinki Malmi
+Finland,Helsinki-Malmi,Airport,,EFHF,Helsinki Malmi
+Finland,Helsinki-Vantaa,Airport,,EFHK,Helsinki Vantaa
+Finland,Ivalo,Airport,,EFIV,Ivalo
+Finland,Joensuu,Airport,,EFJO,Joensuu
+Finland,Jyväskylä,Airport,,EFJY,Jyvaskyla
+Finland,Kajaani,Airport,,EFKI,Kajaani
+Finland,Kemi - Tornio,Airport,,EFKE,Kemi Tornio
+Finland,Kittilä,Airport,,EFKT,Kittila
+Finland,Kokkola - Pietarsaari,Airport,,EFKK,Kruunupyy
+Finland,Kuopio,Airport,,EFKU,Kuopio
+Finland,Kuusamo,Airport,,EFKS,Kuusamo
+Finland,Lappeenranta,Airport,,EFLP,Lappeenranta
+Finland,Mariehamn,Airport,,EFMA,Mariehamn
+Finland,Mikkeli,Airport,,EFMI,Mikkeli
+Finland,Oulu,Airport,,EFOU,Oulu
+Finland,Pori,Airport,,EFPO,Pori
+Finland,Rovaniemi,Airport,,EFRO,Rovaniemi
+Finland,Savonlinna,Airport,,EFSA,Savonlinna
+Finland,Seinäjoki,Airport,,EFSI,Seinajoki
+Finland,Tampere-Pirkkala,Airport,,EFTP,Tampere Pirkkala
+Finland,Turku,Airport,,EFTU,Turku
+Finland,Vaasa,Airport,,EFVA,Vaasa
+Sweden,Arlanda,Airport,,ESSA,Stockholm Arlanda
+Sweden,Arvidsjaur,Airport,,ESNX,Arvidsjaur
+Sweden,Bromma,Airport,,ESSB,Bromma
+Sweden,Dala Airport,Airport,,ESSD,Borlange
+Sweden,Göteborg/Landvetter,Airport,,ESGG,Goteborg Landvetter
+Sweden,Halmstad,Airport,,ESTH,
+Sweden,Jönköping,Airport,,ESGJ,Jonkoping
+Sweden,Kalmar,Airport,,ESMQ,Kalmar
+Sweden,Karlstad,Airport,,ESOK,Karlstad
+Sweden,Kiruna,Airport,,ESNQ,Kiruna
+Sweden,Kristianstad-Everöd,Airport,,ESTD,
+Sweden,Linköping,Airport,,ESSL,Linkoping Saab
+Sweden,Luleå-Kallax,Airport,,ESPA,Lulea Kallax
+Sweden,Malmö-Sturup,Airport,,ESMS,Malmo Sturup
+Sweden,Norrköping,Airport,,ESKN,Stockholm Skavsta
+Sweden,Pajala-Ylläs Airport,Airport,,ESUP,Pajala
+Sweden,Ronneby/Kallinge,Airport,,ESDF,Ronneby
+Sweden,Skellefteå,Airport,,ESNS,Skelleftea
+Sweden,Skövde,Airport,,ESGR,Skovde
+Sweden,Stockholm-Skavsta,Airport,,ESKN,Stockholm Skavsta
+Sweden,Sundsvall-Härnösand,Airport,,ESNN,Sundsvall Harnosand/Midlanda
+Sweden,Sälen,Airport,,ESNL,Lycksele
+Sweden,Trollhättan/Vänersborg,Airport,,ESGT,Trollhattan Vanersborg
+Sweden,Umeå,Airport,,ESNU,Umea
+Sweden,Visby,Airport,,ESSV,Visby
+Sweden,Västerås-Hässlö,Airport,,ESOW,Vasteras
+Sweden,Växjö,Airport,,ESMX,Vaxjo Kronoberg
+Sweden,Ängelholm,Airport,,ESTA,Angelholm
+Sweden,Örebro,Airport,,ESOE,Orebro
+Sweden,Örnsköldsvik,Airport,,ESNO,Ornskoldsvik
+Sweden,Östersund,Airport,,ESNZ,Are Ostersund
+Iceland,Akureyri,Airport,,BIAR,Akureyri
+Iceland,Egilsstaðir,Airport,,BIEG,Egilsstadir
+Iceland,Keflavík,Airport,,BIKF,Keflavik Nas
+Iceland,Reykjavík,Airport,,BIRK,Reykjavik
+Norway,Gardermoen,Airport,,ENGM,Oslo Gardermoen
+Norway,Fagernes,Airport,,ENFG,Leirin
+Norway,Geilo,Airport,,ENGI,Sprengisandur
+Norway,Sandefjord,Airport,,ENTO,Torp
+Norway,Skien,Airport,,ENSN,Geiteryggen
+Norway,Notodden,Airport,,ENNO,Notodden
+Norway,Kristiansand,Airport,,ENCN,Kjevik
+Norway,Sola,Airport,,ENZV,Stavanger Lufthavn Sola
+Norway,Haugesund,Airport,,ENHD,Haugesund Lufthavn Karmoy
+Norway,Leirvik,Airport,,ENLE,Ekofisk L (Offshore Helideck)
+Norway,Bergen indre,Airport,,ENBR,Bergen Lufthavn Flesland
+Norway,Ålesund,Airport,,ENAL,Vigra
+Norway,Molde,Airport,,ENML,Aro
+Norway,Moss Lufthavn Rygge,Airport,,ENRY,Rygge
+Norway,Kristiansund,Airport,,ENKB,Kvernberget
+Norway,Ørland,Airport,,ENOL,Orland
+Norway,Røros,Airport,,ENRO,Roros
+Norway,Stjørdal,Airport,,ENSTJ,
+Norway,Bodø,Airport,,ENBO,Bodo
+Norway,Narvik,Airport,,ENNK,Narvik Framnes
+Norway,Sortland,Airport,,ENSO,Sorstokken
+Norway,Bardufoss,Airport,,ENDU,Bardufoss
+Norway,Tromsø,Airport,,ENTC,Tromso Langnes
+Norway,Alta,Airport,,ENAT,Alta
+Norway,Lakselv,Airport,,ENLK,Leknes
+Norway,Kirkenes,Airport,,ENKR,Hoybuktmoen
+Switzerland,Basel-Mulhouse,Airport,,LFSB,Basle-Mulhouse
+Switzerland,Berne-Belp,Airport,,LSZB,Bern-Belp
+Switzerland,Buochs,Airport,Exceptional use only,LSZC,Buochs
+Switzerland,Dübendorf,Airport,Exceptional use only,LSMD,Duebendorf
+Switzerland,Emmen,Airport,Exceptional use only,LSME,Emmen
+Switzerland,Geneva-Cointrin,Airport,,LSGG,Geneve
+Switzerland,Grenchen,Airport,,LSZG,Grenchen
+Switzerland,La-Chaux-de-Fond-Les Eplatures,Airport,,LSGC,Les Eplatures
+Switzerland,Lausanne-La Blécherette,Airport,,LSGL,Lausanne
+Switzerland,Locarno-Magadino,Airport,,LSZL,Locarno
+Switzerland,Lugano-Agno,Airport,,LSZA,Lugano
+Switzerland,Payerne,Airport,,LSMP,Payerne
+Switzerland,Saanen,Airport,Exceptional use only,LSGK,Saanen
+Switzerland,Samedan,Airport,,LSZS,Samedan
+Switzerland,Sion,Airport,,LSGS,Sion
+Switzerland,St Gallen - Altenrhein SG,Airport,,LSZR,St.Gallen-Altenrhein
+Switzerland,St. Stephan,Airport,Exceptional use only,LSTS,St.Stephan
+Switzerland,Zurich,Airport,,LSZH,Zurich

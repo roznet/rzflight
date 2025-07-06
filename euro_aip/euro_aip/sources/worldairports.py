@@ -57,6 +57,22 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                 
         return 'TEXT'
         
+    def _safe_get(self, row: pd.Series, key: str) -> Any:
+        """
+        Safely get a value from a pandas Series, converting nan to None.
+        
+        Args:
+            row: Pandas Series (row from DataFrame)
+            key: Column key to get
+            
+        Returns:
+            Value or None if nan
+        """
+        value = row.get(key)
+        if pd.isna(value):
+            return None
+        return value
+        
     def _create_table_from_csv(self, table_name: str, fields: List[str], primary_key: str = 'ident') -> str:
         """Create SQL for creating a table from CSV fields."""
         sql = f'CREATE TABLE {table_name} (\n'
@@ -517,22 +533,22 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                 # Create Airport object
                 airport = Airport(
                     ident=icao,
-                    name=airport_row.get('name'),
-                    type=airport_row.get('type'),
-                    latitude_deg=airport_row.get('latitude_deg'),
-                    longitude_deg=airport_row.get('longitude_deg'),
-                    elevation_ft=airport_row.get('elevation_ft'),
-                    continent=airport_row.get('continent'),
-                    iso_country=airport_row.get('iso_country'),
-                    iso_region=airport_row.get('iso_region'),
-                    municipality=airport_row.get('municipality'),
-                    scheduled_service=airport_row.get('scheduled_service'),
-                    gps_code=airport_row.get('gps_code'),
-                    iata_code=airport_row.get('iata_code'),
-                    local_code=airport_row.get('local_code'),
-                    home_link=airport_row.get('home_link'),
-                    wikipedia_link=airport_row.get('wikipedia_link'),
-                    keywords=airport_row.get('keywords')
+                    name=self._safe_get(airport_row, 'name'),
+                    type=self._safe_get(airport_row, 'type'),
+                    latitude_deg=self._safe_get(airport_row, 'latitude_deg'),
+                    longitude_deg=self._safe_get(airport_row, 'longitude_deg'),
+                    elevation_ft=self._safe_get(airport_row, 'elevation_ft'),
+                    continent=self._safe_get(airport_row, 'continent'),
+                    iso_country=self._safe_get(airport_row, 'iso_country'),
+                    iso_region=self._safe_get(airport_row, 'iso_region'),
+                    municipality=self._safe_get(airport_row, 'municipality'),
+                    scheduled_service=self._safe_get(airport_row, 'scheduled_service'),
+                    gps_code=self._safe_get(airport_row, 'gps_code'),
+                    iata_code=self._safe_get(airport_row, 'iata_code'),
+                    local_code=self._safe_get(airport_row, 'local_code'),
+                    home_link=self._safe_get(airport_row, 'home_link'),
+                    wikipedia_link=self._safe_get(airport_row, 'wikipedia_link'),
+                    keywords=self._safe_get(airport_row, 'keywords')
                 )
                 
                 # Add source tracking
@@ -545,23 +561,23 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                 for _, runway_row in runway_rows.iterrows():
                     runway = Runway(
                         airport_ident=icao,
-                        length_ft=runway_row.get('length_ft'),
-                        width_ft=runway_row.get('width_ft'),
-                        surface=runway_row.get('surface'),
-                        lighted=runway_row.get('lighted'),
-                        closed=runway_row.get('closed'),
-                        le_ident=runway_row.get('le_ident'),
-                        le_latitude_deg=runway_row.get('le_latitude_deg'),
-                        le_longitude_deg=runway_row.get('le_longitude_deg'),
-                        le_elevation_ft=runway_row.get('le_elevation_ft'),
-                        le_heading_degT=runway_row.get('le_heading_degT'),
-                        le_displaced_threshold_ft=runway_row.get('le_displaced_threshold_ft'),
-                        he_ident=runway_row.get('he_ident'),
-                        he_latitude_deg=runway_row.get('he_latitude_deg'),
-                        he_longitude_deg=runway_row.get('he_longitude_deg'),
-                        he_elevation_ft=runway_row.get('he_elevation_ft'),
-                        he_heading_degT=runway_row.get('he_heading_degT'),
-                        he_displaced_threshold_ft=runway_row.get('he_displaced_threshold_ft')
+                        length_ft=self._safe_get(runway_row, 'length_ft'),
+                        width_ft=self._safe_get(runway_row, 'width_ft'),
+                        surface=self._safe_get(runway_row, 'surface'),
+                        lighted=self._safe_get(runway_row, 'lighted'),
+                        closed=self._safe_get(runway_row, 'closed'),
+                        le_ident=self._safe_get(runway_row, 'le_ident'),
+                        le_latitude_deg=self._safe_get(runway_row, 'le_latitude_deg'),
+                        le_longitude_deg=self._safe_get(runway_row, 'le_longitude_deg'),
+                        le_elevation_ft=self._safe_get(runway_row, 'le_elevation_ft'),
+                        le_heading_degT=self._safe_get(runway_row, 'le_heading_degT'),
+                        le_displaced_threshold_ft=self._safe_get(runway_row, 'le_displaced_threshold_ft'),
+                        he_ident=self._safe_get(runway_row, 'he_ident'),
+                        he_latitude_deg=self._safe_get(runway_row, 'he_latitude_deg'),
+                        he_longitude_deg=self._safe_get(runway_row, 'he_longitude_deg'),
+                        he_elevation_ft=self._safe_get(runway_row, 'he_elevation_ft'),
+                        he_heading_degT=self._safe_get(runway_row, 'he_heading_degT'),
+                        he_displaced_threshold_ft=self._safe_get(runway_row, 'he_displaced_threshold_ft')
                     )
                     airport.add_runway(runway)
                 

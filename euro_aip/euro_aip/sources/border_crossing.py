@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union, Optional, Any
 from urllib.parse import urlparse
 import logging
+import pandas as pd
 
 from .cached import CachedSource
 from ..parsers.bordercrossing import BorderCrossingParser
@@ -67,7 +68,7 @@ class BorderCrossingSource(CachedSource):
             ]
         
         self.inputs = self._normalize_inputs(inputs)
-        self.parser = BorderCrossingParser()
+        self.html_parser = BorderCrossingParser()
         self.country_mapper = CountryMapper()
         self.name_cleaner = AirportNameCleaner()
         
@@ -117,6 +118,56 @@ class BorderCrossingSource(CachedSource):
         content = f"{name}:{path}"
         return hashlib.md5(content.encode()).hexdigest()[:8]
     
+    def _detect_format(self, input_path: str) -> str:
+        """
+        Detect if input is CSV or HTML format.
+        
+        Args:
+            input_path: Path to the input file
+            
+        Returns:
+            Format string: 'csv', 'html', or 'unknown'
+        """
+        if input_path.endswith('.csv'):
+            return 'csv'
+        elif input_path.endswith(('.html', '.htm')):
+            return 'html'
+        elif input_path.startswith(('http://', 'https://')):
+            # URLs are assumed to be HTML
+            return 'html'
+        else:
+            # Try to read first few bytes to detect
+            try:
+                with open(input_path, 'rb') as f:
+                    header = f.read(1024).decode('utf-8', errors='ignore')
+                    if header.startswith('Country,Name,Type,Comment,ICAO,Airfield Name'):
+                        return 'csv'
+                    elif '<html' in header.lower() or '<!doctype' in header.lower():
+                        return 'html'
+            except Exception:
+                pass
+        return 'unknown'
+    
+    def fetch_csv(self, input_path: str, input_name: str = None) -> pd.DataFrame:
+        """
+        Fetch CSV data from file and return as pandas DataFrame.
+        
+        Args:
+            input_path: File path
+            input_name: Name identifier for the input (optional)
+            
+        Returns:
+            pandas DataFrame containing CSV data
+        """
+        logger.info(f"Fetching CSV from {input_path}")
+        
+        try:
+            df = pd.read_csv(input_path)
+            return df
+        except Exception as e:
+            logger.error(f"Failed to read {input_path}: {e}")
+            raise
+    
     def fetch_html(self, input_path: str, input_name: str = None) -> bytes:
         """
         Fetch HTML data from URL or file.
@@ -150,7 +201,7 @@ class BorderCrossingSource(CachedSource):
     
     def fetch_parsed_data(self, input_path: str, input_name: str = None) -> List[Dict[str, Any]]:
         """
-        Fetch and parse border crossing data.
+        Fetch and parse border crossing data based on detected format.
         
         Args:
             input_path: URL or file path
@@ -167,7 +218,102 @@ class BorderCrossingSource(CachedSource):
             else:
                 input_name = "unknown"
         
-        logger.info(f"Fetching and parsing data for {input_name}")
+        # Detect format
+        format_type = self._detect_format(input_path)
+        logger.info(f"Detected format '{format_type}' for {input_name}")
+        
+        if format_type == 'csv':
+            return self._fetch_csv_data(input_path, input_name)
+        elif format_type == 'html':
+            return self._fetch_html_data(input_path, input_name)
+        else:
+            raise ValueError(f"Unsupported format '{format_type}' for {input_path}")
+    
+    def _fetch_csv_data(self, input_path: str, input_name: str = None) -> List[Dict[str, Any]]:
+        """
+        Fetch and parse CSV data using pandas.
+        
+        Args:
+            input_path: Path to CSV file
+            input_name: Name identifier for the input (optional)
+            
+        Returns:
+            List of parsed airport data dictionaries
+        """
+        # Find the input name if not provided
+        if input_name is None:
+            input_item = next((item for item in self.inputs if item[1] == input_path), None)
+            if input_item:
+                input_name = input_item[0]
+            else:
+                input_name = "unknown"
+        
+        logger.info(f"Fetching and parsing CSV data for {input_name}")
+        
+        # Get CSV data as DataFrame using default CachedSource implementation
+        df = self.get_data(
+            key="csv",
+            ext="csv",
+            param=input_path,
+            cache_param=f"{input_name}_{self._get_input_hash(input_name, input_path)}",
+            max_age_days=7  # Cache CSV for 7 days
+        )
+        
+        # Convert DataFrame to standard border crossing format
+        results = []
+        for row_num, (_, row) in enumerate(df.iterrows(), start=2):  # Start at 2 because row 1 is header
+            try:
+                # Map DataFrame row to standard structure
+                result = {
+                    'airport_name': self._safe_convert_pandas_string(row['Name']),
+                    'country': self._safe_convert_pandas_string(row['Country']),
+                    'icao_code': self._safe_convert_pandas_value(row['ICAO']),
+                    'is_airport': self._safe_convert_pandas_string(row['Type']).lower() in ['airport', 'aerodrome'],
+                    'source': 'border_crossing_csv',
+                    'extraction_method': 'csv_parsing',
+                    'metadata': {
+                        'type': self._safe_convert_pandas_string(row['Type']),
+                        'comment': self._safe_convert_pandas_string(row['Comment']),
+                        'airfield_name': self._safe_convert_pandas_string(row['Airfield Name']),
+                        'original_row': row.to_dict(),
+                        'row_number': row_num
+                    }
+                }
+                
+                # Only add if we have a valid airport name
+                if result['airport_name'] and result['airport_name'] != 'nan':
+                    results.append(result)
+                    logger.debug(f"Parsed airport: {result['airport_name']} ({result['country']})")
+                else:
+                    logger.warning(f"Skipping row {row_num}: empty airport name")
+                    
+            except Exception as e:
+                logger.warning(f"Error processing row {row_num}: {e}")
+                continue
+        
+        logger.info(f"Parsed {len(results)} airport entries from CSV {input_name}")
+        return results
+    
+    def _fetch_html_data(self, input_path: str, input_name: str = None) -> List[Dict[str, Any]]:
+        """
+        Fetch and parse HTML data.
+        
+        Args:
+            input_path: URL or file path
+            input_name: Name identifier for the input (optional)
+            
+        Returns:
+            List of parsed airport data dictionaries
+        """
+        # Find the input name if not provided
+        if input_name is None:
+            input_item = next((item for item in self.inputs if item[1] == input_path), None)
+            if input_item:
+                input_name = input_item[0]
+            else:
+                input_name = "unknown"
+        
+        logger.info(f"Fetching and parsing HTML data for {input_name}")
         
         # Get HTML data (from cache or fresh fetch)
         html_data = self.get_data(
@@ -180,11 +326,11 @@ class BorderCrossingSource(CachedSource):
         
         # Parse the HTML data
         try:
-            parsed_data = self.parser.parse(html_data, "BORDER_CROSSING")
-            logger.info(f"Parsed {len(parsed_data)} airport entries from {input_name}")
+            parsed_data = self.html_parser.parse(html_data, "BORDER_CROSSING")
+            logger.info(f"Parsed {len(parsed_data)} airport entries from HTML {input_name}")
             return parsed_data
         except Exception as e:
-            logger.error(f"Failed to parse data from {input_name}: {e}")
+            logger.error(f"Failed to parse HTML data from {input_name}: {e}")
             raise
     
     def get_border_crossing_data(self, input_name: Optional[str] = None, max_age_days: int = 30) -> List[Dict[str, Any]]:
@@ -445,4 +591,32 @@ class BorderCrossingSource(CachedSource):
         logger.info(f"Border crossing update complete: {matched_count} matched, {unmatched_count} unmatched")
         
         if unmatched_count > 0:
-            logger.warning(f"{unmatched_count} border crossing entries could not be matched to airports in the model") 
+            logger.warning(f"{unmatched_count} border crossing entries could not be matched to airports in the model")
+    
+    def _safe_convert_pandas_value(self, value: Any) -> Any:
+        """
+        Safely convert a pandas value, handling nan values properly.
+        
+        Args:
+            value: Value from pandas DataFrame
+            
+        Returns:
+            Converted value or None if nan
+        """
+        if pd.isna(value):
+            return None
+        return value
+    
+    def _safe_convert_pandas_string(self, value: Any) -> str:
+        """
+        Safely convert a pandas value to string, handling nan values.
+        
+        Args:
+            value: Value from pandas DataFrame
+            
+        Returns:
+            String value or empty string if nan
+        """
+        if pd.isna(value):
+            return ""
+        return str(value).strip() 

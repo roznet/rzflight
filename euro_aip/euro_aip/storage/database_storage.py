@@ -862,24 +862,15 @@ class DatabaseStorage:
         for field in AirportFields.get_all_fields():
             value = row[field.name]
             
-            # Convert value based on field type
-            if field.field_type.value == "INTEGER" and value is not None:
-                if field.name in ['lighted', 'closed']:  # Boolean fields
-                    airport_data[field.name] = bool(value)
-                else:
-                    airport_data[field.name] = int(value)
-                    if field.name == 'elevation_ft':
-                        logger.debug(f"Loading elevation_ft: {value} -> {airport_data[field.name]}")
-            elif field.field_type.value == "REAL" and value is not None:
-                airport_data[field.name] = float(value)
-            elif field.field_type.value == "TEXT" and field.name in ['created_at', 'updated_at'] and value:
-                # Parse datetime strings
+            # Use safe conversion to handle string "nan" values
+            airport_data[field.name] = self._safe_convert_value(value, field.field_type.value)
+            
+            # Special handling for datetime fields
+            if field.field_type.value == "TEXT" and field.name in ['created_at', 'updated_at'] and airport_data[field.name]:
                 try:
-                    airport_data[field.name] = datetime.fromisoformat(value)
+                    airport_data[field.name] = datetime.fromisoformat(airport_data[field.name])
                 except ValueError:
-                    airport_data[field.name] = value
-            else:
-                airport_data[field.name] = value
+                    pass  # Keep as string if parsing fails
         
         # Create airport object
         airport = Airport(
@@ -914,16 +905,8 @@ class DatabaseStorage:
             for field in RunwayFields.get_all_fields():
                 value = row[field.name]
                 
-                # Convert value based on field type
-                if field.field_type.value == "INTEGER" and value is not None:
-                    if field.name in ['lighted', 'closed']:  # Boolean fields
-                        runway_data[field.name] = bool(value)
-                    else:
-                        runway_data[field.name] = int(value)
-                elif field.field_type.value == "REAL" and value is not None:
-                    runway_data[field.name] = float(value)
-                else:
-                    runway_data[field.name] = value
+                # Use safe conversion to handle string "nan" values
+                runway_data[field.name] = self._safe_convert_value(value, field.field_type.value)
             
             runway = Runway(
                 airport_ident=icao,
@@ -1388,4 +1371,39 @@ class DatabaseStorage:
                 changed_at=now
             ))
         
-        return changes 
+        return changes
+    
+    def _safe_convert_value(self, value: Any, field_type: str) -> Any:
+        """
+        Safely convert a database value, handling string "nan" values.
+        
+        Args:
+            value: Value from database
+            field_type: SQL field type
+            
+        Returns:
+            Converted value or None if invalid
+        """
+        if value is None:
+            return None
+        
+        # Handle string "nan" values
+        if isinstance(value, str) and value.lower() == 'nan':
+            return None
+        
+        # Convert based on field type
+        if field_type == "INTEGER":
+            try:
+                if value in ['lighted', 'closed']:  # Boolean fields
+                    return bool(value)
+                else:
+                    return int(value)
+            except (ValueError, TypeError):
+                return None
+        elif field_type == "REAL":
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return None
+        else:
+            return value 
