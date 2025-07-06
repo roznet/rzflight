@@ -449,6 +449,7 @@ class BorderCrossingSource(CachedSource):
         
         # Create BorderCrossingEntry objects
         border_crossing_entries = []
+        entries_by_name = {}  # Map to handle duplicates by airport name
         
         for entry in border_data:
             airport_icao = None
@@ -558,7 +559,25 @@ class BorderCrossingSource(CachedSource):
                 matched_airport_icao=matched_airport_icao,
                 match_score=match_score
             )
-            border_crossing_entries.append(border_entry)
+            
+            # Handle duplicates by airport name
+            airport_name = border_entry.airport_name
+            if airport_name in entries_by_name:
+                # Merge with existing entry
+                existing_entry = entries_by_name[airport_name]
+                if border_entry.is_more_complete_than(existing_entry):
+                    # New entry is more complete, use it as base and merge with existing
+                    merged_entry = border_entry.merge_with(existing_entry)
+                    entries_by_name[airport_name] = merged_entry
+                    logger.debug(f"Merged duplicate entry for '{airport_name}' - new entry was more complete")
+                else:
+                    # Existing entry is more complete, merge new entry into it
+                    merged_entry = existing_entry.merge_with(border_entry)
+                    entries_by_name[airport_name] = merged_entry
+                    logger.debug(f"Merged duplicate entry for '{airport_name}' - existing entry was more complete")
+            else:
+                # First entry for this airport name
+                entries_by_name[airport_name] = border_entry
             
             # If we found a matching airport, add border crossing information
             if matched_airport_icao and matched_airport_icao in model.airports:
@@ -572,6 +591,13 @@ class BorderCrossingSource(CachedSource):
                 
                 # Log the match
                 logger.debug(f"Added border crossing data to {matched_airport_icao} ({airport.name})")
+        
+        # Convert map values to list
+        border_crossing_entries = list(entries_by_name.values())
+        
+        logger.info(f"Created {len(border_crossing_entries)} unique border crossing entries from {len(border_data)} raw entries")
+        if len(entries_by_name) < len(border_data):
+            logger.info(f"Merged {len(border_data) - len(entries_by_name)} duplicate entries")
         
         # Save border crossing entries to database if available
         try:

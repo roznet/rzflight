@@ -425,6 +425,7 @@ class BorderCrossingParser(AIPParser):
                         result = {
                             'airport_name': airport_name,
                             'icao_code': icao_code,
+                            'matched_airport_icao': icao_code,
                             'country': 'UNITED KINGDOM',
                             'source': 'border_crossing_parser_uk',
                             'extraction_method': 'uk_html_table_parsing',

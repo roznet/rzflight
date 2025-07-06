@@ -122,4 +122,135 @@ class BorderCrossingEntry:
     
     def __hash__(self) -> int:
         """Hash for set operations."""
-        return hash((self.airport_name, self.country_iso, self.icao_code, self.source)) 
+        return hash((self.airport_name, self.country_iso, self.icao_code, self.source))
+    
+    def merge_with(self, other: 'BorderCrossingEntry') -> 'BorderCrossingEntry':
+        """
+        Merge this entry with another, combining information intelligently.
+        
+        Args:
+            other: Another BorderCrossingEntry to merge with
+            
+        Returns:
+            New BorderCrossingEntry with combined information
+        """
+        if not isinstance(other, BorderCrossingEntry):
+            raise ValueError("Can only merge with another BorderCrossingEntry")
+        
+        # Start with this entry's data
+        merged_data = {
+            'airport_name': self.airport_name,
+            'country_iso': self.country_iso,
+            'icao_code': self.icao_code,
+            'is_airport': self.is_airport,
+            'source': self.source,
+            'extraction_method': self.extraction_method,
+            'metadata': self.metadata.copy() if self.metadata else {},
+            'matched_airport_icao': self.matched_airport_icao,
+            'match_score': self.match_score,
+            'created_at': min(self.created_at, other.created_at),
+            'updated_at': max(self.updated_at, other.updated_at)
+        }
+        
+        # Merge ICAO codes - prefer non-None values
+        if not merged_data['icao_code'] and other.icao_code:
+            merged_data['icao_code'] = other.icao_code
+        
+        # Merge is_airport - prefer True over None/False
+        if merged_data['is_airport'] is None and other.is_airport is not None:
+            merged_data['is_airport'] = other.is_airport
+        elif merged_data['is_airport'] is False and other.is_airport is True:
+            merged_data['is_airport'] = True
+        
+        # Merge sources - combine unique sources
+        sources = set()
+        if self.source:
+            sources.add(self.source)
+        if other.source:
+            sources.add(other.source)
+        merged_data['source'] = ';'.join(sorted(sources)) if sources else None
+        
+        # Merge extraction methods - prefer more specific ones
+        if not merged_data['extraction_method'] and other.extraction_method:
+            merged_data['extraction_method'] = other.extraction_method
+        elif merged_data['extraction_method'] and other.extraction_method:
+            # Prefer more specific extraction methods
+            if 'csv' in other.extraction_method.lower() and 'html' in merged_data['extraction_method'].lower():
+                merged_data['extraction_method'] = other.extraction_method
+        
+        # Merge metadata - combine all unique keys
+        if other.metadata:
+            for key, value in other.metadata.items():
+                if key not in merged_data['metadata'] or not merged_data['metadata'][key]:
+                    merged_data['metadata'][key] = value
+                elif isinstance(merged_data['metadata'][key], str) and isinstance(value, str):
+                    # For string values, prefer non-empty ones
+                    if not merged_data['metadata'][key].strip() and value.strip():
+                        merged_data['metadata'][key] = value
+        
+        # Merge matched airport ICAO - prefer the one with higher match score
+        if not merged_data['matched_airport_icao'] and other.matched_airport_icao:
+            merged_data['matched_airport_icao'] = other.matched_airport_icao
+            merged_data['match_score'] = other.match_score
+        elif merged_data['matched_airport_icao'] and other.matched_airport_icao:
+            # Keep the one with higher match score
+            if (other.match_score or 0) > (merged_data['match_score'] or 0):
+                merged_data['matched_airport_icao'] = other.matched_airport_icao
+                merged_data['match_score'] = other.match_score
+        
+        return BorderCrossingEntry(**merged_data)
+    
+    def is_more_complete_than(self, other: 'BorderCrossingEntry') -> bool:
+        """
+        Check if this entry is more complete than another.
+        
+        Args:
+            other: Another BorderCrossingEntry to compare with
+            
+        Returns:
+            True if this entry is more complete
+        """
+        if not isinstance(other, BorderCrossingEntry):
+            return False
+        
+        # Score based on completeness
+        this_score = 0
+        other_score = 0
+        
+        # ICAO code (high value)
+        if self.icao_code:
+            this_score += 10
+        if other.icao_code:
+            other_score += 10
+        
+        # Is airport flag
+        if self.is_airport is not None:
+            this_score += 5
+        if other.is_airport is not None:
+            other_score += 5
+        
+        # Match score
+        if self.match_score:
+            this_score += int(self.match_score * 10)
+        if other.match_score:
+            other_score += int(other.match_score * 10)
+        
+        # Metadata completeness
+        if self.metadata:
+            this_score += len(self.metadata)
+        if other.metadata:
+            other_score += len(other.metadata)
+        
+        # Extraction method specificity
+        if self.extraction_method:
+            if 'csv' in self.extraction_method.lower():
+                this_score += 3
+            elif 'html' in self.extraction_method.lower():
+                this_score += 2
+        if other.extraction_method:
+            if 'csv' in other.extraction_method.lower():
+                other_score += 3
+            elif 'html' in other.extraction_method.lower():
+                other_score += 2
+        
+        return this_score > other_score 
