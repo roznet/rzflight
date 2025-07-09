@@ -11,6 +11,7 @@ from .uk_eaip import UKEAIPSource
 from .worldairports import WorldAirportsSource
 from .database import DatabaseSource
 from .point_de_passage import PointDePassageJournalOfficielSource
+from .border_crossing import BorderCrossingSource
 
 __all__ = [
     'AutorouterSource',
@@ -18,5 +19,6 @@ __all__ = [
     'UKEAIPSource',
     'WorldAirportsSource',
     'DatabaseSource',
-    'PointDePassageJournalOfficielSource'
+    'PointDePassageJournalOfficielSource',
+    'BorderCrossingSource'
 ]
