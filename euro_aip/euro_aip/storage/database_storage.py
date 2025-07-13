@@ -523,16 +523,17 @@ class DatabaseStorage:
         added_procedures = new_procedure_names - current_procedure_names
         removed_procedures = current_procedure_names - new_procedure_names
         
-        # Record ADDED procedures
-        for name, proc_type in added_procedures:
-            conn.execute('''
-                INSERT INTO procedure_changes 
-                (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                airport.ident, None, 'PROCEDURE_ADDED', None, f"{name} ({proc_type})",
-                'unknown', datetime.now().isoformat()
-            ))
+        # Record ADDED procedures if we had existing ones, for the first insert we don't need to record them
+        if current_procedures:
+            for name, proc_type in added_procedures:
+                conn.execute('''
+                    INSERT INTO procedure_changes 
+                    (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    airport.ident, None, 'PROCEDURE_ADDED', None, f"{name} ({proc_type})",
+                    'unknown', datetime.now().isoformat()
+                ))
         
         # Record REMOVED procedures
         for name, proc_type in removed_procedures:
@@ -553,7 +554,8 @@ class DatabaseStorage:
             ))
         
         # Clear all current procedures and insert new ones
-        conn.execute('DELETE FROM procedures WHERE airport_icao = ?', (airport.ident,))
+        if current_procedures:
+            conn.execute('DELETE FROM procedures WHERE airport_icao = ?', (airport.ident,))
         
         # Insert all new procedures
         for procedure in airport.procedures:
@@ -969,11 +971,9 @@ class DatabaseStorage:
             
             # Get procedure changes
             cursor = conn.execute('''
-                SELECT pc.*, p.name, p.procedure_type
-                FROM procedure_changes pc
-                JOIN procedures p ON pc.procedure_id = p.id
-                WHERE pc.airport_icao = ? AND pc.changed_at >= date('now', '-{} days')
-                ORDER BY pc.changed_at DESC
+                SELECT *
+                FROM procedure_changes 
+                WHERE airport_icao = ? AND changed_at >= date('now', '-{} days')
             '''.format(days), (icao,))
             changes['procedures'] = [dict(row) for row in cursor.fetchall()]
         

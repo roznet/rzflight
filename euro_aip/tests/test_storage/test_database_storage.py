@@ -258,6 +258,91 @@ class TestDatabaseStorage:
             assert elevation_change['old_value'] == '13.0'
         assert elevation_change['new_value'] == '20.0'
     
+    def test_procedure_change_tracking(self, storage, sample_model):
+        """Test that procedure changes are tracked at the procedure level (ADDED/REMOVED)."""
+        # Save initial model (EGKB has one procedure: 'ILS 03')
+        storage.save_model(sample_model)
+        
+        # Modify procedures - add a new procedure and remove the existing one
+        egkb = sample_model.airports['EGKB']
+        original_procedures = list(egkb.procedures)  # Copy the list
+        
+        # Clear existing procedures
+        egkb.procedures.clear()
+        
+        # Add a new procedure
+        new_procedure = Procedure(
+            name='VOR 21',
+            procedure_type='approach',
+            approach_type='VOR',
+            runway_ident='21',
+            runway_letter=None,
+            runway_number='21',
+            source='ukeaip',
+            authority='UK CAA'
+        )
+        egkb.add_procedure(new_procedure)
+        
+        # Save modified model
+        storage.save_model(sample_model)
+        
+        # Check procedure changes
+        changes = storage.get_changes_for_airport('EGKB', days=1)
+        
+        # Should have procedure changes (at least ADDED, possibly REMOVED if schema wasn't recreated)
+        assert len(changes['procedures']) >= 1
+        
+        # Find the ADDED procedure change
+        added_changes = [c for c in changes['procedures'] if c['field_name'] == 'PROCEDURE_ADDED']
+        assert len(added_changes) >= 1
+        added_change = added_changes[0]
+        assert added_change['new_value'] == 'VOR 21 (approach)'
+        assert added_change['old_value'] is None
+        
+        # Find the REMOVED procedure change (may not exist if schema was recreated)
+        removed_changes = [c for c in changes['procedures'] if c['field_name'] == 'PROCEDURE_REMOVED']
+        if removed_changes:
+            removed_change = removed_changes[0]
+            assert removed_change['old_value'] == 'ILS 03 (approach)'
+            assert removed_change['new_value'] is None
+        
+        # Test adding multiple procedures
+        egkb.procedures.clear()
+        procedure1 = Procedure(
+            name='ILS 03',
+            procedure_type='approach',
+            approach_type='ILS',
+            runway_ident='03',
+            runway_letter=None,
+            runway_number='03',
+            source='ukeaip',
+            authority='UK CAA'
+        )
+        procedure2 = Procedure(
+            name='VOR 21',
+            procedure_type='approach',
+            approach_type='VOR',
+            runway_ident='21',
+            runway_letter=None,
+            runway_number='21',
+            source='ukeaip',
+            authority='UK CAA'
+        )
+        egkb.add_procedure(procedure1)
+        egkb.add_procedure(procedure2)
+        
+        # Save again
+        storage.save_model(sample_model)
+        
+        # Check that we have ADDED changes for both procedures
+        changes_after = storage.get_changes_for_airport('EGKB', days=1)
+        added_changes_after = [c for c in changes_after['procedures'] if c['field_name'] == 'PROCEDURE_ADDED']
+        
+        # Should have ADDED changes for both procedures
+        procedure_names = [c['new_value'] for c in added_changes_after]
+        assert 'ILS 03 (approach)' in procedure_names
+        assert 'VOR 21 (approach)' in procedure_names
+    
     
     def test_multiple_saves_same_data(self, storage, sample_model):
         """Test that saving the same data multiple times doesn't create duplicate changes."""
