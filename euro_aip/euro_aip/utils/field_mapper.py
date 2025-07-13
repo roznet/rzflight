@@ -65,12 +65,20 @@ class FieldMapper:
                     field_id = self._safe_int_convert(row['field_id'])
                     field_aip_id = self._safe_int_convert(row['field_aip_id'])
                     field_name = row['field_name']
-                    
+                    parsing_hint = row['parsing_hint']
+                    if '|' in parsing_hint:
+                        parsing_hint = parsing_hint.split('|')
+                    elif parsing_hint:
+                        parsing_hint = [parsing_hint]
+                    else:
+                        parsing_hint = None
+
                     standard_fields[field_id] = {
                         'field_id': field_id,
                         'field_aip_id': field_aip_id,
                         'field_name': field_name,
                         'section': section,
+                        'parsing_hint': parsing_hint,
                     }
         except FileNotFoundError:
             logger.warning(f"Standard fields CSV not found at {csv_path}")
@@ -111,8 +119,10 @@ class FieldMapper:
             if section is not None and field_info['section'] != section:
                 continue
             candidates.append((field_id, field_info['field_name']))
+            if field_info['parsing_hint'] is not None:
+                for hint in field_info['parsing_hint']:
+                    candidates.append((field_id, hint.strip()))
         
-        # Use the fuzzy matcher to find the best match
         result = self.fuzzy_matcher.find_best_match_with_id(field_name, candidates, threshold)
         
         if result:
@@ -169,6 +179,8 @@ class FieldMapper:
         """
         standardised_fields = []
         for record in records:
+            if 'type' in record['field']:
+                print('yo')
             mapped_record = self.map_field(record['field'])
             if mapped_record['mapped']:
                 standardised_record = record.copy()
@@ -188,7 +200,7 @@ class FieldMapper:
         Returns:
             Field information dictionary or None if not found
         """
-        for field_id, field_info in self.standard_fields.items():
-            if field_info['field_id'] == field_id:
-                return field_info
-        return None
+        if field_id in self.standard_fields:
+            return self.standard_fields[field_id]
+        else:
+            return None

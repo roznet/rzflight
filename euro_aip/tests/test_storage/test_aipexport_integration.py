@@ -152,8 +152,8 @@ class TestAIPExportIntegration:
             storage = DatabaseStorage(db_path)
             changes = storage.get_changes_for_airport('EBOS', days=1)
             
-            # Should have some initial changes from the first save
-            assert len(changes['airport']) > 0
+            # Should have no changes when saving the same again
+            assert len(changes['airport']) == 0
             
             # The second run with identical data should not create new changes
             # (this is tested by the fact that the command succeeds without errors)

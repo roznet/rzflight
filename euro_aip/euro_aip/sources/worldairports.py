@@ -592,7 +592,7 @@ class WorldAirportsSource(CachedSource, SourceInterface):
     
     # Disabled for now, as this source as all the airports in the world,
     # so it's not useful to find available airports. Keeping the function in case later I realise we need it.
-    def find_available_airports_disabled(self) -> List[str]:
+    def find_available_airports(self) -> List[str]:
         """
         Find all available airports in the WorldAirports database.
         

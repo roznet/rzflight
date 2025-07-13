@@ -117,25 +117,28 @@ def test_aip_parser_parse_airports(test_pdfs):
         402, # Fuel Types
         302, # Customs
         ]
-    for field_id in required_fields:
-        assert len(found_fields[field_id]) == len(authority_icao_mapping), f"Field {field_mapper.get_field_for_id(field_id)['field_name']} not found for any authority"
 
     # show all fields that are not found for all authorities
-    for field_id, authorities in found_fields.items():
-        if len(authorities) != len(authority_icao_mapping):
-            logger.info(f"Field {field_mapper.get_field_for_id(field_id)['field_name']} not found for {len(authority_icao_mapping) - len(authorities)} authorities")
-    # show field found in all authorities
-    for field_id, authorities in found_fields.items():
-        if len(authorities) == len(authority_icao_mapping):
-            logger.info(f"Field {field_mapper.get_field_for_id(field_id)['field_name']} found in all authorities")
+    for field_id in required_fields:
+        field_name = field_mapper.get_field_for_id(field_id)['field_name']
+        found_authorities = found_fields[field_id]
+        missing_authorities = []
+        if len(found_authorities) != len(authority_icao_mapping):
+            logger.info(f"Field {field_name} not found for {len(authority_icao_mapping) - len(found_authorities)} authorities")
+            # print the missing authorities
+            for authority in authority_icao_mapping:
+                if authority not in found_authorities:
+                    samples = ', '.join(authority_icao_mapping[authority])
+                    logger.info(f"Field {field_name} not found for {authority} ({samples})")
+                    missing_authorities.append(authority)
+        assert len(found_authorities) == len(authority_icao_mapping), f"Field {field_name} not found for {missing_authorities}"
     
     # Analyze and log field coverage
     analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping)
     json_mapping_stats = analyze_field_mapping(field_coverage)
+
+    return None
     
-    # Make the JSON mapping stats available for external use (e.g., saving to file)
-    # You can access this in the debug console or save it to a file
-    return json_mapping_stats
 
 def analyze_field_coverage(field_coverage, authority_fields, authority_icao_mapping):
     """
