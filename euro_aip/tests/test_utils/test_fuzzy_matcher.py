@@ -257,7 +257,7 @@ class TestAirportNameMatching:
     def test_airport_name_matching_scenario(self, matcher):
         """Test realistic airport name matching scenario."""
         # Simulate border crossing data with airport names
-        border_crossing_entries = [
+        border_crossing_points = [
             "London Heathrow",
             "Heathrow Airport", 
             "London Gatwick",
@@ -281,7 +281,7 @@ class TestAirportNameMatching:
         matched_count = 0
         unmatched_count = 0
         
-        for border_name in border_crossing_entries:
+        for border_name in border_crossing_points:
             # Create candidates list
             candidates = [(icao, name) for icao, name in airport_model.items()]
             

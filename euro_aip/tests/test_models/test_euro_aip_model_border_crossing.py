@@ -30,14 +30,14 @@ class TestEuroAipModelBorderCrossing:
         model.add_border_crossing_entry(entry)
         
         # Check that entry was added
-        assert "GB" in model.border_crossing_entries
-        assert "London Heathrow" in model.border_crossing_entries["GB"]
-        assert model.border_crossing_entries["GB"]["London Heathrow"] == entry
+        assert "GB" in model.border_crossing_points
+        assert "London Heathrow" in model.border_crossing_points["GB"]
+        assert model.border_crossing_points["GB"]["London Heathrow"] == entry
         
         # Check sources tracking
         assert "border_crossing_parser" in model.sources_used
     
-    def test_add_border_crossing_entries(self):
+    def test_add_border_crossing_points(self):
         """Test adding multiple border crossing entries."""
         model = EuroAipModel()
         
@@ -62,19 +62,19 @@ class TestEuroAipModelBorderCrossing:
             )
         ]
         
-        model.add_border_crossing_entries(entries)
+        model.add_border_crossing_points(entries)
         
         # Check that all entries were added
-        assert len(model.get_all_border_crossing_entries()) == 3
-        assert len(model.border_crossing_entries["GB"]) == 2
-        assert len(model.border_crossing_entries["FR"]) == 1
+        assert len(model.get_all_border_crossing_points()) == 3
+        assert len(model.border_crossing_points["GB"]) == 2
+        assert len(model.border_crossing_points["FR"]) == 1
         
         # Check specific entries
-        assert "London Heathrow" in model.border_crossing_entries["GB"]
-        assert "Gatwick" in model.border_crossing_entries["GB"]
-        assert "Paris CDG" in model.border_crossing_entries["FR"]
+        assert "London Heathrow" in model.border_crossing_points["GB"]
+        assert "Gatwick" in model.border_crossing_points["GB"]
+        assert "Paris CDG" in model.border_crossing_points["FR"]
     
-    def test_get_border_crossing_entries_by_country(self):
+    def test_get_border_crossing_points_by_country(self):
         """Test getting border crossing entries by country."""
         model = EuroAipModel()
         
@@ -96,20 +96,20 @@ class TestEuroAipModelBorderCrossing:
             )
         ]
         
-        model.add_border_crossing_entries(entries)
+        model.add_border_crossing_points(entries)
         
         # Get UK entries
-        uk_entries = model.get_border_crossing_entries_by_country("GB")
+        uk_entries = model.get_border_crossing_points_by_country("GB")
         assert len(uk_entries) == 2
         assert all(entry.country_iso == "GB" for entry in uk_entries)
         
         # Get French entries
-        fr_entries = model.get_border_crossing_entries_by_country("FR")
+        fr_entries = model.get_border_crossing_points_by_country("FR")
         assert len(fr_entries) == 1
         assert fr_entries[0].airport_name == "Paris CDG"
         
         # Get non-existent country
-        no_entries = model.get_border_crossing_entries_by_country("XX")
+        no_entries = model.get_border_crossing_points_by_country("XX")
         assert len(no_entries) == 0
     
     def test_get_border_crossing_entry(self):
@@ -162,7 +162,7 @@ class TestEuroAipModelBorderCrossing:
             )
         ]
         
-        model.add_border_crossing_entries(entries)
+        model.add_border_crossing_points(entries)
         
         stats = model.get_border_crossing_statistics()
         
@@ -217,7 +217,7 @@ class TestEuroAipModelBorderCrossing:
             )
         ]
         
-        model.add_border_crossing_entries(entries)
+        model.add_border_crossing_points(entries)
         
         # Get border crossing airports
         border_airports = model.get_border_crossing_airports()
@@ -274,9 +274,9 @@ class TestEuroAipModelBorderCrossing:
         
         # Check that border crossing stats are included
         assert "airports_with_border_crossing" in stats
-        assert "total_border_crossing_entries" in stats
+        assert "total_border_crossing_points" in stats
         assert "border_crossing" in stats
         
         # Check values
-        assert stats["total_border_crossing_entries"] == 1
+        assert stats["total_border_crossing_points"] == 1
         assert stats["border_crossing"]["total_entries"] == 1 

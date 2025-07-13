@@ -448,7 +448,7 @@ class BorderCrossingSource(CachedSource):
         logger.info(f"Organized {len(model.airports)} airports by country for matching")
         
         # Create BorderCrossingEntry objects
-        border_crossing_entries = []
+        border_crossing_points = []
         entries_by_name = {}  # Map to handle duplicates by airport name
         
         for entry in border_data:
@@ -584,9 +584,9 @@ class BorderCrossingSource(CachedSource):
                 logger.debug(f"Added border crossing data to {matched_airport_icao} ({airport.name})")
         
         # Convert map values to list
-        border_crossing_entries = list(entries_by_name.values())
+        border_crossing_points = list(entries_by_name.values())
         
-        logger.info(f"Created {len(border_crossing_entries)} unique border crossing entries from {len(border_data)} raw entries")
+        logger.info(f"Created {len(border_crossing_points)} unique border crossing entries from {len(border_data)} raw entries")
         if len(entries_by_name) < len(border_data):
             logger.info(f"Merged {len(border_data) - len(entries_by_name)} duplicate entries")
         
@@ -595,12 +595,12 @@ class BorderCrossingSource(CachedSource):
             from ..storage.database_storage import DatabaseStorage
             # This is a bit of a hack - we need access to the database storage
             # In a real implementation, we'd pass the database storage to this method
-            logger.info(f"Created {len(border_crossing_entries)} border crossing entries")
+            logger.info(f"Created {len(border_crossing_points)} border crossing entries")
         except ImportError:
             logger.warning("DatabaseStorage not available, skipping border crossing data persistence")
         
         # Add border crossing entries to the model
-        model.add_border_crossing_entries(border_crossing_entries)
+        model.add_border_crossing_points(border_crossing_points)
         
         # Update airport objects with border crossing information
         model.update_border_crossing_airports()

@@ -26,7 +26,7 @@ class TestBorderCrossingStorage:
         # Cleanup
         os.unlink(db_path)
     
-    def test_save_and_load_border_crossing_entries(self, temp_db):
+    def test_save_and_load_border_crossing_points(self, temp_db):
         """Test saving and loading border crossing entries."""
         entries = [
             BorderCrossingEntry(
@@ -88,7 +88,7 @@ class TestBorderCrossingStorage:
         assert loaded_entries[2].matched_airport_icao is None
         assert loaded_entries[2].match_score is None
     
-    def test_border_crossing_changes(self, temp_db):
+    def test_border_crossing_points_changes(self, temp_db):
         """Test border crossing change detection and tracking."""
         # Initial entries
         initial_entries = [
@@ -129,7 +129,7 @@ class TestBorderCrossingStorage:
         temp_db.save_border_crossing_data(new_entries)
         
         # Get changes
-        changes = temp_db.get_border_crossing_changes(days=30)
+        changes = temp_db.get_border_crossing_points_changes(days=30)
         
         # Should have 2 changes: one ADDED, one REMOVED
         # Note: The change detection creates separate ADDED/REMOVED entries for each change

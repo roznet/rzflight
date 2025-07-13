@@ -171,7 +171,7 @@ class TestDatabaseStorage:
         
         expected_tables = {
             'airports', 'runways', 'procedures', 'aip_entries',
-            'aip_entries_changes', 'airport_field_changes', 'runways_changes', 'procedures_changes',
+            'aip_entries_changes', 'airports_changes', 'runways_changes', 'procedures_changes',
             'model_metadata', 'sources'
         }
         

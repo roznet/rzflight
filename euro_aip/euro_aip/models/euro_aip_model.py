@@ -26,7 +26,7 @@ class EuroAipModel:
     airports: Dict[str, Airport] = field(default_factory=dict)
     
     # Border crossing data: map from country ISO to airport name to entry
-    border_crossing_entries: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
+    border_crossing_points: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
     
     # Metadata
     created_at: datetime = field(default_factory=datetime.now)
@@ -232,7 +232,7 @@ class EuroAipModel:
         total_runways = sum(len(airport.runways) for airport in self.airports.values())
         total_procedures = sum(len(airport.procedures) for airport in self.airports.values())
         total_aip_entries = sum(len(airport.aip_entries) for airport in self.airports.values())
-        total_border_crossing_entries = len(self.get_all_border_crossing_entries())
+        total_border_crossing_points = len(self.get_all_border_crossing_points())
         
         # Count procedures by type
         procedure_types = {}
@@ -253,7 +253,7 @@ class EuroAipModel:
             'total_runways': total_runways,
             'total_procedures': total_procedures,
             'total_aip_entries': total_aip_entries,
-            'total_border_crossing_entries': total_border_crossing_entries,
+            'total_border_crossing_points': total_border_crossing_points,
             'procedure_types': procedure_types,
             'border_crossing': border_crossing_stats,
             'sources_used': list(self.sources_used),
@@ -271,12 +271,12 @@ class EuroAipModel:
         """
         return {
             'airports': {icao: airport.to_dict() for icao, airport in self.airports.items()},
-            'border_crossing_entries': {
+            'border_crossing_points': {
                 country_iso: {
                     airport_name: entry.to_dict() 
                     for airport_name, entry in country_entries.items()
                 }
-                for country_iso, country_entries in self.border_crossing_entries.items()
+                for country_iso, country_entries in self.border_crossing_points.items()
             },
             'statistics': self.get_statistics()
         }
@@ -297,7 +297,7 @@ class EuroAipModel:
 - Total runways: {stats['total_runways']}
 - Total procedures: {stats['total_procedures']}
 - Total AIP entries: {stats['total_aip_entries']}
-- Total border crossing entries: {stats['total_border_crossing_entries']}
+- Total border crossing entries: {stats['total_border_crossing_points']}
 - Sources used: {', '.join(stats['sources_used'])}
 - Created: {stats['created_at']}
 - Updated: {stats['updated_at']}"""
@@ -403,16 +403,16 @@ class EuroAipModel:
         country_iso = entry.country_iso
         airport_name = entry.airport_name
         
-        if country_iso not in self.border_crossing_entries:
-            self.border_crossing_entries[country_iso] = {}
+        if country_iso not in self.border_crossing_points:
+            self.border_crossing_points[country_iso] = {}
         
-        self.border_crossing_entries[country_iso][airport_name] = entry
+        self.border_crossing_points[country_iso][airport_name] = entry
         self.sources_used.add(entry.source)
         self.updated_at = datetime.now()
         
         logger.debug(f"Added border crossing entry for {airport_name} in {country_iso}")
     
-    def add_border_crossing_entries(self, entries: List[BorderCrossingEntry]) -> None:
+    def add_border_crossing_points(self, entries: List[BorderCrossingEntry]) -> None:
         """
         Add multiple border crossing entries to the model.
         
@@ -424,7 +424,7 @@ class EuroAipModel:
         
         logger.info(f"Added {len(entries)} border crossing entries to model")
     
-    def get_border_crossing_entries_by_country(self, country_iso: str) -> List[BorderCrossingEntry]:
+    def get_border_crossing_points_by_country(self, country_iso: str) -> List[BorderCrossingEntry]:
         """
         Get all border crossing entries for a specific country.
         
@@ -434,10 +434,10 @@ class EuroAipModel:
         Returns:
             List of border crossing entries for the country
         """
-        if country_iso not in self.border_crossing_entries:
+        if country_iso not in self.border_crossing_points:
             return []
         
-        return list(self.border_crossing_entries[country_iso].values())
+        return list(self.border_crossing_points[country_iso].values())
     
     def get_border_crossing_entry(self, country_iso: str, airport_name: str) -> Optional[BorderCrossingEntry]:
         """
@@ -450,12 +450,12 @@ class EuroAipModel:
         Returns:
             BorderCrossingEntry if found, None otherwise
         """
-        if country_iso not in self.border_crossing_entries:
+        if country_iso not in self.border_crossing_points:
             return None
         
-        return self.border_crossing_entries[country_iso].get(airport_name)
+        return self.border_crossing_points[country_iso].get(airport_name)
     
-    def get_all_border_crossing_entries(self) -> List[BorderCrossingEntry]:
+    def get_all_border_crossing_points(self) -> List[BorderCrossingEntry]:
         """
         Get all border crossing entries in the model.
         
@@ -463,7 +463,7 @@ class EuroAipModel:
             List of all border crossing entries
         """
         all_entries = []
-        for country_entries in self.border_crossing_entries.values():
+        for country_entries in self.border_crossing_points.values():
             all_entries.extend(country_entries.values())
         return all_entries
     
@@ -474,7 +474,7 @@ class EuroAipModel:
         Returns:
             List of ISO country codes
         """
-        return list(self.border_crossing_entries.keys())
+        return list(self.border_crossing_points.keys())
     
     def get_border_crossing_statistics(self) -> Dict[str, Any]:
         """
@@ -483,13 +483,13 @@ class EuroAipModel:
         Returns:
             Dictionary with border crossing statistics
         """
-        total_entries = len(self.get_all_border_crossing_entries())
-        countries_count = len(self.border_crossing_entries)
+        total_entries = len(self.get_all_border_crossing_points())
+        countries_count = len(self.border_crossing_points)
         
         # Count matched vs unmatched
         matched_count = 0
         unmatched_count = 0
-        for entry in self.get_all_border_crossing_entries():
+        for entry in self.get_all_border_crossing_points():
             if entry.matched_airport_icao:
                 matched_count += 1
             else:
@@ -497,13 +497,13 @@ class EuroAipModel:
         
         # Count by source
         source_counts = {}
-        for entry in self.get_all_border_crossing_entries():
+        for entry in self.get_all_border_crossing_points():
             source = entry.source or 'unknown'
             source_counts[source] = source_counts.get(source, 0) + 1
         
         # Count by country
         country_counts = {}
-        for country_iso, entries in self.border_crossing_entries.items():
+        for country_iso, entries in self.border_crossing_points.items():
             country_counts[country_iso] = len(entries)
         
         return {
@@ -524,7 +524,7 @@ class EuroAipModel:
             List of airports that are border crossing points
         """
         border_airports = []
-        for entry in self.get_all_border_crossing_entries():
+        for entry in self.get_all_border_crossing_points():
             if entry.matched_airport_icao and entry.matched_airport_icao in self.airports:
                 border_airports.append(self.airports[entry.matched_airport_icao])
         
@@ -536,7 +536,7 @@ class EuroAipModel:
         This should be called after adding border crossing entries to ensure
         airport objects have the correct point_of_entry flag and source tracking.
         """
-        for entry in self.get_all_border_crossing_entries():
+        for entry in self.get_all_border_crossing_points():
             if entry.matched_airport_icao and entry.matched_airport_icao in self.airports:
                 airport = self.airports[entry.matched_airport_icao]
                 airport.point_of_entry = True
