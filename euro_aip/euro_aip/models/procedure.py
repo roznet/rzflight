@@ -9,9 +9,9 @@ class Procedure:
     name: str  # e.g., "RWY13 ILS LOC"
     procedure_type: str  # 'approach', 'departure', 'arrival'
     approach_type: Optional[str] = None  # 'ILS', 'VOR', 'NDB', etc.
-    runway_ident: Optional[str] = None  # e.g., "13", "31"
+    runway_number: Optional[str] = None  # e.g., "13", "31"
     runway_letter: Optional[str] = None  # e.g., "L", "R", "C"
-    runway: Optional[str] = None  # Full runway identifier e.g., "13L"
+    runway_ident: Optional[str] = None  # Full runway identifier e.g., "13L"
     category: Optional[str] = None  # 'CAT I', 'CAT II', etc.
     minima: Optional[str] = None  # Minimums information
     notes: Optional[str] = None
@@ -24,10 +24,10 @@ class Procedure:
     
     def get_full_runway_ident(self) -> Optional[str]:
         """Get the full runway identifier (e.g., '13L')."""
-        if self.runway_ident:
+        if self.runway_number:
             if self.runway_letter:
-                return f"{self.runway_ident}{self.runway_letter}"
-            return self.runway_ident
+                return f"{self.runway_number}{self.runway_letter}"
+            return self.runway_number
         return self.runway
     
     def matches_runway(self, runway_ident: str) -> bool:
@@ -52,9 +52,9 @@ class Procedure:
             'name': self.name,
             'procedure_type': self.procedure_type,
             'approach_type': self.approach_type,
-            'runway_ident': self.runway_ident,
+            'runway_number': self.runway_number,
             'runway_letter': self.runway_letter,
-            'runway': self.runway,
+            'runway_ident': self.runway,
             'category': self.category,
             'minima': self.minima,
             'notes': self.notes,

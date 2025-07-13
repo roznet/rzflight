@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import List, Optional
+from ..models.airport import Airport
+from ..models.runway import Runway
+from ..models.procedure import Procedure
 
-from ..core.models import Airport, Runway, Procedure
 
 class StorageInterface(ABC):
     """Base interface for storage backends."""

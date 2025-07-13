@@ -16,12 +16,21 @@ class DefaultProcedureParser(ProcedureParser):
             'APPROACH TERRAIN CHART',
             'INITIAL APPROACH PROCEDURE'
         ]
-        self.valid_patterns = ['APPROACH CHART', ' IAC ', ' IAC/']
-        self.cleanup_patterns = [
+        self.valid_patterns = [
+            'APPROACH CHART', ' IAC ', ' IAC/']
+        self.cleanup_patterns = [re.compile(x) for x in [
             r'.*(INSTRUMENT APPROACH CHART| IAC[ /])[- ]*',
             r'[- ]*ICAO[- ]*'
-        ]
-        self.runway_pattern = re.compile(r'\s+([0-3][0-9])([RLC])?')
+        ]]
+        self.runway_patterns = [ re.compile(x) for x in [ 
+            r'RWY\s*(\d{1,2})([LRC]?)',  # RWY 13L, RWY 31R, etc.
+            r'(\d{1,2})([LRC]?)\s*ILS',  # 13L ILS, 31R ILS, etc.
+            r'ILS\s*(\d{1,2})([LRC]?)',  # ILS 13L, ILS 31R, etc.
+            r'(\d{1,2})([LRC]?)\s*VOR',  # 13L VOR, 31R VOR, etc.
+            r'VOR\s*(\d{1,2})([LRC]?)',  # VOR 13L, VOR 31R, etc.
+            r'(\d{1,2})([LRC]?)\s*NDB',   # 13L NDB, 31R NDB, etc.
+            r'NDB\s*(\d{1,2})([LRC]?)',  # NDB 13L, NDB 31R, etc.
+        ]]
     
     def get_supported_authorities(self) -> List[str]:
         """Get list of supported authority codes."""
@@ -68,7 +77,9 @@ class DefaultProcedureParser(ProcedureParser):
         """Clean up the procedure heading."""
         name = heading.upper()
         for pattern in self.cleanup_patterns:
-            name = re.sub(pattern, '', name)
+            name = pattern.sub('', name)
+        name = name.replace('_', ' ')
+
         return name.strip()
     
     def _parse_procedure_name(self, name: str, icao: str) -> Dict[str, Any]:
@@ -91,14 +102,20 @@ class DefaultProcedureParser(ProcedureParser):
                 break
                 
         # Then look for runway number
-        runway_match = self.runway_pattern.search(name)
+        runway_match = None
+        for pattern in self.runway_patterns:
+            runway_match = pattern.search(name)
+            if runway_match:
+                break
         
         if runway_match:
             runway_number = runway_match.group(1)
             runway_letter = runway_match.group(2) if runway_match.group(2) else None
+            runway_ident = f"{runway_number}{runway_letter}" if runway_letter else runway_number
         else:
             runway_number = None
             runway_letter = None
+            runway_ident = None
             
         return {
             'icao': icao,
@@ -106,6 +123,7 @@ class DefaultProcedureParser(ProcedureParser):
             'type': 'approach',  # Default to approach since we filter for these
             'raw_name': name,
             'approach_type': approach_type,
-            'runway_number': runway_number,
-            'runway_letter': runway_letter
+            'runway_number': runway_ident,
+            'runway_letter': runway_letter,
+            'runway_ident': runway_ident,
         }

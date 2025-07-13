@@ -253,9 +253,11 @@ class FranceEAIPSource(CachedSource, SourceInterface):
         """
         from ..models import Airport, Procedure
         from ..utils.field_standardization_service import FieldStandardizationService
+        from ..parsers.procedure_default import DefaultProcedureParser
         
-        # Initialize field standardization service
+        # Initialize field standardization service and procedure parser
         field_service = FieldStandardizationService()
+        procedure_parser = DefaultProcedureParser()
         
         # Determine which airports to process
         if airports is None:
@@ -296,25 +298,26 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                     if procedures_data:
                         for proc_data in procedures_data:
                             if proc_data:
-                                # Extract runway information from procedure name
-                                runway_info = self._extract_runway_from_procedure_name(proc_data.get('name', ''))
+                                # Use the DefaultProcedureParser to parse procedure name
+                                parsed_procedure = procedure_parser.parse(proc_data.get('name', ''), icao)
                                 
-                                procedure = Procedure(
-                                    name=proc_data.get('name', ''),
-                                    procedure_type=proc_data.get('type', 'unknown'),
-                                    approach_type=proc_data.get('approach_type', ''),
-                                    runway_ident=runway_info.get('runway_ident'),
-                                    runway_letter=runway_info.get('runway_letter'),
-                                    runway=runway_info.get('full_runway'),
-                                    category=proc_data.get('category'),
-                                    minima=proc_data.get('minima'),
-                                    notes=proc_data.get('notes'),
-                                    source='france_eaip',
-                                    authority='LFC',
-                                    raw_name=proc_data.get('name', ''),
-                                    data=proc_data
-                                )
-                                airport.add_procedure(procedure)
+                                if parsed_procedure:
+                                    procedure = Procedure(
+                                        name=proc_data.get('name', ''),
+                                        procedure_type=proc_data.get('type', 'unknown'),
+                                        approach_type=parsed_procedure.get('approach_type', ''),
+                                        runway_ident=parsed_procedure.get('runway_ident'),
+                                        runway_letter=parsed_procedure.get('runway_letter'),
+                                        runway=parsed_procedure.get('runway_ident'),
+                                        category=proc_data.get('category'),
+                                        minima=proc_data.get('minima'),
+                                        notes=proc_data.get('notes'),
+                                        source='france_eaip',
+                                        authority='LFC',
+                                        raw_name=proc_data.get('name', ''),
+                                        data=proc_data
+                                    )
+                                    airport.add_procedure(procedure)
                         
                         logger.debug(f"Added {len(procedures_data)} procedures for {icao}")
                 except FileNotFoundError:
@@ -324,63 +327,4 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                 
             except Exception as e:
                 logger.error(f"Error updating {icao} with France eAIP data: {e}")
-                # Continue with next airport instead of failing completely
-    
-    def _extract_runway_from_procedure_name(self, procedure_name: str) -> dict:
-        """
-        Extract runway information from procedure name.
-        
-        Args:
-            procedure_name: Name of the procedure
-            
-        Returns:
-            Dictionary with runway_ident, runway_letter, and full_runway
-        """
-        import re
-        
-        # Common patterns for runway extraction
-        patterns = [
-            r'RWY\s*(\d{1,2})([LRC]?)',  # RWY 13L, RWY 31R, etc.
-            r'(\d{1,2})([LRC]?)\s*ILS',  # 13L ILS, 31R ILS, etc.
-            r'ILS\s*(\d{1,2})([LRC]?)',  # ILS 13L, ILS 31R, etc.
-            r'(\d{1,2})([LRC]?)\s*VOR',  # 13L VOR, 31R VOR, etc.
-            r'VOR\s*(\d{1,2})([LRC]?)',  # VOR 13L, VOR 31R, etc.
-            r'(\d{1,2})([LRC?)\s*NDB',   # 13L NDB, 31R NDB, etc.
-            r'NDB\s*(\d{1,2})([LRC]?)',  # NDB 13L, NDB 31R, etc.
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, procedure_name, re.IGNORECASE)
-            if match:
-                runway_ident = match.group(1)
-                runway_letter = match.group(2) if len(match.groups()) > 1 else None
-                full_runway = f"{runway_ident}{runway_letter}" if runway_letter else runway_ident
-                
-                return {
-                    'runway_ident': runway_ident,
-                    'runway_letter': runway_letter,
-                    'full_runway': full_runway
-                }
-        
-        return {'runway_ident': None, 'runway_letter': None, 'full_runway': None}
-    
-    def _extract_approach_type(self, procedure_name: str) -> Optional[str]:
-        """
-        Extract approach type from procedure name.
-        
-        Args:
-            procedure_name: Name of the procedure
-            
-        Returns:
-            Approach type (ILS, VOR, NDB, etc.) or None
-        """
-        import re
-        
-        # Common approach types
-        approach_types = ['ILS', 'VOR', 'NDB', 'RNAV', 'GNSS', 'LOC', 'LDA', 'SDF']
-        
-        for approach_type in approach_types:
-            if re.search(rf'\b{approach_type}\b', procedure_name, re.IGNORECASE):
-                return approach_type
-        
-        return None 
+                # Continue with next airport instead of failing completely 

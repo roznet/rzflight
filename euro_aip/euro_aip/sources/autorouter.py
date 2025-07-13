@@ -80,26 +80,7 @@ class AutorouterSource(CachedSource, SourceInterface):
             raise
 
 
-    def fetch_document(self, doc_id: str) -> bytes:
-        """
-        Fetch a document from Autorouter API.
-        
-        Args:
-            doc_id: Document ID
-            
-        Returns:
-            Document content as bytes
-        """
-        url = f"{self.base_url}/id/{doc_id}"
-        try:
-            response = requests.get(url, headers=self._get_headers())
-            response.raise_for_status()
-            return response.content
-        except requests.RequestException as e:
-            logger.error(f"Error fetching document {doc_id}: {e}")
-            raise
-
-    def get_airport_data(self, icao: str, max_age_days: int = 28) -> Dict[str, Any]:
+    def get_airport_doclist(self, icao: str, max_age_days: int = 28) -> Dict[str, Any]:
         """
         Get airport data from cache or fetch it if not available.
         
@@ -110,7 +91,7 @@ class AutorouterSource(CachedSource, SourceInterface):
         Returns:
             Dictionary containing airport data
         """
-        return self.get_data('airport', 'json', icao, max_age_days=max_age_days)
+        return self.get_data('airport_doclist', 'json', icao, max_age_days=max_age_days)
 
     def fetch_procedures(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
         """
@@ -127,7 +108,10 @@ class AutorouterSource(CachedSource, SourceInterface):
         data = self.get_airport_data(icao, max_age_days)
         if not data:
             return []
-            
+        
+        return self.parse_procedure(data, icao)
+        
+    def parse_procedure(self, data: List[Dict[str, Any]], icao: str) -> List[Dict[str, Any]]:
         # Extract procedures from airport data
         rv = []
         for info in data:
@@ -162,6 +146,25 @@ class AutorouterSource(CachedSource, SourceInterface):
         """
         return self.get_data('procedures', 'json', icao, max_age_days=max_age_days)
     
+    def fetch_document(self, doc_id: str) -> bytes:
+        """
+        Fetch a document from Autorouter API.
+        
+        Args:
+            doc_id: Document ID
+            
+        Returns:
+            Document content as bytes
+        """
+        url = f"{self.base_url}/id/{doc_id}"
+        try:
+            response = requests.get(url, headers=self._get_headers())
+            response.raise_for_status()
+            return response.content
+        except requests.RequestException as e:
+            logger.error(f"Error fetching document {doc_id}: {e}")
+            raise
+
     def get_document(self, doc_id: str, icao: str, max_age_days: int = 28) -> bytes:
         """
         Get document from cache or fetch it if not available.
@@ -176,19 +179,6 @@ class AutorouterSource(CachedSource, SourceInterface):
         """
         return self.get_data('document', 'pdf', doc_id, cache_param=icao, max_age_days=max_age_days)
 
-    def get_airport_documents(self, icao: str, max_age_days: int = 28) -> List[Dict[str, Any]]:
-        """
-        Get airport documents list from cache or fetch it if not available.
-        
-        Args:
-            icao: ICAO airport code
-            max_age_days: Maximum age of cache in days
-            
-        Returns:
-            List of dictionaries containing document information
-        """
-        data = self.get_airport_data(icao, max_age_days)
-        return self._extract_airport_doc_list(data)
 
     def fetch_airport_aip(self, icao: str, max_age_days: int = 28) -> Optional[Dict[str, Any]]:
         """
@@ -201,7 +191,8 @@ class AutorouterSource(CachedSource, SourceInterface):
         Returns:
             Dictionary containing parsed AIP data or None if not available
         """
-        docs = self.get_airport_documents(icao, max_age_days)
+        data = self.get_airport_doclist(icao, max_age_days)
+        docs = self._extract_airport_doc_list(data)
         if not docs:
             return None
             
@@ -318,11 +309,26 @@ class AutorouterSource(CachedSource, SourceInterface):
                 if procedures_data:
                     for proc_data in procedures_data:
                         if proc_data:
+                            proc_type = proc_data.get('type', 'unknown')
+                            if proc_type != 'approach':
+                                continue
+                            approach_type = proc_data.get('approach_type', 'unknown')
+                            if approach_type == 'unknown':
+                                continue
                             procedure = Procedure(
-                                procedure_type=proc_data.get('type', 'unknown'),
-                                name=proc_data.get('heading', ''),
+                                name=proc_data.get('name', ''),
+                                procedure_type=proc_type,
+                                approach_type=approach_type,
+                                runway_number=proc_data.get('runway_number'),
+                                runway_letter=proc_data.get('runway_letter'),
+                                runway_ident=proc_data.get('runway_ident'),
+                                category=proc_data.get('category'),
+                                notes=proc_data.get('notes'),
+                                source='autorouter',
+                                raw_name=proc_data.get('raw_name', ''),
                                 data=proc_data
                             )
+
                             airport.procedures.append(procedure)
                 
                 logger.debug(f"Updated {icao} with Autorouter data")
