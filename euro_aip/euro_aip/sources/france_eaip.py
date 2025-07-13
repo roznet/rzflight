@@ -257,7 +257,7 @@ class FranceEAIPSource(CachedSource, SourceInterface):
         
         # Initialize field standardization service and procedure parser
         field_service = FieldStandardizationService()
-        procedure_parser = DefaultProcedureParser()
+        procedure_parser = ProcedureParserFactory.get_parser('LFC')
         
         # Determine which airports to process
         if airports is None:
@@ -268,6 +268,8 @@ class FranceEAIPSource(CachedSource, SourceInterface):
             return
         
         logger.info(f"Updating model with {len(airports)} airports from France eAIP")
+
+        skipped = []
         
         for icao in airports:
             try:
@@ -276,7 +278,6 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                     model.airports[icao] = Airport(ident=icao)
                 
                 airport = model.airports[icao]
-                
                 # Get AIP data and convert to AIPEntry objects
                 try:
                     aip_data = self.get_airport_aip(icao)
@@ -289,9 +290,9 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                             airport.add_source('france_eaip')
                             logger.debug(f"Added {len(entries)} AIP entries for {icao}")
                 except FileNotFoundError:
-                    logger.info(f"Airport {icao} not found in France eAIP source - skipping")
+                    skipped.append(icao)
                     continue
-                
+
                 # Get procedures and create enhanced Procedure objects
                 try:
                     procedures_data = self.get_procedures(icao)
@@ -299,25 +300,21 @@ class FranceEAIPSource(CachedSource, SourceInterface):
                         for proc_data in procedures_data:
                             if proc_data:
                                 # Use the DefaultProcedureParser to parse procedure name
-                                parsed_procedure = procedure_parser.parse(proc_data.get('name', ''), icao)
+                                parsed_procedure = proc_data
                                 
-                                if parsed_procedure:
-                                    procedure = Procedure(
-                                        name=proc_data.get('name', ''),
-                                        procedure_type=proc_data.get('type', 'unknown'),
-                                        approach_type=parsed_procedure.get('approach_type', ''),
-                                        runway_ident=parsed_procedure.get('runway_ident'),
-                                        runway_letter=parsed_procedure.get('runway_letter'),
-                                        runway=parsed_procedure.get('runway_ident'),
-                                        category=proc_data.get('category'),
-                                        minima=proc_data.get('minima'),
-                                        notes=proc_data.get('notes'),
-                                        source='france_eaip',
-                                        authority='LFC',
-                                        raw_name=proc_data.get('name', ''),
-                                        data=proc_data
-                                    )
-                                    airport.add_procedure(procedure)
+                                procedure = Procedure(
+                                    name=proc_data.get('name', ''),
+                                    procedure_type=proc_data.get('type', 'unknown'),
+                                    approach_type=parsed_procedure.get('approach_type', ''),
+                                    runway_ident=parsed_procedure.get('runway_ident'),
+                                    runway_letter=parsed_procedure.get('runway_letter'),
+                                    runway_number=parsed_procedure.get('runway_number'),
+                                    source='france_eaip',
+                                    authority='LFC',
+                                    raw_name=proc_data.get('name', ''),
+                                    data=proc_data
+                                )
+                                airport.add_procedure(procedure)
                         
                         logger.debug(f"Added {len(procedures_data)} procedures for {icao}")
                 except FileNotFoundError:
@@ -328,3 +325,7 @@ class FranceEAIPSource(CachedSource, SourceInterface):
             except Exception as e:
                 logger.error(f"Error updating {icao} with France eAIP data: {e}")
                 # Continue with next airport instead of failing completely 
+
+        if len(skipped) > 0:
+            logger.info(f"{len(skipped)}/{len(airports)} Airports not found in France eAIP source")
+                

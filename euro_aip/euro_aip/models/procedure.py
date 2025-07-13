@@ -12,9 +12,6 @@ class Procedure:
     runway_number: Optional[str] = None  # e.g., "13", "31"
     runway_letter: Optional[str] = None  # e.g., "L", "R", "C"
     runway_ident: Optional[str] = None  # Full runway identifier e.g., "13L"
-    category: Optional[str] = None  # 'CAT I', 'CAT II', etc.
-    minima: Optional[str] = None  # Minimums information
-    notes: Optional[str] = None
     source: Optional[str] = None  # Which source provided this data
     authority: Optional[str] = None  # Authority code (LFC, EGC, etc.)
     raw_name: Optional[str] = None  # Original procedure name
@@ -55,9 +52,6 @@ class Procedure:
             'runway_number': self.runway_number,
             'runway_letter': self.runway_letter,
             'runway_ident': self.runway,
-            'category': self.category,
-            'minima': self.minima,
-            'notes': self.notes,
             'source': self.source,
             'authority': self.authority,
             'raw_name': self.raw_name,

@@ -17,7 +17,7 @@ class DefaultProcedureParser(ProcedureParser):
             'INITIAL APPROACH PROCEDURE'
         ]
         self.valid_patterns = [
-            'APPROACH CHART', ' IAC ', ' IAC/']
+            'APPROACH CHART', ' IAC ', ' IAC/', '_IAC']
         self.cleanup_patterns = [re.compile(x) for x in [
             r'.*(INSTRUMENT APPROACH CHART| IAC[ /])[- ]*',
             r'[- ]*ICAO[- ]*'
@@ -48,16 +48,17 @@ class DefaultProcedureParser(ProcedureParser):
             Dictionary containing parsed procedure data or None if invalid
         """
         # Check if this is a valid approach procedure
-        if not self._is_valid_procedure(heading):
+        # it should run before the cleanup, because the cleanup might remove the valid pattern
+        if not self._is_valid_procedure(heading, icao):
             return None
             
         # Clean up the heading
-        name = self._cleanup_heading(heading)
+        name = self._cleanup_heading(heading, icao)
         
         # Parse the procedure name
         return self._parse_procedure_name(name, icao)
     
-    def _is_valid_procedure(self, heading: str) -> bool:
+    def _is_valid_procedure(self, heading: str, icao: str) -> bool:
         """Check if the heading represents a valid approach procedure."""
         heading_upper = heading.upper()
         
@@ -73,7 +74,7 @@ class DefaultProcedureParser(ProcedureParser):
             
         return True
     
-    def _cleanup_heading(self, heading: str) -> str:
+    def _cleanup_heading(self, heading: str, icao: str) -> str:
         """Clean up the procedure heading."""
         name = heading.upper()
         for pattern in self.cleanup_patterns:

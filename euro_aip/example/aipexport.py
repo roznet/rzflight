@@ -174,7 +174,7 @@ class ModelBuilder:
         
         for source_name, source in self.sources.items():
             # worldairports contains all airports in the world, so it's not useful to find available airports
-            if source_name == 'worldairports' and self.args.worldairports_filter != 'all':
+            if source_name == 'worldairports' and self.args.worldairports_filter == 'all':
                 continue
             if hasattr(source, 'find_available_airports'):
                 try:

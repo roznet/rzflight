@@ -83,9 +83,6 @@ class DatabaseStorage:
                     runway_ident TEXT,
                     runway_letter TEXT,
                     runway_number TEXT,
-                    category TEXT,
-                    minima TEXT,
-                    notes TEXT,
                     source TEXT,
                     authority TEXT,
                     raw_name TEXT,
@@ -547,12 +544,12 @@ class DatabaseStorage:
                 conn.execute('''
                     UPDATE procedures SET
                     approach_type = ?, runway_ident = ?, runway_letter = ?, runway_number = ?,
-                    category = ?, minima = ?, notes = ?, source = ?, authority = ?,
+                    source = ?, authority = ?,
                     raw_name = ?, updated_at = ?
                     WHERE id = ?
                 ''', (
                     procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
-                    procedure.runway_number, procedure.category, procedure.minima, procedure.notes,
+                    procedure.runway_number,
                     procedure.source, procedure.authority, procedure.raw_name,
                     datetime.now().isoformat(), current_procedure['id']
                 ))
@@ -561,13 +558,13 @@ class DatabaseStorage:
                 conn.execute('''
                     INSERT INTO procedures 
                     (airport_icao, name, procedure_type, approach_type, runway_ident,
-                     runway_letter, runway_number, category, minima, notes, source, authority,
+                     runway_letter, runway_number, source, authority,
                      raw_name, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     airport.ident, procedure.name, procedure.procedure_type,
                     procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
-                    procedure.runway_number, procedure.category, procedure.minima, procedure.notes,
+                    procedure.runway_number, 
                     procedure.source, procedure.authority, procedure.raw_name,
                     procedure.created_at.isoformat(), datetime.now().isoformat()
                 ))
@@ -713,7 +710,7 @@ class DatabaseStorage:
         else:
             # Check for changes in existing procedure
             for field_name in ['approach_type', 'runway_ident', 'runway_letter', 'runway_number',
-                              'category', 'minima', 'notes', 'source', 'authority', 'raw_name']:
+                              'source', 'authority', 'raw_name']:
                 old_value = current.get(field_name)
                 new_value = getattr(new, field_name)
                 
@@ -898,9 +895,6 @@ class DatabaseStorage:
                 runway_ident=row['runway_ident'],
                 runway_letter=row['runway_letter'],
                 runway_number=row['runway_number'],
-                category=row['category'],
-                minima=row['minima'],
-                notes=row['notes'],
                 source=row['source'],
                 authority=row['authority'],
                 raw_name=row['raw_name']

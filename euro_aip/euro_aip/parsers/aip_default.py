@@ -136,5 +136,18 @@ class DefaultAIPParser(AIPParser):
                 'value': '\n'.join(values),
                 'alt_value': '\n'.join(alt_values)
             }
+
+            # if we have an alt field, usually field is in native language and alt_field is in english
+            # so we swap them for consistency on field name
+            if alt_field:
+                data['field'] = alt_field
+                data['alt_field'] = field
+
+            # if we have an alt value, usually value is in native language and alt_value is in english
+            # so we swap them for consistency on value
+            if alt_values:
+                data['value'] = '\n'.join(alt_values)
+                data['alt_value'] = '\n'.join(values)
+
             rv.append(data)
         return rv 

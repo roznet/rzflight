@@ -280,7 +280,7 @@ class UKEAIPSource(CachedSource, SourceInterface):
         
         # Initialize field standardization service and procedure parser
         field_service = FieldStandardizationService()
-        procedure_parser = DefaultProcedureParser()
+        procedure_parser = ProcedureParserFactory.get_parser('EGC')
         
         # Determine which airports to process
         if airports is None:
@@ -291,6 +291,8 @@ class UKEAIPSource(CachedSource, SourceInterface):
             return
         
         logger.info(f"Updating model with {len(airports)} airports from UK eAIP")
+        
+        skipped = []
         
         for icao in airports:
             try:
@@ -312,7 +314,7 @@ class UKEAIPSource(CachedSource, SourceInterface):
                             airport.add_source('uk_eaip')
                             logger.debug(f"Added {len(entries)} AIP entries for {icao}")
                 except FileNotFoundError:
-                    logger.info(f"Airport {icao} not found in UK eAIP source - skipping")
+                    skipped.append(icao)
                     continue
                 
                 # Get procedures and create enhanced Procedure objects
@@ -331,10 +333,7 @@ class UKEAIPSource(CachedSource, SourceInterface):
                                         approach_type=parsed_procedure.get('approach_type', ''),
                                         runway_ident=parsed_procedure.get('runway_ident'),
                                         runway_letter=parsed_procedure.get('runway_letter'),
-                                        runway=parsed_procedure.get('runway_ident'),
-                                        category=proc_data.get('category'),
-                                        minima=proc_data.get('minima'),
-                                        notes=proc_data.get('notes'),
+                                        runway_number=parsed_procedure.get('runway_number'),
                                         source='uk_eaip',
                                         authority='EGC',
                                         raw_name=proc_data.get('name', ''),
@@ -352,4 +351,7 @@ class UKEAIPSource(CachedSource, SourceInterface):
                 logger.error(f"Error updating {icao} with UK eAIP data: {e}")
                 # Continue with next airport instead of failing completely
     
+        if len(skipped) > 0:
+            logger.info(f"{len(skipped)}/{len(airports)} Airports not found in UK eAIP source")
+        
  

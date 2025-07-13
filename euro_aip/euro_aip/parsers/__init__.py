@@ -13,6 +13,7 @@ from .bordercrossing import BorderCrossingParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
 from .procedure_default import DefaultProcedureParser
 from .procedure_lfc import LFCProcedureParser
+from .procedure_egc import EGCProcedureParser
 
 # Register the general AIP parsers
 AIPParserFactory.register_pdf_parser('LEC', LECAIPParser)
@@ -31,6 +32,7 @@ AIPParserFactory.register_pdf_parser('EGC', DefaultAIPParser)
 # Register the procedure parsers
 ProcedureParserFactory.register_parser(PROCEDURE_DEFAULT_AUTHORITY, DefaultProcedureParser)
 ProcedureParserFactory.register_parser('LFC', LFCProcedureParser)
+ProcedureParserFactory.register_parser('EGC', EGCProcedureParser)
 
 __all__ = [
     'AIPParserFactory',

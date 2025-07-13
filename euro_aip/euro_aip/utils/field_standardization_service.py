@@ -92,7 +92,9 @@ class FieldStandardizationService:
                     ident=icao,
                     section=section,
                     field=field_name,
-                    value=value
+                    value=value,
+                    alt_field=item.get('alt_field', ''),
+                    alt_value=item.get('alt_value', '')
                 )
                 entries.append(entry)
         
