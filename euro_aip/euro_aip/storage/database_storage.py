@@ -1318,14 +1318,15 @@ class DatabaseStorage:
         
         # Find added entries
         added = new_set - current_set
-        for airport_name, country_iso, source in added:
-            changes.append(BorderCrossingChange(
-                airport_name=airport_name,
-                country_iso=country_iso,
-                action='ADDED',
-                source=source,
-                changed_at=now
-            ))
+        if current_set:
+            for airport_name, country_iso, source in added:
+                changes.append(BorderCrossingChange(
+                    airport_name=airport_name,
+                    country_iso=country_iso,
+                    action='ADDED',
+                    source=source,
+                    changed_at=now
+                ))
         
         # Find removed entries
         removed = current_set - new_set

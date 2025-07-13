@@ -29,6 +29,19 @@
             "args": "--worldairports --worldairports-filter all --france-eaip cache/eaip_12_jun_2025 --uk-eaip cache/AIRAC_06_25 --database-storage airports.db "
         },
         {
+            "name": "Python Debugger: Rebuild border crossing",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "bordercrossingexport.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/example"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "--worldairports --database-storage airports.db ../data/airfieldmap.csv"
+        },
+        {
             "name": "Python Debugger: Autorouter EGKB",
             "type": "debugpy",
             "request": "launch",
@@ -46,42 +59,6 @@
             ]
         },
         {
-            "name": "Python Debugger: France eAIP LFQA",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "aip.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            },
-            "cwd": "${workspaceFolder}/example",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "args": [
-                "--root-dir",
-                "cache/eaip_17_apr_2025",
-                "france_eaip"
-            ]
-        },
-        {
-            "name": "Python Debugger: UK eAIP EGMC",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "aip.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            },
-            "cwd": "${workspaceFolder}/example",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "args": [
-                "--root-dir",
-                "cache/AIRAC 06-25",
-                "-f",
-                "uk_eaip",
-                "EGMC"
-            ]
-        },
-        {
             "name": "Python Debugger: World Airports",
             "type": "debugpy",
             "request": "launch",
@@ -94,23 +71,6 @@
             "python": "${workspaceFolder}/venv/bin/python",
             "args": [
                 "worldairports"
-            ]
-        },
-        {
-            "name": "Python Debugger: Point de Passage",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "aip.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/euro_aip"
-            },
-            "cwd": "${workspaceFolder}/example",
-            "python": "${workspaceFolder}/venv/bin/python",
-            "args": [
-                "pointdepassage",
-                "-j",
-                "cache/joe_20210529.pdf"
             ]
         },
         {
