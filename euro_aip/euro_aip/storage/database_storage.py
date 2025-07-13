@@ -15,7 +15,7 @@ from ..models.procedure import Procedure
 from ..models.aip_entry import AIPEntry
 from ..models.border_crossing_entry import BorderCrossingEntry
 from ..models.border_crossing_change import BorderCrossingChange
-from .field_definitions import AirportFields, RunwayFields, SchemaManager
+from .field_definitions import AirportFields, RunwayFields, SchemaManager, ProcedureFields
 
 logger = logging.getLogger(__name__)
 
@@ -72,25 +72,17 @@ class DatabaseStorage:
             )
             conn.execute(runways_sql)
             
-            # Create procedures table (keeping existing structure for now)
-            conn.execute('''
-                CREATE TABLE procedures (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    airport_icao TEXT,
-                    name TEXT,
-                    procedure_type TEXT,
-                    approach_type TEXT,
-                    runway_ident TEXT,
-                    runway_letter TEXT,
-                    runway_number TEXT,
-                    source TEXT,
-                    authority TEXT,
-                    raw_name TEXT,
-                    created_at TEXT,
-                    updated_at TEXT,
-                    FOREIGN KEY (airport_icao) REFERENCES airports (icao_code)
-                )
-            ''')
+            # Create procedures table using field definitions
+            procedures_sql = self.schema_manager.get_create_table_sql(
+                "procedures", 
+                ProcedureFields.get_all_fields()
+            )
+            # Add auto-incrementing id column
+            procedures_sql = procedures_sql.replace(
+                "CREATE TABLE procedures (",
+                "CREATE TABLE procedures (\n    id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            )
+            conn.execute(procedures_sql)
             
             # Create AIP entries table (keeping existing structure for now)
             conn.execute('''
@@ -114,9 +106,9 @@ class DatabaseStorage:
                 )
             ''')
             
-            # Change tracking tables
+            # Change tracking tables with consistent naming
             conn.execute('''
-                CREATE TABLE aip_field_changes (
+                CREATE TABLE aip_entries_changes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     airport_icao TEXT,
                     section TEXT,
@@ -147,7 +139,7 @@ class DatabaseStorage:
             ''')
             
             conn.execute('''
-                CREATE TABLE runway_changes (
+                CREATE TABLE runways_changes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     airport_icao TEXT,
                     runway_id INTEGER,
@@ -163,7 +155,7 @@ class DatabaseStorage:
             ''')
             
             conn.execute('''
-                CREATE TABLE procedure_changes (
+                CREATE TABLE procedures_changes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     airport_icao TEXT,
                     procedure_id INTEGER,
@@ -225,11 +217,11 @@ class DatabaseStorage:
             ''')
             
             # Indexes for performance
-            conn.execute('CREATE INDEX idx_aip_changes_airport_time ON aip_field_changes (airport_icao, changed_at)')
-            conn.execute('CREATE INDEX idx_aip_changes_field_time ON aip_field_changes (field, changed_at)')
+            conn.execute('CREATE INDEX idx_aip_entries_changes_airport_time ON aip_entries_changes (airport_icao, changed_at)')
+            conn.execute('CREATE INDEX idx_aip_entries_changes_field_time ON aip_entries_changes (field, changed_at)')
             conn.execute('CREATE INDEX idx_airport_changes_airport_time ON airport_field_changes (airport_icao, changed_at)')
-            conn.execute('CREATE INDEX idx_runway_changes_airport_time ON runway_changes (airport_icao, changed_at)')
-            conn.execute('CREATE INDEX idx_procedure_changes_airport_time ON procedure_changes (airport_icao, changed_at)')
+            conn.execute('CREATE INDEX idx_runways_changes_airport_time ON runways_changes (airport_icao, changed_at)')
+            conn.execute('CREATE INDEX idx_procedures_changes_airport_time ON procedures_changes (airport_icao, changed_at)')
             conn.execute('CREATE INDEX idx_aip_entries_airport_section ON aip_entries (airport_icao, section)')
             conn.execute('CREATE INDEX idx_runways_airport ON runways (airport_icao)')
             conn.execute('CREATE INDEX idx_procedures_airport ON procedures (airport_icao)')
@@ -441,7 +433,7 @@ class DatabaseStorage:
             # Save changes to history
             for change in changes:
                 conn.execute('''
-                    INSERT INTO runway_changes 
+                    INSERT INTO runways_changes 
                     (airport_icao, runway_id, field_name, old_value, new_value, field_type, source, changed_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
@@ -527,7 +519,7 @@ class DatabaseStorage:
         if current_procedures:
             for name, proc_type in added_procedures:
                 conn.execute('''
-                    INSERT INTO procedure_changes 
+                    INSERT INTO procedures_changes 
                     (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
@@ -545,7 +537,7 @@ class DatabaseStorage:
                     break
             
             conn.execute('''
-                INSERT INTO procedure_changes 
+                INSERT INTO procedures_changes 
                 (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
@@ -557,21 +549,35 @@ class DatabaseStorage:
         if current_procedures:
             conn.execute('DELETE FROM procedures WHERE airport_icao = ?', (airport.ident,))
         
-        # Insert all new procedures
+        # Insert all new procedures using field definitions
         for procedure in airport.procedures:
-            conn.execute('''
-                INSERT INTO procedures 
-                (airport_icao, name, procedure_type, approach_type, runway_ident,
-                 runway_letter, runway_number, source, authority,
-                 raw_name, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                airport.ident, procedure.name, procedure.procedure_type,
-                procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
-                procedure.runway_number, 
-                procedure.source, procedure.authority, procedure.raw_name,
-                procedure.created_at.isoformat(), datetime.now().isoformat()
-            ))
+            self._insert_procedure(conn, airport.ident, procedure)
+    
+    def _insert_procedure(self, conn: sqlite3.Connection, airport_icao: str, procedure: Procedure) -> None:
+        """Insert a new procedure using field definitions."""
+        fields = ProcedureFields.get_all_fields()
+        field_names = [field.name for field in fields]
+        placeholders = ','.join(['?' for _ in fields])
+        
+        # Prepare values using field definitions
+        values = []
+        for field in fields:
+            if field.name == 'airport_icao':
+                values.append(airport_icao)
+            elif field.name == 'created_at':
+                values.append(getattr(procedure, 'created_at', datetime.now()).isoformat() if hasattr(procedure, 'created_at') else datetime.now().isoformat())
+            elif field.name == 'updated_at':
+                values.append(datetime.now().isoformat())
+            else:
+                value = getattr(procedure, field.name, None)
+                values.append(field.format_for_storage(value))
+        
+        sql = f'''
+            INSERT INTO procedures 
+            ({','.join(field_names)})
+            VALUES ({placeholders})
+        '''
+        conn.execute(sql, values)
     
     def _save_airport_aip_entries(self, conn: sqlite3.Connection, airport: Airport) -> None:
         """Save AIP entries with change tracking and conflict resolution."""
@@ -614,7 +620,7 @@ class DatabaseStorage:
                         old_entry: Dict, new_entry: AIPEntry) -> None:
         """Save an AIP field change to history."""
         conn.execute('''
-            INSERT INTO aip_field_changes 
+            INSERT INTO aip_entries_changes 
             (airport_icao, section, field, old_value, new_value, std_field,
              std_field_id, mapping_score, source, changed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -889,19 +895,26 @@ class DatabaseStorage:
             )
             airport.add_runway(runway)
         
-        # Load procedures
+        # Load procedures using field definitions
         cursor = conn.execute('SELECT * FROM procedures WHERE airport_icao = ?', (icao,))
         for row in cursor.fetchall():
+            procedure_data = {}
+            for field in ProcedureFields.get_all_fields():
+                value = row[field.name]
+                
+                # Use safe conversion to handle string "nan" values
+                procedure_data[field.name] = self._safe_convert_value(value, field.field_type.value)
+            
             procedure = Procedure(
-                name=row['name'],
-                procedure_type=row['procedure_type'],
-                approach_type=row['approach_type'],
-                runway_ident=row['runway_ident'],
-                runway_letter=row['runway_letter'],
-                runway_number=row['runway_number'],
-                source=row['source'],
-                authority=row['authority'],
-                raw_name=row['raw_name']
+                name=procedure_data['name'],
+                procedure_type=procedure_data['procedure_type'],
+                approach_type=procedure_data['approach_type'],
+                runway_ident=procedure_data['runway_ident'],
+                runway_letter=procedure_data['runway_letter'],
+                runway_number=procedure_data['runway_number'],
+                source=procedure_data['source'],
+                authority=procedure_data['authority'],
+                raw_name=procedure_data['raw_name']
             )
             airport.add_procedure(procedure)
         
@@ -953,7 +966,7 @@ class DatabaseStorage:
             
             # Get AIP field changes
             cursor = conn.execute('''
-                SELECT * FROM aip_field_changes 
+                SELECT * FROM aip_entries_changes 
                 WHERE airport_icao = ? AND changed_at >= date('now', '-{} days')
                 ORDER BY changed_at DESC
             '''.format(days), (icao,))
@@ -962,7 +975,7 @@ class DatabaseStorage:
             # Get runway changes
             cursor = conn.execute('''
                 SELECT rc.*, r.le_ident, r.he_ident 
-                FROM runway_changes rc
+                FROM runways_changes rc
                 LEFT JOIN runways r ON rc.runway_id = r.id
                 WHERE rc.airport_icao = ? AND rc.changed_at >= date('now', '-{} days')
                 ORDER BY rc.changed_at DESC
@@ -972,7 +985,7 @@ class DatabaseStorage:
             # Get procedure changes
             cursor = conn.execute('''
                 SELECT *
-                FROM procedure_changes 
+                FROM procedures_changes 
                 WHERE airport_icao = ? AND changed_at >= date('now', '-{} days')
             '''.format(days), (icao,))
             changes['procedures'] = [dict(row) for row in cursor.fetchall()]

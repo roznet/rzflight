@@ -179,6 +179,48 @@ class RunwayFields:
             cls.HE_LATITUDE_DEG, cls.HE_LONGITUDE_DEG, cls.HE_ELEVATION_FT, cls.HE_HEADING_DEGT, cls.HE_DISPLACED_THRESHOLD_FT
         ]
 
+class ProcedureFields:
+    """Centralized definition of procedure fields."""
+    
+    # Identifiers
+    AIRPORT_ICAO = FieldDefinition("airport_icao", FieldType.STRING, nullable=False, description="Airport ICAO code")
+    NAME = FieldDefinition("name", FieldType.STRING, description="Procedure name")
+    PROCEDURE_TYPE = FieldDefinition("procedure_type", FieldType.STRING, description="Type of procedure")
+    
+    # Approach details
+    APPROACH_TYPE = FieldDefinition("approach_type", FieldType.STRING, description="Type of approach")
+    RUNWAY_IDENT = FieldDefinition("runway_ident", FieldType.STRING, description="Runway identifier")
+    RUNWAY_LETTER = FieldDefinition("runway_letter", FieldType.STRING, description="Runway letter designation")
+    RUNWAY_NUMBER = FieldDefinition("runway_number", FieldType.STRING, description="Runway number")
+    
+    # Source information
+    SOURCE = FieldDefinition("source", FieldType.STRING, description="Data source")
+    AUTHORITY = FieldDefinition("authority", FieldType.STRING, description="Regulatory authority")
+    RAW_NAME = FieldDefinition("raw_name", FieldType.STRING, description="Original procedure name")
+    
+    # Metadata
+    CREATED_AT = FieldDefinition("created_at", FieldType.DATETIME, description="Creation timestamp")
+    UPDATED_AT = FieldDefinition("updated_at", FieldType.DATETIME, description="Last update timestamp")
+    
+    @classmethod
+    def get_all_fields(cls) -> List[FieldDefinition]:
+        """Get all field definitions."""
+        return [
+            cls.AIRPORT_ICAO, cls.NAME, cls.PROCEDURE_TYPE, cls.APPROACH_TYPE,
+            cls.RUNWAY_IDENT, cls.RUNWAY_LETTER, cls.RUNWAY_NUMBER,
+            cls.SOURCE, cls.AUTHORITY, cls.RAW_NAME,
+            cls.CREATED_AT, cls.UPDATED_AT
+        ]
+    
+    @classmethod
+    def get_change_tracked_fields(cls) -> List[FieldDefinition]:
+        """Get fields that should be tracked for changes."""
+        return [
+            cls.NAME, cls.PROCEDURE_TYPE, cls.APPROACH_TYPE,
+            cls.RUNWAY_IDENT, cls.RUNWAY_LETTER, cls.RUNWAY_NUMBER,
+            cls.SOURCE, cls.AUTHORITY, cls.RAW_NAME
+        ]
+
 class SchemaManager:
     """Manages database schema and migrations."""
     
