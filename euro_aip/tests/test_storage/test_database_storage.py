@@ -131,9 +131,6 @@ class TestDatabaseStorage:
                     runway_ident='03',
                     runway_letter=None,
                     runway_number='03',
-                    category='CAT I',
-                    minima='DH 200ft, VIS 550m',
-                    notes='Standard ILS approach',
                     source='ukeaip',
                     authority='UK CAA'
                 )

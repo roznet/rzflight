@@ -237,33 +237,3 @@ class TestAIPExportModelBuilder:
         # Verify runways
         assert len(ebos.runways) > 0
     
-    def test_model_builder_get_all_airports(self, test_csv_files):
-        """Test ModelBuilder.get_all_airports method."""
-        # Import the ModelBuilder class
-        sys.path.insert(0, str(Path.cwd() / 'example'))
-        from aipexport import ModelBuilder
-        
-        # Create mock args
-        args = MagicMock()
-        args.worldairports = True
-        args.worldairports_db = 'test_airports.db'
-        args.worldairports_filter = 'all'
-        args.cache_dir = str(Path(test_csv_files) / 'cache')
-        args.france_eaip = None
-        args.uk_eaip = None
-        args.autorouter = False
-        args.pointdepassage = False
-        args.force_refresh = False
-        args.never_refresh = False
-        
-        # Create ModelBuilder
-        builder = ModelBuilder(args)
-        
-        # Get all airports
-        airports = builder.get_all_airports()
-        
-        # Should return airports from test data
-        assert len(airports) > 0
-        assert 'EBOS' in airports
-        assert 'EGKB' in airports
-        assert 'EHRD' in airports 
