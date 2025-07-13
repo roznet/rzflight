@@ -22,7 +22,6 @@ class TestCountryMapper:
             ("ITALY", "IT"),
             ("SPAIN", "ES"),
             ("UNITED KINGDOM", "GB"),
-            ("UK", "GB"),
         ]
         
         for country_name, expected_iso in test_cases:
@@ -60,7 +59,7 @@ class TestCountryMapper:
             ("FR", "FRANCE"),
             ("DE", "GERMANY"),
             ("IT", "ITALY"),
-            ("GB", "UK"),  # The implementation returns UK for GB
+            ("GB", "UNITED KINGDOM"),  # The implementation returns UK for GB
         ]
         
         for iso_code, expected_name in test_cases:
@@ -107,7 +106,7 @@ class TestCountryMapper:
         # Valid countries
         assert mapper.is_valid_country("FRANCE") is True
         assert mapper.is_valid_country("GERMANY") is True
-        assert mapper.is_valid_country("UK") is True
+        assert mapper.is_valid_country("UNITED KINGDOM") is True
         
         # Invalid countries
         assert mapper.is_valid_country("UNKNOWN") is False

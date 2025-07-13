@@ -127,6 +127,9 @@ class FieldMapper:
         
         if result:
             field_id, matched_field_name, score = result
+            field_info = self.standard_fields[field_id]
+            # the matched name could be the hint, so make sure we return the actual field name
+            matched_field_name = field_info['field_name']
             return (field_id, matched_field_name, score)
         
         return None
