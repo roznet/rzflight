@@ -512,62 +512,64 @@ class DatabaseStorage:
         conn.execute(sql, values)
     
     def _save_airport_procedures(self, conn: sqlite3.Connection, airport: Airport) -> None:
-        """Save airport procedures with change tracking."""
+        """Save airport procedures with change tracking at procedure level."""
         current_procedures = self._get_current_procedures(conn, airport.ident)
         
-        for procedure in airport.procedures:
-            # Find matching current procedure
-            current_procedure = None
+        # Create sets for efficient comparison
+        current_procedure_names = {(curr['name'], curr['procedure_type']) for curr in current_procedures}
+        new_procedure_names = {(proc.name, proc.procedure_type) for proc in airport.procedures}
+        
+        # Detect procedure-level changes (ADDED/REMOVED)
+        added_procedures = new_procedure_names - current_procedure_names
+        removed_procedures = current_procedure_names - new_procedure_names
+        
+        # Record ADDED procedures
+        for name, proc_type in added_procedures:
+            conn.execute('''
+                INSERT INTO procedure_changes 
+                (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                airport.ident, None, 'PROCEDURE_ADDED', None, f"{name} ({proc_type})",
+                'unknown', datetime.now().isoformat()
+            ))
+        
+        # Record REMOVED procedures
+        for name, proc_type in removed_procedures:
+            # Find the procedure ID for the removed procedure
+            proc_id = None
             for curr in current_procedures:
-                if (curr['name'] == procedure.name and 
-                    curr['procedure_type'] == procedure.procedure_type):
-                    current_procedure = curr
+                if curr['name'] == name and curr['procedure_type'] == proc_type:
+                    proc_id = curr['id']
                     break
             
-            # Detect changes
-            changes = self._detect_procedure_changes(current_procedure, procedure)
-            
-            # Save changes to history
-            for change in changes:
-                conn.execute('''
-                    INSERT INTO procedure_changes 
-                    (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    airport.ident, change.get('procedure_id'), change['field_name'],
-                    change['old_value'], change['new_value'], change['source'], change['changed_at']
-                ))
-            
-            # Insert or update procedure
-            if current_procedure:
-                # Update existing procedure
-                conn.execute('''
-                    UPDATE procedures SET
-                    approach_type = ?, runway_ident = ?, runway_letter = ?, runway_number = ?,
-                    source = ?, authority = ?,
-                    raw_name = ?, updated_at = ?
-                    WHERE id = ?
-                ''', (
-                    procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
-                    procedure.runway_number,
-                    procedure.source, procedure.authority, procedure.raw_name,
-                    datetime.now().isoformat(), current_procedure['id']
-                ))
-            else:
-                # Insert new procedure
-                conn.execute('''
-                    INSERT INTO procedures 
-                    (airport_icao, name, procedure_type, approach_type, runway_ident,
-                     runway_letter, runway_number, source, authority,
-                     raw_name, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    airport.ident, procedure.name, procedure.procedure_type,
-                    procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
-                    procedure.runway_number, 
-                    procedure.source, procedure.authority, procedure.raw_name,
-                    procedure.created_at.isoformat(), datetime.now().isoformat()
-                ))
+            conn.execute('''
+                INSERT INTO procedure_changes 
+                (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                airport.ident, proc_id, 'PROCEDURE_REMOVED', f"{name} ({proc_type})", None,
+                'unknown', datetime.now().isoformat()
+            ))
+        
+        # Clear all current procedures and insert new ones
+        conn.execute('DELETE FROM procedures WHERE airport_icao = ?', (airport.ident,))
+        
+        # Insert all new procedures
+        for procedure in airport.procedures:
+            conn.execute('''
+                INSERT INTO procedures 
+                (airport_icao, name, procedure_type, approach_type, runway_ident,
+                 runway_letter, runway_number, source, authority,
+                 raw_name, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                airport.ident, procedure.name, procedure.procedure_type,
+                procedure.approach_type, procedure.runway_ident, procedure.runway_letter,
+                procedure.runway_number, 
+                procedure.source, procedure.authority, procedure.raw_name,
+                procedure.created_at.isoformat(), datetime.now().isoformat()
+            ))
     
     def _save_airport_aip_entries(self, conn: sqlite3.Connection, airport: Airport) -> None:
         """Save AIP entries with change tracking and conflict resolution."""

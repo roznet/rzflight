@@ -26,7 +26,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": "--worldairports --worldairports-filter all --france-eaip cache/eaip_12_jun_2025 --uk-eaip cache/AIRAC_06_25 --database-storage airports.db EGMD LFQA --force-refresh"
+            "args": "--worldairports --worldairports-filter all --france-eaip cache/eaip_12_jun_2025 --uk-eaip cache/AIRAC_06_25 --database-storage airports.db --force-refresh"
         },
         {
             "name": "Python Debugger: Autorouter EGKB",
