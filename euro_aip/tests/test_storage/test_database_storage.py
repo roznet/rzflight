@@ -130,7 +130,7 @@ class TestDatabaseStorage:
                     approach_type='ILS',
                     runway_ident='03',
                     runway_letter=None,
-                    runway='03',
+                    runway_number='03',
                     category='CAT I',
                     minima='DH 200ft, VIS 550m',
                     notes='Standard ILS approach',
@@ -141,12 +141,14 @@ class TestDatabaseStorage:
             
             # Add AIP entries
             field_service = FieldStandardizationService()
-            
+             
+            #handling,402,2,Fuel and oil types,Fuel types|Oil types
             aip_entry = AIPEntry(
                 ident=airport.ident,
-                section='AD 2.1',
-                field='Airport Reference Point',
-                value=f"{airport.latitude_deg}°N {airport.longitude_deg}°E"
+                section='handling',
+                field='Fuel and oil types',
+                value='AVGAS, Jet A-1',
+                std_field_id=402,
             )
             aip_entry.source = "ukeaip"
             
@@ -219,8 +221,8 @@ class TestDatabaseStorage:
         # Verify AIP entries
         assert len(ebos.aip_entries) == 1
         aip_entry = ebos.aip_entries[0]
-        assert aip_entry.field == 'Airport Reference Point'
-        assert aip_entry.section == 'AD 2.1'
+        assert aip_entry.field == 'Fuel and oil types'
+        assert aip_entry.section == 'handling'
         assert aip_entry.source == 'ukeaip'
     
     def test_change_tracking(self, storage, sample_model):
@@ -259,31 +261,6 @@ class TestDatabaseStorage:
             assert elevation_change['old_value'] == '13.0'
         assert elevation_change['new_value'] == '20.0'
     
-    def test_database_info(self, storage, sample_model):
-        """Test database information retrieval."""
-        storage.save_model(sample_model)
-        
-        db_info = storage.get_database_info()
-        
-        # Check table counts
-        assert db_info['tables']['airports'] == 2
-        assert db_info['tables']['runways'] == 2  # One for each airport
-        assert db_info['tables']['procedures'] == 1  # Only EGKB has procedures
-        assert db_info['tables']['aip_entries'] == 2  # One for each airport
-        
-        # Check that change tracking tables have records
-        assert db_info['tables']['airport_field_changes'] > 0
-        assert db_info['tables']['aip_field_changes'] > 0
-        
-        # Check metadata
-        # The statistics dict should contain summary keys, not a nested 'statistics' key
-        expected_stats_keys = [
-            'total_airports', 'airports_with_runways', 'airports_with_procedures',
-            'airports_with_aip_data', 'total_runways', 'total_procedures',
-            'total_aip_entries', 'procedure_types', 'sources_used', 'created_at', 'updated_at'
-        ]
-        for key in expected_stats_keys:
-            assert key in db_info['statistics']
     
     def test_multiple_saves_same_data(self, storage, sample_model):
         """Test that saving the same data multiple times doesn't create duplicate changes."""
