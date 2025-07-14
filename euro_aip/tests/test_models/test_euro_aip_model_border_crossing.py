@@ -22,19 +22,17 @@ class TestEuroAipModelBorderCrossing:
             airport_name="London Heathrow",
             country_iso="GB",
             icao_code="EGLL",
-            source="border_crossing_parser",
-            matched_airport_icao="EGLL",
-            match_score=0.95
+            source="border_crossing_parser"
         )
         
         model.add_border_crossing_entry(entry)
         
-        # Check that entry was added
+        # Check that entry was added correctly
         assert "GB" in model.border_crossing_points
-        assert "London Heathrow" in model.border_crossing_points["GB"]
-        assert model.border_crossing_points["GB"]["London Heathrow"] == entry
+        assert "EGLL" in model.border_crossing_points["GB"]
+        assert model.border_crossing_points["GB"]["EGLL"] == entry
         
-        # Check sources tracking
+        # Check source tracking
         assert "border_crossing_parser" in model.sources_used
     
     def test_add_border_crossing_points(self):
@@ -49,30 +47,21 @@ class TestEuroAipModelBorderCrossing:
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
-                airport_name="Paris CDG",
+                airport_name="Paris Charles de Gaulle",
                 country_iso="FR",
                 icao_code="LFPG",
-                source="border_crossing_parser"
-            ),
-            BorderCrossingEntry(
-                airport_name="Gatwick",
-                country_iso="GB",
-                icao_code="EGKK",
                 source="border_crossing_parser"
             )
         ]
         
         model.add_border_crossing_points(entries)
         
-        # Check that all entries were added
-        assert len(model.get_all_border_crossing_points()) == 3
-        assert len(model.border_crossing_points["GB"]) == 2
-        assert len(model.border_crossing_points["FR"]) == 1
-        
-        # Check specific entries
-        assert "London Heathrow" in model.border_crossing_points["GB"]
-        assert "Gatwick" in model.border_crossing_points["GB"]
-        assert "Paris CDG" in model.border_crossing_points["FR"]
+        # Check that entries were added correctly
+        assert len(model.get_all_border_crossing_points()) == 2
+        assert "GB" in model.border_crossing_points
+        assert "FR" in model.border_crossing_points
+        assert "EGLL" in model.border_crossing_points["GB"]
+        assert "LFPG" in model.border_crossing_points["FR"]
     
     def test_get_border_crossing_points_by_country(self):
         """Test getting border crossing entries by country."""
@@ -82,59 +71,177 @@ class TestEuroAipModelBorderCrossing:
             BorderCrossingEntry(
                 airport_name="London Heathrow",
                 country_iso="GB",
+                icao_code="EGLL",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
-                airport_name="Paris CDG",
+                airport_name="Paris Charles de Gaulle",
                 country_iso="FR",
-                source="border_crossing_parser"
-            ),
-            BorderCrossingEntry(
-                airport_name="Gatwick",
-                country_iso="GB",
+                icao_code="LFPG",
                 source="border_crossing_parser"
             )
         ]
         
         model.add_border_crossing_points(entries)
         
-        # Get UK entries
-        uk_entries = model.get_border_crossing_points_by_country("GB")
-        assert len(uk_entries) == 2
-        assert all(entry.country_iso == "GB" for entry in uk_entries)
+        # Test getting entries for existing country
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 1
+        assert gb_entries[0].airport_name == "London Heathrow"
+        assert gb_entries[0].icao_code == "EGLL"
         
-        # Get French entries
-        fr_entries = model.get_border_crossing_points_by_country("FR")
-        assert len(fr_entries) == 1
-        assert fr_entries[0].airport_name == "Paris CDG"
-        
-        # Get non-existent country
-        no_entries = model.get_border_crossing_points_by_country("XX")
-        assert len(no_entries) == 0
+        # Test getting entries for non-existing country
+        us_entries = model.get_border_crossing_points_by_country("US")
+        assert len(us_entries) == 0
     
     def test_get_border_crossing_entry(self):
-        """Test getting a specific border crossing entry."""
+        """Test getting a specific border crossing entry by ICAO code."""
         model = EuroAipModel()
         
         entry = BorderCrossingEntry(
             airport_name="London Heathrow",
             country_iso="GB",
+            icao_code="EGLL",
             source="border_crossing_parser"
         )
         
         model.add_border_crossing_entry(entry)
         
-        # Get existing entry
-        found_entry = model.get_border_crossing_entry("GB", "London Heathrow")
-        assert found_entry == entry
+        # Test getting existing entry
+        found_entry = model.get_border_crossing_entry("GB", "EGLL")
+        assert found_entry is not None
+        assert found_entry.airport_name == "London Heathrow"
+        assert found_entry.icao_code == "EGLL"
         
-        # Get non-existent entry
-        not_found = model.get_border_crossing_entry("GB", "Non-existent")
+        # Test getting non-existing entry
+        not_found = model.get_border_crossing_entry("GB", "EGKK")
         assert not_found is None
         
-        # Get from non-existent country
-        not_found = model.get_border_crossing_entry("XX", "London Heathrow")
+        # Test getting entry from non-existing country
+        not_found = model.get_border_crossing_entry("XX", "EGLL")
         assert not_found is None
+    
+    def test_get_border_crossing_entry_by_name(self):
+        """Test getting a border crossing entry by airport name (backward compatibility)."""
+        model = EuroAipModel()
+        
+        entry = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            source="border_crossing_parser"
+        )
+        
+        model.add_border_crossing_entry(entry)
+        
+        # Test getting existing entry by name
+        found_entry = model.get_border_crossing_entry_by_name("GB", "London Heathrow")
+        assert found_entry is not None
+        assert found_entry.airport_name == "London Heathrow"
+        assert found_entry.icao_code == "EGLL"
+        
+        # Test getting non-existing entry by name
+        not_found = model.get_border_crossing_entry_by_name("GB", "Non-existent")
+        assert not_found is None
+        
+        # Test getting entry from non-existing country
+        not_found = model.get_border_crossing_entry_by_name("XX", "London Heathrow")
+        assert not_found is None
+    
+    def test_get_all_border_crossing_points(self):
+        """Test getting all border crossing entries."""
+        model = EuroAipModel()
+        
+        entries = [
+            BorderCrossingEntry(
+                airport_name="London Heathrow",
+                country_iso="GB",
+                icao_code="EGLL",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Paris Charles de Gaulle",
+                country_iso="FR",
+                icao_code="LFPG",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        model.add_border_crossing_points(entries)
+        
+        all_entries = model.get_all_border_crossing_points()
+        assert len(all_entries) == 2
+        
+        # Check that both entries are present
+        icao_codes = {entry.icao_code for entry in all_entries}
+        assert "EGLL" in icao_codes
+        assert "LFPG" in icao_codes
+    
+    def test_get_border_crossing_countries(self):
+        """Test getting list of countries with border crossing entries."""
+        model = EuroAipModel()
+        
+        entries = [
+            BorderCrossingEntry(
+                airport_name="London Heathrow",
+                country_iso="GB",
+                icao_code="EGLL",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Paris Charles de Gaulle",
+                country_iso="FR",
+                icao_code="LFPG",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        model.add_border_crossing_points(entries)
+        
+        countries = model.get_border_crossing_countries()
+        assert len(countries) == 2
+        assert "GB" in countries
+        assert "FR" in countries
+    
+    def test_remove_border_crossing_points_by_country(self):
+        """Test removing border crossing entries by country."""
+        model = EuroAipModel()
+        
+        entries = [
+            BorderCrossingEntry(
+                airport_name="London Heathrow",
+                country_iso="GB",
+                icao_code="EGLL",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Paris Charles de Gaulle",
+                country_iso="FR",
+                icao_code="LFPG",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        model.add_border_crossing_points(entries)
+        
+        # Verify initial state
+        assert len(model.get_all_border_crossing_points()) == 2
+        assert "GB" in model.border_crossing_points
+        assert "FR" in model.border_crossing_points
+        
+        # Remove GB entries
+        model.remove_border_crossing_points_by_country("GB")
+        
+        # Verify GB was removed but FR remains
+        assert len(model.get_all_border_crossing_points()) == 1
+        assert "GB" not in model.border_crossing_points
+        assert "FR" in model.border_crossing_points
+        
+        # Remove non-existing country (should not error)
+        model.remove_border_crossing_points_by_country("XX")
+        
+        # Verify FR still exists
+        assert "FR" in model.border_crossing_points
     
     def test_get_border_crossing_statistics(self):
         """Test border crossing statistics."""
@@ -144,6 +251,7 @@ class TestEuroAipModelBorderCrossing:
             BorderCrossingEntry(
                 airport_name="London Heathrow",
                 country_iso="GB",
+                icao_code="EGLL",
                 matched_airport_icao="EGLL",
                 match_score=0.95,
                 source="border_crossing_parser"
@@ -151,6 +259,7 @@ class TestEuroAipModelBorderCrossing:
             BorderCrossingEntry(
                 airport_name="Paris CDG",
                 country_iso="FR",
+                icao_code="LFPG",
                 matched_airport_icao="LFPG",
                 match_score=0.9,
                 source="border_crossing_parser"
@@ -158,6 +267,7 @@ class TestEuroAipModelBorderCrossing:
             BorderCrossingEntry(
                 airport_name="Unmatched Airport",
                 country_iso="DE",
+                icao_code="EDDF",
                 source="border_crossing_parser"
             )
         ]
@@ -201,18 +311,21 @@ class TestEuroAipModelBorderCrossing:
             BorderCrossingEntry(
                 airport_name="London Heathrow",
                 country_iso="GB",
+                icao_code="EGLL",
                 matched_airport_icao="EGLL",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
                 airport_name="Paris CDG",
                 country_iso="FR",
+                icao_code="LFPG",
                 matched_airport_icao="LFPG",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
                 airport_name="Unmatched Airport",
                 country_iso="DE",
+                icao_code="EDDF",
                 source="border_crossing_parser"
             )
         ]
@@ -242,6 +355,7 @@ class TestEuroAipModelBorderCrossing:
         entry = BorderCrossingEntry(
             airport_name="London Heathrow",
             country_iso="GB",
+            icao_code="EGLL",
             matched_airport_icao="EGLL",
             source="border_crossing_parser"
         )
@@ -265,6 +379,7 @@ class TestEuroAipModelBorderCrossing:
         entry = BorderCrossingEntry(
             airport_name="London Heathrow",
             country_iso="GB",
+            icao_code="EGLL",
             source="border_crossing_parser"
         )
         

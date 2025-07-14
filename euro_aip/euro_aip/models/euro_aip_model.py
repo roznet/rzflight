@@ -273,8 +273,8 @@ class EuroAipModel:
             'airports': {icao: airport.to_dict() for icao, airport in self.airports.items()},
             'border_crossing_points': {
                 country_iso: {
-                    airport_name: entry.to_dict() 
-                    for airport_name, entry in country_entries.items()
+                    icao_code: entry.to_dict() 
+                    for icao_code, entry in country_entries.items()
                 }
                 for country_iso, country_entries in self.border_crossing_points.items()
             },
@@ -401,16 +401,20 @@ class EuroAipModel:
             entry: BorderCrossingEntry to add
         """
         country_iso = entry.country_iso
-        airport_name = entry.airport_name
+        icao_code = entry.icao_code or entry.matched_airport_icao
+        
+        if not icao_code:
+            logger.warning(f"Border crossing entry for {entry.airport_name} has no ICAO code, skipping")
+            return
         
         if country_iso not in self.border_crossing_points:
             self.border_crossing_points[country_iso] = {}
         
-        self.border_crossing_points[country_iso][airport_name] = entry
+        self.border_crossing_points[country_iso][icao_code] = entry
         self.sources_used.add(entry.source)
         self.updated_at = datetime.now()
         
-        logger.debug(f"Added border crossing entry for {airport_name} in {country_iso}")
+        logger.debug(f"Added border crossing entry for {entry.airport_name} ({icao_code}) in {country_iso}")
     
     def add_border_crossing_points(self, entries: List[BorderCrossingEntry]) -> None:
         """
@@ -439,9 +443,25 @@ class EuroAipModel:
         
         return list(self.border_crossing_points[country_iso].values())
     
-    def get_border_crossing_entry(self, country_iso: str, airport_name: str) -> Optional[BorderCrossingEntry]:
+    def get_border_crossing_entry(self, country_iso: str, icao_code: str) -> Optional[BorderCrossingEntry]:
         """
         Get a specific border crossing entry.
+        
+        Args:
+            country_iso: ISO country code
+            icao_code: ICAO code of the airport
+            
+        Returns:
+            BorderCrossingEntry if found, None otherwise
+        """
+        if country_iso not in self.border_crossing_points:
+            return None
+        
+        return self.border_crossing_points[country_iso].get(icao_code)
+    
+    def get_border_crossing_entry_by_name(self, country_iso: str, airport_name: str) -> Optional[BorderCrossingEntry]:
+        """
+        Get a border crossing entry by airport name (for backward compatibility).
         
         Args:
             country_iso: ISO country code
@@ -453,7 +473,11 @@ class EuroAipModel:
         if country_iso not in self.border_crossing_points:
             return None
         
-        return self.border_crossing_points[country_iso].get(airport_name)
+        for entry in self.border_crossing_points[country_iso].values():
+            if entry.airport_name == airport_name:
+                return entry
+        
+        return None
     
     def get_all_border_crossing_points(self) -> List[BorderCrossingEntry]:
         """

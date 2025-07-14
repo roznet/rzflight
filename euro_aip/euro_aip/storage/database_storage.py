@@ -173,9 +173,9 @@ class DatabaseStorage:
             conn.execute('''
                 CREATE TABLE border_crossing_points (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    airport_name TEXT NOT NULL,
+                    icao_code TEXT NOT NULL,
                     country_iso TEXT NOT NULL,
-                    icao_code TEXT,
+                    airport_name TEXT NOT NULL,
                     is_airport INTEGER,
                     source TEXT NOT NULL,
                     extraction_method TEXT,
@@ -184,14 +184,15 @@ class DatabaseStorage:
                     match_score REAL,
                     created_at TEXT,
                     updated_at TEXT,
-                    FOREIGN KEY (matched_airport_icao) REFERENCES airports (icao_code)
+                    FOREIGN KEY (matched_airport_icao) REFERENCES airports (icao_code),
+                    UNIQUE(icao_code, country_iso)
                 )
             ''')
             
             conn.execute('''
                 CREATE TABLE border_crossing_points_changes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    airport_name TEXT NOT NULL,
+                    icao_code TEXT NOT NULL,
                     country_iso TEXT NOT NULL,
                     action TEXT NOT NULL,
                     source TEXT NOT NULL,
@@ -1094,29 +1095,37 @@ class DatabaseStorage:
                 
                 # Insert new entries for this country
                 for entry in new_country_entries:
+                    # Skip entries without ICAO code
+                    icao_code = entry.icao_code or entry.matched_airport_icao
+                    if not icao_code:
+                        logger.warning(f"Skipping border crossing entry for {entry.airport_name} - no ICAO code")
+                        continue
+                    
                     data = entry.to_dict()
                     conn.execute('''
                         INSERT INTO border_crossing_points 
-                        (airport_name, country_iso, icao_code, is_airport, source, extraction_method,
+                        (icao_code, country_iso, airport_name, is_airport, source, extraction_method,
                          metadata_json, matched_airport_icao, match_score, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
-                        data['airport_name'], data['country_iso'], data['icao_code'],
+                        icao_code, data['country_iso'], data['airport_name'],
                         data.get('is_airport'), data['source'], data['extraction_method'], 
                         data['metadata_json'], data['matched_airport_icao'], data['match_score'],
                         data['created_at'], data['updated_at']
                     ))
         
-        # Save changes to history
+        # Save changes
         for change in changes:
             conn.execute('''
                 INSERT INTO border_crossing_points_changes 
-                (airport_name, country_iso, action, source, changed_at)
+                (icao_code, country_iso, action, source, changed_at)
                 VALUES (?, ?, ?, ?, ?)
             ''', (
-                change.airport_name, change.country_iso, change.action,
+                change.icao_code, change.country_iso, change.action,
                 change.source, change.changed_at.isoformat()
             ))
+        
+        logger.info(f"Saved {len(entries)} border crossing entries with {len(changes)} changes")
     
     def _group_entries_by_country(self, entries: List[BorderCrossingEntry]) -> Dict[str, List[BorderCrossingEntry]]:
         """Group border crossing entries by country."""
@@ -1135,18 +1144,22 @@ class DatabaseStorage:
         changes = []
         now = datetime.now()
         
-        # Create sets for efficient comparison
-        current_set = {(e.airport_name, e.source) for e in current_entries}
-        new_set = {(e.airport_name, e.source) for e in new_entries}
+        # Create sets for efficient comparison using ICAO code
+        current_set = {(e.icao_code or e.matched_airport_icao, e.country_iso) for e in current_entries if e.icao_code or e.matched_airport_icao}
+        new_set = {(e.icao_code or e.matched_airport_icao, e.country_iso) for e in new_entries if e.icao_code or e.matched_airport_icao}
         
         # Find added entries
         added = new_set - current_set
         # Only create change entries if we had existing entries for this country
         # (don't create changes for first-time country additions)
         if current_entries:
-            for airport_name, source in added:
+            for icao_code, country_iso in added:
+                # Find the corresponding entry to get the source
+                entry = next((e for e in new_entries if (e.icao_code or e.matched_airport_icao) == icao_code), None)
+                source = entry.source if entry else 'unknown'
+                
                 changes.append(BorderCrossingChange(
-                    airport_name=airport_name,
+                    icao_code=icao_code,
                     country_iso=country_iso,
                     action='ADDED',
                     source=source,
@@ -1155,9 +1168,13 @@ class DatabaseStorage:
         
         # Find removed entries
         removed = current_set - new_set
-        for airport_name, source in removed:
+        for icao_code, country_iso in removed:
+            # Find the corresponding entry to get the source
+            entry = next((e for e in current_entries if (e.icao_code or e.matched_airport_icao) == icao_code), None)
+            source = entry.source if entry else 'unknown'
+            
             changes.append(BorderCrossingChange(
-                airport_name=airport_name,
+                icao_code=icao_code,
                 country_iso=country_iso,
                 action='REMOVED',
                 source=source,

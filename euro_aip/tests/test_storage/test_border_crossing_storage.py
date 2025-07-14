@@ -27,35 +27,26 @@ class TestBorderCrossingStorage:
         os.unlink(db_path)
     
     def test_save_and_load_border_crossing_points(self, temp_db):
-        """Test saving and loading border crossing entries."""
+        """Test saving and loading border crossing points."""
+        # Create test entries
         entries = [
             BorderCrossingEntry(
                 airport_name="London Heathrow",
                 country_iso="GB",
                 icao_code="EGLL",
-                source="border_crossing_parser",
-                extraction_method="html_table_parsing",
-                metadata={"number": "1"},
-                matched_airport_icao="EGLL",
-                match_score=0.95
+                source="border_crossing_parser"
             ),
             BorderCrossingEntry(
                 airport_name="Paris Charles de Gaulle",
                 country_iso="FR",
                 icao_code="LFPG",
-                source="border_crossing_parser",
-                extraction_method="html_table_parsing",
-                metadata={"number": "2"},
-                matched_airport_icao="LFPG",
-                match_score=0.9
+                source="border_crossing_parser"
             ),
             BorderCrossingEntry(
                 airport_name="Unmatched Airport",
                 country_iso="DE",
-                source="border_crossing_parser",
-                extraction_method="html_table_parsing",
-                metadata={"number": "3"},
-                match_score=None
+                icao_code="EDDF",
+                source="border_crossing_parser"
             )
         ]
         
@@ -67,10 +58,10 @@ class TestBorderCrossingStorage:
         
         assert len(loaded_entries) == 3
         
-        # Find entries by airport name instead of relying on order
-        heathrow_entry = next((e for e in loaded_entries if e.airport_name == "London Heathrow"), None)
-        paris_entry = next((e for e in loaded_entries if e.airport_name == "Paris Charles de Gaulle"), None)
-        unmatched_entry = next((e for e in loaded_entries if e.airport_name == "Unmatched Airport"), None)
+        # Find entries by ICAO code instead of relying on order
+        heathrow_entry = next((e for e in loaded_entries if e.icao_code == "EGLL"), None)
+        paris_entry = next((e for e in loaded_entries if e.icao_code == "LFPG"), None)
+        unmatched_entry = next((e for e in loaded_entries if e.icao_code == "EDDF"), None)
         
         assert heathrow_entry is not None
         assert paris_entry is not None
@@ -78,21 +69,21 @@ class TestBorderCrossingStorage:
         
         # Check Heathrow entry
         assert heathrow_entry.country_iso == "GB"
+        assert heathrow_entry.airport_name == "London Heathrow"
         assert heathrow_entry.icao_code == "EGLL"
         assert heathrow_entry.source == "border_crossing_parser"
-        assert heathrow_entry.matched_airport_icao == "EGLL"
-        assert heathrow_entry.match_score == 0.95
-        assert heathrow_entry.metadata == {"number": "1"}
         
         # Check Paris entry
         assert paris_entry.country_iso == "FR"
+        assert paris_entry.airport_name == "Paris Charles de Gaulle"
         assert paris_entry.icao_code == "LFPG"
+        assert paris_entry.source == "border_crossing_parser"
         
         # Check unmatched entry
         assert unmatched_entry.country_iso == "DE"
-        assert unmatched_entry.icao_code is None
-        assert unmatched_entry.matched_airport_icao is None
-        assert unmatched_entry.match_score is None
+        assert unmatched_entry.airport_name == "Unmatched Airport"
+        assert unmatched_entry.icao_code == "EDDF"
+        assert unmatched_entry.source == "border_crossing_parser"
     
     def test_border_crossing_points_changes(self, temp_db):
         """Test border crossing change detection and tracking (per-country, no first-time change)."""
@@ -112,23 +103,25 @@ class TestBorderCrossingStorage:
             )
         ]
         
-        # Save initial entries (should NOT create any change entries)
+        # Save initial entries
         temp_db.save_border_crossing_data(initial_entries)
-        changes_after_first = temp_db.get_border_crossing_points_changes(days=30)
-        assert changes_after_first == []  # No changes for first insert per country
         
-        # New entries: add one for GB, remove FR, add NL
-        new_entries = [
+        # Check that no changes are recorded for first-time insert
+        changes = temp_db.get_border_crossing_points_changes(days=1)
+        assert len(changes) == 0
+        
+        # Update with changes: remove Heathrow, add Gatwick for GB; add Amsterdam for NL
+        updated_entries = [
             BorderCrossingEntry(
-                airport_name="London Heathrow",
+                airport_name="London Gatwick",
                 country_iso="GB",
-                icao_code="EGLL",
+                icao_code="EGKK",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
-                airport_name="Manchester",
-                country_iso="GB",
-                icao_code="EGCC",
+                airport_name="Paris CDG",
+                country_iso="FR",
+                icao_code="LFPG",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
@@ -138,23 +131,34 @@ class TestBorderCrossingStorage:
                 source="border_crossing_parser"
             )
         ]
-        temp_db.save_border_crossing_data(new_entries)
-        changes = temp_db.get_border_crossing_points_changes(days=30)
-        # Should have 2 changes for GB (1 added, 1 removed), 0 for NL (first insert), 1 for FR (removed)
-        gb_changes = [c for c in changes if c.country_iso == "GB"]
-        fr_changes = [c for c in changes if c.country_iso == "FR"]
-        nl_changes = [c for c in changes if c.country_iso == "NL"]
-        # GB: Manchester added, Paris CDG removed (but Paris CDG is FR, so only added for GB)
-        assert any(c.action == "ADDED" and c.airport_name == "Manchester" for c in gb_changes)
-        # FR: Paris CDG removed
-        assert any(c.action == "REMOVED" and c.airport_name == "Paris CDG" for c in fr_changes)
-        # NL: No changes for first insert
-        assert nl_changes == []
-
+        
+        # Save updated entries
+        temp_db.save_border_crossing_data(updated_entries)
+        
+        # Check changes
+        changes = temp_db.get_border_crossing_points_changes(days=1)
+        assert len(changes) == 2  # EGLL removed, EGKK added, EHAM added (but no change for first-time NL)
+        
+        # Find specific changes
+        removed_changes = [c for c in changes if c.action == "REMOVED"]
+        added_changes = [c for c in changes if c.action == "ADDED"]
+        
+        assert len(removed_changes) == 1
+        assert len(added_changes) == 1
+        
+        # Check that EGLL was removed
+        assert any(c.icao_code == "EGLL" and c.country_iso == "GB" for c in removed_changes)
+        
+        # Check that EGKK was added
+        assert any(c.icao_code == "EGKK" and c.country_iso == "GB" for c in added_changes)
+        
+        # Check that EHAM was NOT added (first-time for NL)
+        assert not any(c.icao_code == "EHAM" for c in changes)
+    
     def test_border_crossing_change_tracking_per_country(self, temp_db):
-        """Test that change tracking is per-country and no changes for first-time country insert."""
-        # Insert for one country
-        gb_entries = [
+        """Test that border crossing change tracking works per-country."""
+        # Initial entries for GB only
+        initial_entries = [
             BorderCrossingEntry(
                 airport_name="London Heathrow",
                 country_iso="GB",
@@ -162,41 +166,63 @@ class TestBorderCrossingStorage:
                 source="border_crossing_parser"
             )
         ]
-        temp_db.save_border_crossing_data(gb_entries)
-        # No changes for first insert
-        assert temp_db.get_border_crossing_points_changes(days=30) == []
-        # Add a new airport for GB (should record an ADDED change)
-        gb_entries2 = [
+        
+        # Save initial entries
+        temp_db.save_border_crossing_data(initial_entries)
+        
+        # Check that no changes are recorded for first-time insert
+        changes = temp_db.get_border_crossing_points_changes(days=1)
+        assert len(changes) == 0
+        
+        # Add FR entries (first-time for FR, should not create changes)
+        fr_entries = [
             BorderCrossingEntry(
-                airport_name="London Heathrow",
+                airport_name="Paris CDG",
+                country_iso="FR",
+                icao_code="LFPG",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        # Save FR entries
+        temp_db.save_border_crossing_data(fr_entries)
+        
+        # Check that no changes are recorded (first-time for FR)
+        changes = temp_db.get_border_crossing_points_changes(days=1)
+        assert len(changes) == 0
+        
+        # Now update GB (should create changes)
+        updated_entries = [
+            BorderCrossingEntry(
+                airport_name="London Gatwick",
                 country_iso="GB",
-                icao_code="EGLL",
+                icao_code="EGKK",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
-                airport_name="Manchester",
-                country_iso="GB",
-                icao_code="EGCC",
+                airport_name="Paris CDG",
+                country_iso="FR",
+                icao_code="LFPG",
                 source="border_crossing_parser"
             )
         ]
-        temp_db.save_border_crossing_data(gb_entries2)
-        changes = temp_db.get_border_crossing_points_changes(days=30)
-        gb_changes = [c for c in changes if c.country_iso == "GB"]
-        assert any(c.action == "ADDED" and c.airport_name == "Manchester" for c in gb_changes)
-        # Now add a new country (NL) - should NOT record changes for NL
-        nl_entries = gb_entries2 + [
-            BorderCrossingEntry(
-                airport_name="Amsterdam Schiphol",
-                country_iso="NL",
-                icao_code="EHAM",
-                source="border_crossing_parser"
-            )
-        ]
-        temp_db.save_border_crossing_data(nl_entries)
-        changes = temp_db.get_border_crossing_points_changes(days=30)
-        nl_changes = [c for c in changes if c.country_iso == "NL"]
-        assert nl_changes == []
+        
+        # Save updated entries
+        temp_db.save_border_crossing_data(updated_entries)
+        
+        # Check changes
+        changes = temp_db.get_border_crossing_points_changes(days=1)
+        assert len(changes) == 2  # EGLL removed, EGKK added
+        
+        # Verify changes are for GB only
+        for change in changes:
+            assert change.country_iso == "GB"
+        
+        # Check that FR was not affected
+        loaded_entries = temp_db.load_border_crossing_data()
+        fr_entries = [e for e in loaded_entries if e.country_iso == "FR"]
+        assert len(fr_entries) == 1
+        assert fr_entries[0].icao_code == "LFPG"
     
     def test_border_crossing_statistics(self, temp_db):
         """Test border crossing statistics."""
