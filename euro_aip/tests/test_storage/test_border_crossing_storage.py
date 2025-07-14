@@ -246,11 +246,13 @@ class TestBorderCrossingStorage:
             BorderCrossingEntry(
                 airport_name="Unmatched Airport",
                 country_iso="DE",
+                icao_code="EDDF",
                 source="border_crossing_parser"
             ),
             BorderCrossingEntry(
                 airport_name="Another UK Airport",
                 country_iso="GB",
+                icao_code="EGKK",
                 source="border_crossing_parser"
             )
         ]

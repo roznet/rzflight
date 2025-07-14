@@ -1073,12 +1073,12 @@ class DatabaseStorage:
         current_by_country = self._group_entries_by_country(current_entries)
         new_by_country = self._group_entries_by_country(entries)
         
-        # Get all countries that need processing
-        all_countries = set(current_by_country.keys()) | set(new_by_country.keys())
+        # Only process countries that are in the new data
+        countries_to_process = set(new_by_country.keys())
         
         changes = []
         
-        for country_iso in all_countries:
+        for country_iso in countries_to_process:
             current_country_entries = current_by_country.get(country_iso, [])
             new_country_entries = new_by_country.get(country_iso, [])
             
