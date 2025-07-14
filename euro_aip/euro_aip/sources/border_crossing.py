@@ -590,17 +590,24 @@ class BorderCrossingSource(CachedSource):
         if len(entries_by_name) < len(border_data):
             logger.info(f"Merged {len(border_data) - len(entries_by_name)} duplicate entries")
         
-        # Save border crossing entries to database if available
-        try:
-            from ..storage.database_storage import DatabaseStorage
-            # This is a bit of a hack - we need access to the database storage
-            # In a real implementation, we'd pass the database storage to this method
-            logger.info(f"Created {len(border_crossing_points)} border crossing entries")
-        except ImportError:
-            logger.warning("DatabaseStorage not available, skipping border crossing data persistence")
+        # Group new entries by country for per-country updates
+        new_by_country = {}
+        for entry in border_crossing_points:
+            country_iso = entry.country_iso
+            if country_iso not in new_by_country:
+                new_by_country[country_iso] = []
+            new_by_country[country_iso].append(entry)
         
-        # Add border crossing entries to the model
-        model.add_border_crossing_points(border_crossing_points)
+        # Update only countries that are in the new data (per-country clear and replace)
+        for country_iso, new_entries in new_by_country.items():
+            # Remove existing entries for this country
+            model.remove_border_crossing_points_by_country(country_iso)
+            
+            # Add new entries for this country
+            for entry in new_entries:
+                model.add_border_crossing_entry(entry)
+            
+            logger.info(f"Updated border crossing data for country {country_iso}: removed old entries, added {len(new_entries)} new entries")
         
         # Update airport objects with border crossing information
         model.update_border_crossing_airports()

@@ -39,7 +39,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": "--worldairports --database-storage airports.db ../data/airfieldmap.csv"
+            "args": "--worldairports --database-storage airports.db ../data/airfieldmap.csv cache/OJ_2023_0202.html cache/UK_BorderCrossing.html"
         },
         {
             "name": "Python Debugger: Autorouter EGKB",

@@ -476,6 +476,21 @@ class EuroAipModel:
         """
         return list(self.border_crossing_points.keys())
     
+    def remove_border_crossing_points_by_country(self, country_iso: str) -> None:
+        """
+        Remove all border crossing entries for a specific country.
+        
+        Args:
+            country_iso: ISO country code
+        """
+        if country_iso in self.border_crossing_points:
+            removed_count = len(self.border_crossing_points[country_iso])
+            del self.border_crossing_points[country_iso]
+            self.updated_at = datetime.now()
+            logger.info(f"Removed {removed_count} border crossing entries for country {country_iso}")
+        else:
+            logger.debug(f"No border crossing entries found for country {country_iso}")
+    
     def get_border_crossing_statistics(self) -> Dict[str, Any]:
         """
         Get statistics about border crossing entries.

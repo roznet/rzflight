@@ -279,4 +279,88 @@ class TestEuroAipModelBorderCrossing:
         
         # Check values
         assert stats["total_border_crossing_points"] == 1
-        assert stats["border_crossing"]["total_entries"] == 1 
+        assert stats["border_crossing"]["total_entries"] == 1
+    
+    def test_per_country_border_crossing_updates(self):
+        """Test that updating border crossing data for one country doesn't affect other countries."""
+        model = EuroAipModel()
+        
+        # Initial setup: add entries for two countries
+        initial_entries = [
+            BorderCrossingEntry(
+                airport_name="London Heathrow",
+                country_iso="GB",
+                icao_code="EGLL",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Gatwick",
+                country_iso="GB",
+                icao_code="EGKK",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Paris CDG",
+                country_iso="FR",
+                icao_code="LFPG",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Nice",
+                country_iso="FR",
+                icao_code="LFMN",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        model.add_border_crossing_points(initial_entries)
+        
+        # Verify initial state
+        assert len(model.get_all_border_crossing_points()) == 4
+        assert len(model.get_border_crossing_points_by_country("GB")) == 2
+        assert len(model.get_border_crossing_points_by_country("FR")) == 2
+        
+        # Update only GB: remove Gatwick, add Manchester
+        updated_gb_entries = [
+            BorderCrossingEntry(
+                airport_name="London Heathrow",
+                country_iso="GB",
+                icao_code="EGLL",
+                source="border_crossing_parser"
+            ),
+            BorderCrossingEntry(
+                airport_name="Manchester",
+                country_iso="GB",
+                icao_code="EGCC",
+                source="border_crossing_parser"
+            )
+        ]
+        
+        # Remove existing GB entries and add new ones (simulating per-country update)
+        model.remove_border_crossing_points_by_country("GB")
+        model.add_border_crossing_points(updated_gb_entries)
+        
+        # Verify GB was updated correctly
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 2
+        gb_airport_names = [entry.airport_name for entry in gb_entries]
+        assert "London Heathrow" in gb_airport_names
+        assert "Manchester" in gb_airport_names
+        assert "Gatwick" not in gb_airport_names  # Should be removed
+        
+        # Verify FR was NOT affected
+        fr_entries = model.get_border_crossing_points_by_country("FR")
+        assert len(fr_entries) == 2
+        fr_airport_names = [entry.airport_name for entry in fr_entries]
+        assert "Paris CDG" in fr_airport_names
+        assert "Nice" in fr_airport_names
+        
+        # Verify total count is correct
+        assert len(model.get_all_border_crossing_points()) == 4  # 2 GB + 2 FR
+        
+        # Verify statistics are correct
+        stats = model.get_border_crossing_statistics()
+        assert stats['total_entries'] == 4
+        assert stats['countries_count'] == 2
+        assert stats['by_country']['GB'] == 2
+        assert stats['by_country']['FR'] == 2 

@@ -1068,8 +1068,44 @@ class DatabaseStorage:
         # Get current entries for change detection
         current_entries = self._get_current_border_crossing_points(conn)
         
-        # Detect changes
-        changes = self._detect_border_crossing_points_changes(current_entries, entries)
+        # Organize entries by country
+        current_by_country = self._group_entries_by_country(current_entries)
+        new_by_country = self._group_entries_by_country(entries)
+        
+        # Get all countries that need processing
+        all_countries = set(current_by_country.keys()) | set(new_by_country.keys())
+        
+        changes = []
+        
+        for country_iso in all_countries:
+            current_country_entries = current_by_country.get(country_iso, [])
+            new_country_entries = new_by_country.get(country_iso, [])
+            
+            # Detect changes for this country
+            country_changes = self._detect_border_crossing_changes_by_country(
+                current_country_entries, new_country_entries, country_iso
+            )
+            changes.extend(country_changes)
+            
+            # Always process if this is the first insert for the country, or if there are changes
+            if not current_country_entries or country_changes:
+                # Delete current entries for this country (safe even if none)
+                conn.execute('DELETE FROM border_crossing_points WHERE country_iso = ?', (country_iso,))
+                
+                # Insert new entries for this country
+                for entry in new_country_entries:
+                    data = entry.to_dict()
+                    conn.execute('''
+                        INSERT INTO border_crossing_points 
+                        (airport_name, country_iso, icao_code, is_airport, source, extraction_method,
+                         metadata_json, matched_airport_icao, match_score, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        data['airport_name'], data['country_iso'], data['icao_code'],
+                        data.get('is_airport'), data['source'], data['extraction_method'], 
+                        data['metadata_json'], data['matched_airport_icao'], data['match_score'],
+                        data['created_at'], data['updated_at']
+                    ))
         
         # Save changes to history
         for change in changes:
@@ -1081,24 +1117,54 @@ class DatabaseStorage:
                 change.airport_name, change.country_iso, change.action,
                 change.source, change.changed_at.isoformat()
             ))
-        
-        # Clear current entries and insert new ones
-        conn.execute('DELETE FROM border_crossing_points')
-        
-        # Insert new entries
+    
+    def _group_entries_by_country(self, entries: List[BorderCrossingEntry]) -> Dict[str, List[BorderCrossingEntry]]:
+        """Group border crossing entries by country."""
+        grouped = {}
         for entry in entries:
-            data = entry.to_dict()
-            conn.execute('''
-                INSERT INTO border_crossing_points 
-                (airport_name, country_iso, icao_code, is_airport, source, extraction_method,
-                 metadata_json, matched_airport_icao, match_score, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                data['airport_name'], data['country_iso'], data['icao_code'],
-                data.get('is_airport'), data['source'], data['extraction_method'], 
-                data['metadata_json'], data['matched_airport_icao'], data['match_score'],
-                data['created_at'], data['updated_at']
+            country_iso = entry.country_iso
+            if country_iso not in grouped:
+                grouped[country_iso] = []
+            grouped[country_iso].append(entry)
+        return grouped
+    
+    def _detect_border_crossing_changes_by_country(self, current_entries: List[BorderCrossingEntry], 
+                                                   new_entries: List[BorderCrossingEntry], 
+                                                   country_iso: str) -> List[BorderCrossingChange]:
+        """Detect changes in border crossing entries for a specific country."""
+        changes = []
+        now = datetime.now()
+        
+        # Create sets for efficient comparison
+        current_set = {(e.airport_name, e.source) for e in current_entries}
+        new_set = {(e.airport_name, e.source) for e in new_entries}
+        
+        # Find added entries
+        added = new_set - current_set
+        # Only create change entries if we had existing entries for this country
+        # (don't create changes for first-time country additions)
+        if current_entries:
+            for airport_name, source in added:
+                changes.append(BorderCrossingChange(
+                    airport_name=airport_name,
+                    country_iso=country_iso,
+                    action='ADDED',
+                    source=source,
+                    changed_at=now
+                ))
+        
+        # Find removed entries
+        removed = current_set - new_set
+        for airport_name, source in removed:
+            changes.append(BorderCrossingChange(
+                airport_name=airport_name,
+                country_iso=country_iso,
+                action='REMOVED',
+                source=source,
+                changed_at=now
             ))
+        
+        return changes
     
     def load_border_crossing_data(self) -> List[BorderCrossingEntry]:
         """
@@ -1305,41 +1371,6 @@ class DatabaseStorage:
             entry = BorderCrossingEntry.from_dict(dict(row))
             entries.append(entry)
         return entries
-    
-    def _detect_border_crossing_points_changes(self, current_entries: List[BorderCrossingEntry], 
-                                      new_entries: List[BorderCrossingEntry]) -> List[BorderCrossingChange]:
-        """Detect changes in border crossing entries."""
-        changes = []
-        now = datetime.now()
-        
-        # Create sets for efficient comparison
-        current_set = {(e.airport_name, e.country_iso, e.source) for e in current_entries}
-        new_set = {(e.airport_name, e.country_iso, e.source) for e in new_entries}
-        
-        # Find added entries
-        added = new_set - current_set
-        if current_set:
-            for airport_name, country_iso, source in added:
-                changes.append(BorderCrossingChange(
-                    airport_name=airport_name,
-                    country_iso=country_iso,
-                    action='ADDED',
-                    source=source,
-                    changed_at=now
-                ))
-        
-        # Find removed entries
-        removed = current_set - new_set
-        for airport_name, country_iso, source in removed:
-            changes.append(BorderCrossingChange(
-                airport_name=airport_name,
-                country_iso=country_iso,
-                action='REMOVED',
-                source=source,
-                changed_at=now
-            ))
-        
-        return changes
     
     def _safe_convert_value(self, value: Any, field_type: str) -> Any:
         """
