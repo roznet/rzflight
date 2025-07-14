@@ -465,8 +465,9 @@ class BorderCrossingSource(CachedSource):
                 else:
                     logger.debug(f"ICAO code {airport_icao} not found in model")
             
-            # try fuzzy matching on airport name
-            if 'airport_name' in entry and entry['airport_name']:
+            # try fuzzy matching on airport name if no ICAO and it is an airport
+            if not airport_icao and entry['is_airport'] and 'airport_name' in entry and entry['airport_name'] :
+
                 airport_name = entry['airport_name']
                 country_name = entry.get('country', '').strip()
                 
@@ -528,6 +529,7 @@ class BorderCrossingSource(CachedSource):
                     if result:
                         matched_icao, matched_name, score = result
                         matched_airport_icao = matched_icao
+                        airport_icao = matched_icao
                         match_score = score
                         matched_count += 1
                         logger.debug(f"Fuzzy matched '{airport_name}' to '{matched_name}' ({matched_icao}) with score {score:.2f}")
@@ -561,11 +563,6 @@ class BorderCrossingSource(CachedSource):
                     merged_entry = border_entry.merge_with(existing_entry)
                     entries_by_name[airport_name] = merged_entry
                     logger.debug(f"Merged duplicate entry for '{airport_name}' - new entry was more complete")
-                else:
-                    # Existing entry is more complete, merge new entry into it
-                    merged_entry = existing_entry.merge_with(border_entry)
-                    entries_by_name[airport_name] = merged_entry
-                    logger.debug(f"Merged duplicate entry for '{airport_name}' - existing entry was more complete")
             else:
                 # First entry for this airport name
                 entries_by_name[airport_name] = border_entry

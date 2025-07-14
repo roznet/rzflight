@@ -226,18 +226,21 @@ class BorderCrossingEntry:
         # Score based on completeness
         this_score = 0
         other_score = 0
-        
+
+        current_icao_native = self.icao_code and not self.matched_airport_icao
+        other_icao_native = other.icao_code and not other.matched_airport_icao
+
+        # if we have an ICAO code and the other doesn't, we are more complete, always prefer
+        if current_icao_native and not other_icao_native:
+            return True
+        if other_icao_native and not current_icao_native:
+            return False
+
         # ICAO code (high value)
         if self.icao_code:
             this_score += 10
         if other.icao_code:
             other_score += 10
-        
-        # Is airport flag
-        if self.is_airport is not None:
-            this_score += 5
-        if other.is_airport is not None:
-            other_score += 5
         
         # Match score
         if self.match_score:
@@ -251,16 +254,5 @@ class BorderCrossingEntry:
         if other.metadata:
             other_score += len(other.metadata)
         
-        # Extraction method specificity
-        if self.extraction_method:
-            if 'csv' in self.extraction_method.lower():
-                this_score += 3
-            elif 'html' in self.extraction_method.lower():
-                this_score += 2
-        if other.extraction_method:
-            if 'csv' in other.extraction_method.lower():
-                other_score += 3
-            elif 'html' in other.extraction_method.lower():
-                other_score += 2
         
         return this_score > other_score 
