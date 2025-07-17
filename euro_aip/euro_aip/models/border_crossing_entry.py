@@ -223,36 +223,45 @@ class BorderCrossingEntry:
         if not isinstance(other, BorderCrossingEntry):
             return False
         
-        # Score based on completeness
-        this_score = 0
-        other_score = 0
-
-        current_icao_native = self.icao_code and not self.matched_airport_icao
-        other_icao_native = other.icao_code and not other.matched_airport_icao
-
-        # if we have an ICAO code and the other doesn't, we are more complete, always prefer
-        if current_icao_native and not other_icao_native:
+        # Native ICAO (has icao_code but no matched_airport_icao) is always preferred over matched
+        self_native = self.icao_code and not self.matched_airport_icao
+        other_native = other.icao_code and not other.matched_airport_icao
+        
+        if self_native and not other_native:
             return True
-        if other_icao_native and not current_icao_native:
+        if other_native and not self_native:
             return False
-
-        # ICAO code (high value)
+        
+        # If both are the same type (both native or both matched), use scoring
+        self_score = 0
+        other_score = 0
+        
+        # ICAO code presence (should always be present here)
         if self.icao_code:
-            this_score += 10
+            self_score += 10
         if other.icao_code:
             other_score += 10
         
         # Match score
         if self.match_score:
-            this_score += int(self.match_score * 10)
+            self_score += int(self.match_score * 5)
         if other.match_score:
-            other_score += int(other.match_score * 10)
+            other_score += int(other.match_score * 5)
         
         # Metadata completeness
         if self.metadata:
-            this_score += len(self.metadata)
+            self_score += len(self.metadata)
         if other.metadata:
             other_score += len(other.metadata)
         
+        # Additional fields
+        if self.is_airport is not None:
+            self_score += 1
+        if other.is_airport is not None:
+            other_score += 1
+        if self.extraction_method:
+            self_score += 1
+        if other.extraction_method:
+            other_score += 1
         
-        return this_score > other_score 
+        return self_score > other_score 

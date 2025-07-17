@@ -402,19 +402,38 @@ class EuroAipModel:
         """
         country_iso = entry.country_iso
         icao_code = entry.icao_code or entry.matched_airport_icao
-        
+
+        # the model only stores airports
+        if not entry.is_airport:
+            return
+
         if not icao_code:
             logger.warning(f"Border crossing entry for {entry.airport_name} has no ICAO code, skipping")
             return
         
         if country_iso not in self.border_crossing_points:
             self.border_crossing_points[country_iso] = {}
+
         
-        self.border_crossing_points[country_iso][icao_code] = entry
+        # Check if there's already an entry with this ICAO code
+        if icao_code in self.border_crossing_points[country_iso]:
+            existing_entry = self.border_crossing_points[country_iso][icao_code]
+            
+            # Use is_more_complete_than logic to decide which entry to keep
+            if entry.is_more_complete_than(existing_entry):
+                # New entry is more complete, replace the existing one
+                self.border_crossing_points[country_iso][icao_code] = entry
+                logger.debug(f"Replaced border crossing entry for {entry.airport_name} ({icao_code}) in {country_iso} with more complete entry")
+            else:
+                # Existing entry is more complete or equal, keep the existing one
+                logger.debug(f"Kept existing border crossing entry for {existing_entry.airport_name} ({icao_code}) in {country_iso} as it is more complete")
+        else:
+            # No existing entry, add the new one
+            self.border_crossing_points[country_iso][icao_code] = entry
+            logger.debug(f"Added border crossing entry for {entry.airport_name} ({icao_code}) in {country_iso}")
+        
         self.sources_used.add(entry.source)
         self.updated_at = datetime.now()
-        
-        logger.debug(f"Added border crossing entry for {entry.airport_name} ({icao_code}) in {country_iso}")
     
     def add_border_crossing_points(self, entries: List[BorderCrossingEntry]) -> None:
         """
@@ -564,8 +583,8 @@ class EuroAipModel:
         """
         border_airports = []
         for entry in self.get_all_border_crossing_points():
-            if entry.matched_airport_icao and entry.matched_airport_icao in self.airports:
-                border_airports.append(self.airports[entry.matched_airport_icao])
+            if entry.icao_code in self.airports:
+                border_airports.append(self.airports[entry.icao_code])
         
         return border_airports
     

@@ -42,10 +42,10 @@
             "args": "--worldairports --database-storage airports.db ../data/airfieldmap.csv cache/OJ_2023_0202.html cache/UK_BorderCrossing.html"
         },
         {
-            "name": "Python Debugger: Autorouter EGKB",
+            "name": "Python Debugger: Rebuild foreflight pack",
             "type": "debugpy",
             "request": "launch",
-            "program": "aip.py",
+            "program": "foreflight.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}"
@@ -53,9 +53,10 @@
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
             "args": [
-                "autorouter",
-                "EGKB",
-                "-n"
+                "-d",
+                "airports.db",
+                "-v",
+                "pack"
             ]
         },
         {

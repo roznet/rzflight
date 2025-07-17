@@ -478,4 +478,121 @@ class TestEuroAipModelBorderCrossing:
         assert stats['total_entries'] == 4
         assert stats['countries_count'] == 2
         assert stats['by_country']['GB'] == 2
-        assert stats['by_country']['FR'] == 2 
+        assert stats['by_country']['FR'] == 2
+    
+    def test_border_crossing_deduplication_and_completeness(self):
+        """Test deduplication logic and is_more_complete functionality."""
+        model = EuroAipModel()
+        
+        # Test 1: Same ICAO, different names - should keep only the more complete entry
+        entry1 = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            source="border_crossing_parser"
+        )
+        
+        entry2 = BorderCrossingEntry(
+            airport_name="London Heathrow Airport",  # Slightly different name
+            country_iso="GB",
+            icao_code="EGLL",  # Same ICAO
+            metadata={"info": "extra"},  # More complete
+            source="border_crossing_parser"
+        )
+        
+        # Add the less complete entry first
+        model.add_border_crossing_entry(entry1)
+        # Add the more complete entry second
+        model.add_border_crossing_entry(entry2)
+        
+        # Should only have one entry for EGLL, and it should be the more complete one
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 1
+        stored_entry = gb_entries[0]
+        assert stored_entry.airport_name == "London Heathrow Airport"
+        assert stored_entry.icao_code == "EGLL"
+        assert stored_entry.metadata == {"info": "extra"}
+        
+        # Now add the less complete entry again, it should NOT override the more complete one
+        model.add_border_crossing_entry(entry1)
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 1
+        stored_entry = gb_entries[0]
+        assert stored_entry.airport_name == "London Heathrow Airport"
+        assert stored_entry.icao_code == "EGLL"
+        assert stored_entry.metadata == {"info": "extra"}
+
+        # Test 2: Same ICAO, one with matched_airport_icao, one without
+        # The one WITHOUT matched_airport_icao should be kept (more complete)
+        model = EuroAipModel()  # Fresh model
+        
+        entry_with_match = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            matched_airport_icao="EGLL",  # Has match
+            match_score=0.95,
+            source="border_crossing_parser"
+        )
+        
+        entry_without_match = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            # No matched_airport_icao - this should be considered more complete
+            source="border_crossing_parser"
+        )
+        
+        # Verify is_more_complete logic
+        assert entry_without_match.is_more_complete_than(entry_with_match)
+        assert not entry_with_match.is_more_complete_than(entry_without_match)
+        
+        # Add both entries
+        model.add_border_crossing_entry(entry_with_match)
+        model.add_border_crossing_entry(entry_without_match)
+        
+        # Should only have one entry
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 1
+        
+        # The entry WITHOUT matched_airport_icao should be kept
+        stored_entry = gb_entries[0]
+        assert stored_entry.matched_airport_icao is None
+        assert stored_entry.icao_code == "EGLL"
+        
+        # Test 3: Same ICAO, different completeness levels
+        model = EuroAipModel()  # Fresh model
+        
+        entry_basic = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            source="border_crossing_parser"
+        )
+        
+        entry_complete = BorderCrossingEntry(
+            airport_name="London Heathrow",
+            country_iso="GB",
+            icao_code="EGLL",
+            matched_airport_icao="EGLL",
+            match_score=0.95,
+            metadata={"additional_info": "test"},
+            source="border_crossing_parser"
+        )
+        
+        # According to the rule, the native entry should always be preferred
+        assert entry_basic.is_more_complete_than(entry_complete)
+        assert not entry_complete.is_more_complete_than(entry_basic)
+        
+        # Add both entries
+        model.add_border_crossing_entry(entry_basic)
+        model.add_border_crossing_entry(entry_complete)
+        
+        # Should only have one entry
+        gb_entries = model.get_border_crossing_points_by_country("GB")
+        assert len(gb_entries) == 1
+        
+        # The native entry should be kept
+        stored_entry = gb_entries[0]
+        assert stored_entry.matched_airport_icao is None
+        assert stored_entry.icao_code == "EGLL" 

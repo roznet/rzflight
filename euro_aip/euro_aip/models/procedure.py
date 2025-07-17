@@ -25,7 +25,7 @@ class Procedure:
             if self.runway_letter:
                 return f"{self.runway_number}{self.runway_letter}"
             return self.runway_number
-        return self.runway
+        return self.runway_ident
     
     def matches_runway(self, runway_ident: str) -> bool:
         """Check if this procedure matches a runway."""
@@ -51,7 +51,7 @@ class Procedure:
             'approach_type': self.approach_type,
             'runway_number': self.runway_number,
             'runway_letter': self.runway_letter,
-            'runway_ident': self.runway,
+            'runway_ident': self.runway_ident,
             'source': self.source,
             'authority': self.authority,
             'raw_name': self.raw_name,
@@ -84,9 +84,6 @@ class Procedure:
         runway_info = self.get_full_runway_ident()
         if runway_info:
             result += f" - RWY {runway_info}"
-        
-        if self.category:
-            result += f" - {self.category}"
         
         if self.source:
             result += f" [Source: {self.source}]"

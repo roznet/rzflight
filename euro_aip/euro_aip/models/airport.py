@@ -101,6 +101,9 @@ class Airport:
     def get_unstandardized_entries(self) -> List['AIPEntry']:
         """Get all AIP entries that have not been standardized."""
         return [entry for entry in self.aip_entries if not entry.is_standardized()]
+    def get_aip_entry_for_field(self, std_field_id: int) -> Optional['AIPEntry']:
+        """Get AIP entry for a specific field."""
+        return next((entry for entry in self.aip_entries if entry.std_field_id == std_field_id), None)
     
     def get_aip_entry_by_field(self, field_name: str, use_standardized: bool = True) -> Optional['AIPEntry']:
         """
