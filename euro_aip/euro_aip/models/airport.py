@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Set
 from datetime import datetime
+from euro_aip.models.runway import Runway
+from euro_aip.models.aip_entry import AIPEntry
+from euro_aip.models.procedure import Procedure
 
 @dataclass
 class Airport:
@@ -151,10 +154,49 @@ class Airport:
         """Get all procedures for a specific runway."""
         return [p for p in self.procedures if p.matches_runway(runway_ident)]
     
-    def get_approaches_by_runway(self, runway_ident: str) -> List['Procedure']:
+    def get_approaches_by_runway(self, runway: Runway) -> List['Procedure']:
         """Get all approach procedures for a specific runway."""
         return [p for p in self.procedures 
-                if p.is_approach() and p.matches_runway(runway_ident)]
+                if p.is_approach() and p.matches_runway(runway)]
+    
+    def get_most_precise_approach_for_runway(self, runway: Runway) -> Optional['Procedure']:
+        """
+        Get the most precise approach procedure for a specific runway.
+        
+        Args:
+            runway: The runway to get approaches for
+            
+        Returns:
+            The most precise approach procedure, or None if no approaches exist
+        """
+        approaches = self.get_approaches_by_runway(runway)
+        if not approaches:
+            return None
+        
+        # Sort by precision (most precise first) and return the first one
+        approaches.sort(key=lambda p: p.get_approach_precision())
+        return approaches[0]
+    
+    def get_most_precise_approach_for_runway_end(self, runway: Runway, runway_end_ident: str) -> Optional['Procedure']:
+        """
+        Get the most precise approach procedure for a specific runway end.
+        
+        Args:
+            runway: The runway to get approaches for
+            runway_end_ident: The runway end identifier (e.g., '13L', '31R')
+            
+        Returns:
+            The most precise approach procedure for the runway end, or None if no approaches exist
+        """
+        approaches = [p for p in self.procedures 
+                     if p.is_approach() and p.runway_ident == runway_end_ident]
+        
+        if not approaches:
+            return None
+        
+        # Sort by precision (most precise first) and return the first one
+        approaches.sort(key=lambda p: p.get_approach_precision())
+        return approaches[0]
     
     def get_departures_by_runway(self, runway_ident: str) -> List['Procedure']:
         """Get all departure procedures for a specific runway."""

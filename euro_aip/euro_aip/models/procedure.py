@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
 from datetime import datetime
+from euro_aip.models.runway import Runway
 
 @dataclass
 class Procedure:
@@ -19,6 +20,18 @@ class Procedure:
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     
+    # Class-level precision hierarchy
+    _APPROACH_PRECISION_HIERARCHY = {
+        'ILS': 1,      # Most precise - Instrument Landing System
+        'RNP': 2,      # Required Navigation Performance
+        'RNAV': 3,     # Area Navigation
+        'VOR': 4,      # VHF Omnidirectional Range
+        'NDB': 5,      # Non-Directional Beacon
+        'LOC': 6,      # Localizer
+        'LDA': 7,      # Localizer Directional Aid
+        'SDF': 8,      # Simplified Directional Facility
+    }
+    
     def get_full_runway_ident(self) -> Optional[str]:
         """Get the full runway identifier (e.g., '13L')."""
         if self.runway_number:
@@ -27,9 +40,9 @@ class Procedure:
             return self.runway_number
         return self.runway_ident
     
-    def matches_runway(self, runway_ident: str) -> bool:
+    def matches_runway(self, runway: Runway) -> bool:
         """Check if this procedure matches a runway."""
-        return self.get_full_runway_ident() == runway_ident
+        return self.runway_ident == runway.le_ident or self.runway_ident == runway.he_ident
     
     def is_approach(self) -> bool:
         """Check if this is an approach procedure."""
@@ -42,6 +55,84 @@ class Procedure:
     def is_arrival(self) -> bool:
         """Check if this is an arrival procedure."""
         return self.procedure_type.lower() == 'arrival'
+    
+    def get_approach_precision(self) -> int:
+        """
+        Get the precision ranking for this procedure's approach type.
+        Lower numbers indicate higher precision.
+        
+        Returns:
+            Precision ranking (lower = more precise)
+        """
+        if not self.approach_type:
+            return 999  # Lowest precision for procedures without approach type
+        
+        # Normalize approach type (handle case variations)
+        normalized_type = self.approach_type.upper()
+        
+        # Return precision ranking, default to lowest precision if unknown
+        return self._APPROACH_PRECISION_HIERARCHY.get(normalized_type, 999)
+    
+    def compare_precision(self, other: 'Procedure') -> int:
+        """
+        Compare the precision of this procedure with another.
+        
+        Args:
+            other: Another Procedure to compare with
+            
+        Returns:
+            -1 if this procedure is more precise than other
+             0 if both procedures have the same precision
+             1 if other procedure is more precise than this
+        """
+        if not isinstance(other, Procedure):
+            raise TypeError("Can only compare with other Procedure objects")
+        
+        this_precision = self.get_approach_precision()
+        other_precision = other.get_approach_precision()
+        
+        if this_precision < other_precision:
+            return -1  # This is more precise
+        elif this_precision > other_precision:
+            return 1   # Other is more precise
+        else:
+            return 0   # Same precision
+    
+    def is_more_precise_than(self, other: 'Procedure') -> bool:
+        """
+        Check if this procedure is more precise than another.
+        
+        Args:
+            other: Another Procedure to compare with
+            
+        Returns:
+            True if this procedure is more precise than other
+        """
+        return self.compare_precision(other) < 0
+    
+    def is_less_precise_than(self, other: 'Procedure') -> bool:
+        """
+        Check if this procedure is less precise than another.
+        
+        Args:
+            other: Another Procedure to compare with
+            
+        Returns:
+            True if this procedure is less precise than other
+        """
+        return self.compare_precision(other) > 0
+    
+    def has_same_precision_as(self, other: 'Procedure') -> bool:
+        """
+        Check if this procedure has the same precision as another.
+        
+        Args:
+            other: Another Procedure to compare with
+            
+        Returns:
+            True if both procedures have the same precision
+        """
+        return self.compare_precision(other) == 0
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""

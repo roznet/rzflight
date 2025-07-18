@@ -102,6 +102,8 @@ class Command:
         logger.info(f'Writing {dest}')
         kml.save(dest)
 
+
+
     def build_approaches(self, dest: str):
         """Build KML file for Approaches."""
         if not self.model:
@@ -112,11 +114,14 @@ class Command:
         
         # Define colors for different approach types
         approach_colors = {
-            'ILS': simplekml.Color.yellow,
-            'RNP': simplekml.Color.blue,
-            'VOR': simplekml.Color.white,
-            'NDB': simplekml.Color.white,
-            'RNAV': simplekml.Color.blue
+            'ILS': simplekml.Color.yellow,    # Instrument Landing System - highest precision
+            'RNP': simplekml.Color.blue,      # Required Navigation Performance
+            'RNAV': simplekml.Color.blue,     # Area Navigation
+            'LOC': simplekml.Color.orange,    # Localizer
+            'LDA': simplekml.Color.orange,    # Localizer Directional Aid
+            'SDF': simplekml.Color.orange,    # Simplified Directional Facility
+            'VOR': simplekml.Color.white,     # VHF Omnidirectional Range
+            'NDB': simplekml.Color.white,     # Non-Directional Beacon
         }
 
         # Get airports with procedures
@@ -124,6 +129,9 @@ class Command:
         logger.info(f"Found {len(airports_with_procedures)} airports with procedures")
         
         for airport in airports_with_procedures:
+
+            if airport.ident == 'LFBN' or airport.ident == 'LFOK':
+                logger.info(f"Processing {airport.ident}")
             if not airport.runways:
                 continue
                 
@@ -134,7 +142,7 @@ class Command:
             
             for runway in airport.runways:
                 # Get approach procedures for this runway
-                runway_approaches = airport.get_approaches_by_runway(runway.le_ident)
+                runway_approaches = airport.get_approaches_by_runway(runway)
                 if not runway_approaches:
                     continue
                 
@@ -146,20 +154,26 @@ class Command:
                     end_lat = getattr(runway, f'{end}_latitude_deg')
                     end_lon = getattr(runway, f'{end}_longitude_deg')
                     other_heading = getattr(runway, f'{other}_heading_degT')
-                    
+                    current_ident = getattr(runway, f'{end}_ident')
+
                     if not all([end_lat, end_lon, other_heading]):
                         continue
                     
-                    # Determine approach type and color for this runway
-                    color = simplekml.Color.white
-                    for approach in runway_approaches:
-                        if approach.approach_type:
-                            for approach_type in approach_colors:
-                                if approach_type in approach.approach_type.upper():
-                                    color = approach_colors[approach_type]
-                                    break
-                            if color != simplekml.Color.white:
-                                break
+                    # Get the most precise approach for this runway end
+                    most_precise_approach = airport.get_most_precise_approach_for_runway_end(runway, current_ident)
+                    
+                    if not most_precise_approach or not most_precise_approach.approach_type:
+                        continue
+                    
+                    approach_type = most_precise_approach.approach_type.upper()
+                    
+                    # Get color for the most precise approach type
+                    color = approach_colors.get(approach_type, simplekml.Color.white)
+                    
+                    # Log the selection for debugging
+                    if airport.ident in ['LFAC', 'LFOK']:
+                        logger.info(f"Selected {approach_type} approach for {airport.ident} {current_ident} "
+                                  f"(precision: {most_precise_approach.get_approach_precision()})")
 
                     try:
                         # Create NavPoint for runway end
@@ -176,10 +190,10 @@ class Command:
                         )
                         
                         # Create approach line
-                        approach_name = runway_approaches[0].name if runway_approaches else f"RWY{runway.le_ident}"
+                        approach_name = most_precise_approach.name if most_precise_approach else f"RWY{current_ident}"
                         line = kml.newlinestring(
                             name=f"{airport.ident} {approach_name}",
-                            description=f"{airport.ident} {runway.le_ident} {approach_name}",
+                            description=f"{airport.ident} {current_ident} {approach_name} ({approach_type})",
                             coords=[(runway_end.longitude, runway_end.latitude),
                                   (end_point.longitude, end_point.latitude)]
                         )
@@ -187,7 +201,7 @@ class Command:
                         line.style.linestyle.width = 10
                         
                     except (ValueError, KeyError) as e:
-                        logger.warning(f"Error processing approach for {airport.ident} {runway.le_ident}: {e}")
+                        logger.warning(f"Error processing approach for {airport.ident} {current_ident}: {e}")
                         continue
 
         logger.info(f'Writing {dest}')
