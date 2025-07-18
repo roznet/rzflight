@@ -174,7 +174,7 @@ class ModelBuilder:
         
         for source_name, source in self.sources.items():
             # worldairports contains all airports in the world, so it's not useful to find available airports
-            if source_name == 'worldairports' and self.args.worldairports_filter == 'all':
+            if source_name == 'worldairports' and self.args.worldairports_filter != 'all':
                 continue
             if hasattr(source, 'find_available_airports'):
                 try:
@@ -194,156 +194,6 @@ class ModelBuilder:
         logger.info(f"Total unique airports found across all sources: {len(sorted_airports)}")
         return sorted_airports
 
-class LegacySQLiteExporter:
-    """Legacy SQLite exporter for backward compatibility."""
-    
-    def __init__(self, db_path: str):
-        """Initialize SQLite exporter."""
-        self.db_path = db_path
-        self.conn = None
-    
-    def create_tables(self):
-        """Create the database schema."""
-        self.conn = sqlite3.connect(self.db_path)
-        
-        # Main airports table
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS airports (
-                icao_code TEXT PRIMARY KEY,
-                iata_code TEXT,
-                name TEXT,
-                country TEXT,
-                city TEXT,
-                latitude REAL,
-                longitude REAL,
-                elevation REAL,
-                timezone TEXT,
-                sources TEXT,
-                last_updated TEXT
-            )
-        ''')
-        
-        # AIP data table (key-value pairs)
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS aip_data (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                icao_code TEXT,
-                source TEXT,
-                field_name TEXT,
-                field_value TEXT,
-                std_field_name TEXT,
-                std_field_id INTEGER,
-                mapping_score REAL,
-                section TEXT,
-                FOREIGN KEY (icao_code) REFERENCES airports (icao_code),
-                UNIQUE(icao_code, source, field_name)
-            )
-        ''')
-        
-        # Runways table
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS runways (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                icao_code TEXT,
-                runway_identifier TEXT,
-                length REAL,
-                width REAL,
-                surface TEXT,
-                FOREIGN KEY (icao_code) REFERENCES airports (icao_code)
-            )
-        ''')
-        
-        # Procedures table
-        self.conn.execute('''
-            CREATE TABLE IF NOT EXISTS procedures (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                icao_code TEXT,
-                procedure_type TEXT,
-                procedure_name TEXT,
-                procedure_data TEXT,
-                FOREIGN KEY (icao_code) REFERENCES airports (icao_code)
-            )
-        ''')
-        
-        self.conn.commit()
-        logger.info(f"Created legacy SQLite database schema at {self.db_path}")
-    
-    def save_model(self, model: EuroAipModel):
-        """Export the entire model to the database."""
-        if not self.conn:
-            self.create_tables()
-        
-        logger.info(f"Exporting {len(model.airports)} airports to legacy SQLite")
-        
-        for airport_code, airport in model.airports.items():
-            # Insert/update main airport record
-            self.conn.execute('''
-                INSERT OR REPLACE INTO airports 
-                (icao_code, iata_code, name, country, city, latitude, longitude, elevation, timezone, sources, last_updated)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                airport.ident,
-                airport.iata_code,
-                airport.name,
-                airport.iso_country,
-                airport.municipality,
-                airport.latitude_deg,
-                airport.longitude_deg,
-                airport.elevation_ft,
-                None,
-                ','.join(airport.sources),
-                airport.updated_at.isoformat() if airport.updated_at else None
-            ))
-            
-            # Insert AIP data
-            for entry in airport.aip_entries:
-                self.conn.execute('''
-                    INSERT OR REPLACE INTO aip_data 
-                    (icao_code, source, field_name, field_value, std_field_name, std_field_id, mapping_score, section)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    airport.ident,
-                    'aip_entries',  # Source is now 'aip_entries' since we're using the unified structure
-                    entry.field,
-                    entry.value,
-                    entry.std_field,
-                    entry.std_field_id,
-                    entry.mapping_score,
-                    entry.section
-                ))
-            
-            # Insert runway data
-            for runway in airport.runways:
-                self.conn.execute('''
-                    INSERT INTO runways (icao_code, runway_identifier, length, width, surface)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (
-                    airport.ident,
-                    runway.le_ident,  # Use le_ident as primary identifier
-                    runway.length_ft,
-                    runway.width_ft,
-                    runway.surface
-                ))
-            
-            # Insert procedure data
-            for procedure in airport.procedures:
-                self.conn.execute('''
-                    INSERT INTO procedures (icao_code, procedure_type, procedure_name, procedure_data)
-                    VALUES (?, ?, ?, ?)
-                ''', (
-                    airport.ident,
-                    procedure.procedure_type,
-                    procedure.name,
-                    json.dumps(procedure.data) if procedure.data else None
-                ))
-        
-        self.conn.commit()
-        logger.info(f"Successfully exported {len(model.airports)} airports to legacy SQLite")
-    
-    def close(self):
-        """Close the database connection."""
-        if self.conn:
-            self.conn.close()
 
 class JSONExporter:
     """Exports EuroAipModel to JSON file."""
@@ -375,9 +225,6 @@ class AIPExporter:
         self.exporters = {}
         
         # Initialize exporters based on output format
-        if self.args.sqlite:
-            self.exporters['sqlite'] = LegacySQLiteExporter(self.args.sqlite)
-        
         if self.args.database_storage:
             self.exporters['database_storage'] = DatabaseStorage(self.args.database_storage)
         
@@ -446,7 +293,6 @@ def main():
     parser.add_argument('--pointdepassage-db', help='Point de Passage database file', default='airports.db')
     
     # Output configuration
-    parser.add_argument('--sqlite', help='Legacy SQLite output database file')
     parser.add_argument('--database-storage', help='New unified database storage file with change tracking')
     parser.add_argument('--json', help='JSON output file')
     
@@ -468,7 +314,7 @@ def main():
     ])
     
     outputs_enabled = any([
-        args.sqlite, args.database_storage, args.json
+        args.database_storage, args.json
     ])
     
     if not sources_enabled:

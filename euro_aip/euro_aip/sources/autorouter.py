@@ -60,7 +60,7 @@ class AutorouterSource(CachedSource, SourceInterface):
                     break
         return rv
 
-    def fetch_airport(self, icao: str) -> Dict[str, Any]:
+    def fetch_airport_doclist(self, icao: str) -> Dict[str, Any]:
         """
         Fetch airport data from Autorouter API.
         
@@ -105,7 +105,7 @@ class AutorouterSource(CachedSource, SourceInterface):
             List of dictionaries containing procedures data
         """
         # Get airport data
-        data = self.get_airport_data(icao, max_age_days)
+        data = self.get_airport_doclist(icao, max_age_days)
         if not data:
             return []
         
@@ -245,6 +245,58 @@ class AutorouterSource(CachedSource, SourceInterface):
                     rv.append(parsed)
         return rv
 
+    def find_available_airports(self) -> List[str]:
+        """
+        Find all available airports by scanning the cache directory.
+        
+        This method looks for cached files with patterns:
+        - document_{ICAO}.pdf
+        - procedures_{ICAO}.json
+        
+        Returns:
+            List of unique ICAO codes found in the cache
+        """
+        if not self.cache_path.exists():
+            logger.warning(f"Cache directory does not exist: {self.cache_path}")
+            return []
+        
+        # Set to store unique ICAO codes
+        icao_codes = set()
+        
+        # Look for document files (document_{ICAO}.pdf)
+        document_pattern = "document_*.pdf"
+        document_files = list(self.cache_path.glob(document_pattern))
+        logger.debug(f"Found {len(document_files)} document files in cache")
+        
+        for file_path in document_files:
+            # Extract ICAO from filename: document_{ICAO}.pdf
+            filename = file_path.stem  # Remove extension
+            if filename.startswith("document_"):
+                icao = filename[9:]  # Remove "document_" prefix
+                if len(icao) == 4 and icao.isalpha():
+                    icao_codes.add(icao.upper())
+                    logger.debug(f"Found ICAO from document file: {icao.upper()}")
+        
+        # Look for procedure files (procedures_{ICAO}.json)
+        procedure_pattern = "procedures_*.json"
+        procedure_files = list(self.cache_path.glob(procedure_pattern))
+        logger.debug(f"Found {len(procedure_files)} procedure files in cache")
+        
+        for file_path in procedure_files:
+            # Extract ICAO from filename: procedures_{ICAO}.json
+            filename = file_path.stem  # Remove extension
+            if filename.startswith("procedures_"):
+                icao = filename[11:]  # Remove "procedures_" prefix
+                if len(icao) == 4 and icao.isalpha():
+                    icao_codes.add(icao.upper())
+                    logger.debug(f"Found ICAO from procedure file: {icao.upper()}")
+        
+        # Convert set to sorted list
+        result = sorted(list(icao_codes))
+        logger.info(f"Found {len(result)} unique airports in Autorouter cache")
+        
+        return result
+
     def update_model(self, model: 'EuroAipModel', airports: Optional[List[str]] = None) -> None:
         """
         Update the EuroAipModel with data from this source.
@@ -261,8 +313,10 @@ class AutorouterSource(CachedSource, SourceInterface):
         
         # Determine which airports to process
         if airports is None:
-            # Autorouter doesn't have find_available_airports, so we need airports to be provided
-            logger.warning("Autorouter source requires specific airports to be provided")
+            airports = self.find_available_airports()
+        
+        if not airports:
+            logger.warning("No airports found to process")
             return
         
         logger.info(f"Updating model with {len(airports)} airports from Autorouter")
@@ -274,24 +328,6 @@ class AutorouterSource(CachedSource, SourceInterface):
                     model.airports[icao] = Airport(ident=icao)
                 
                 airport = model.airports[icao]
-                
-                # Get basic airport data
-                airport_data = self.get_airport_data(icao)
-                if airport_data:
-                    # Extract basic airport information if available
-                    for info in airport_data:
-                        if 'name' in info and not airport.name:
-                            airport.name = info['name']
-                        if 'country' in info and not airport.country:
-                            airport.country = info['country']
-                        if 'city' in info and not airport.city:
-                            airport.city = info['city']
-                        if 'latitude' in info and not airport.latitude_deg:
-                            airport.latitude_deg = info['latitude']
-                        if 'longitude' in info and not airport.longitude_deg:
-                            airport.longitude_deg = info['longitude']
-                        if 'elevation' in info and not airport.elevation_ft:
-                            airport.elevation_ft = info['elevation']
                 
                 # Get AIP data and convert to AIPEntry objects
                 aip_data = self.get_airport_aip(icao)

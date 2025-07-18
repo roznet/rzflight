@@ -60,19 +60,17 @@
             ]
         },
         {
-            "name": "Python Debugger: World Airports",
+            "name": "Python Debugger: Rebuild Autorouter",
             "type": "debugpy",
             "request": "launch",
-            "program": "aip.py",
+            "program": "aipexport.py",
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": [
-                "worldairports"
-            ]
+            "args": "--worldairports --worldairports-filter required --autorouter --database-storage airports.db --never-refresh"
         },
         {
             "name": "Python Debugger: Query Database",

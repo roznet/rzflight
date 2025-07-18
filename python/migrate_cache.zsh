@@ -34,4 +34,17 @@ function cp_pdfs {
 	done
 }
 
-cp_pdfs
+function cp_airport_doclist  {
+	for file in $SRC_DIR/airport/*json; do
+	    if [[ -f $file ]]; then
+		filename=$(basename "$file")
+		dest_file="$DST_DIR/airport_doclist_${filename}"
+		echo "Copying $filename to $dest_file"
+		cp $file $dest_file
+	    fi
+	done
+}
+
+cp_airport_doclist
+
+#cp_pdfs
