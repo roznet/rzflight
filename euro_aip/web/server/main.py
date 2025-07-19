@@ -57,6 +57,9 @@ async def startup_event():
         model = db_storage.load_model()
         logger.info(f"Loaded model with {len(model.airports)} airports")
         
+        # All derived fields are now updated automatically in load_model()
+        logger.info("Model loaded with all derived fields updated")
+        
         # Make model available to API routes
         airports.set_model(model)
         procedures.set_model(model)

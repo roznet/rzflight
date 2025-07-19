@@ -1,7 +1,7 @@
 // Filter functionality for Euro AIP Airport Explorer
 class FilterManager {
     constructor() {
-        this.currentFilters = {};
+        this.currentFilters = { country: 'FR' }; // Default to France
         this.availableFilters = {};
         this.airports = [];
         
@@ -74,6 +74,9 @@ class FilterManager {
                 option.textContent = `${country.code} (${country.count})`;
                 countrySelect.appendChild(option);
             });
+            
+            // Set France as default
+            countrySelect.value = 'FR';
         }
 
         // Populate procedure type filter

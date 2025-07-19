@@ -29,6 +29,11 @@ class AirportSummary(BaseModel):
     has_procedures: bool
     has_runways: bool
     has_aip_data: bool
+    has_hard_runway: Optional[bool]
+    has_lighted_runway: Optional[bool]
+    has_soft_runway: Optional[bool]
+    has_water_runway: Optional[bool]
+    has_snow_runway: Optional[bool]
     procedure_count: int
     runway_count: int
     aip_entry_count: int
@@ -47,6 +52,11 @@ class AirportSummary(BaseModel):
             has_procedures=bool(airport.procedures),
             has_runways=bool(airport.runways),
             has_aip_data=bool(airport.aip_entries),
+            has_hard_runway=airport.has_hard_runway,
+            has_lighted_runway=airport.has_lighted_runway,
+            has_soft_runway=airport.has_soft_runway,
+            has_water_runway=airport.has_water_runway,
+            has_snow_runway=airport.has_snow_runway,
             procedure_count=len(airport.procedures),
             runway_count=len(airport.runways),
             aip_entry_count=len(airport.aip_entries)
@@ -77,6 +87,12 @@ class AirportDetail(BaseModel):
     point_of_entry: Optional[bool]
     avgas: Optional[bool]
     jet_a: Optional[bool]
+    has_hard_runway: Optional[bool]
+    has_lighted_runway: Optional[bool]
+    has_soft_runway: Optional[bool]
+    has_water_runway: Optional[bool]
+    has_snow_runway: Optional[bool]
+    longest_runway_length_ft: Optional[int]
     sources: List[str]
     runways: List[Dict[str, Any]]
     procedures: List[Dict[str, Any]]
@@ -108,6 +124,12 @@ class AirportDetail(BaseModel):
             point_of_entry=airport.point_of_entry,
             avgas=airport.avgas,
             jet_a=airport.jet_a,
+            has_hard_runway=airport.has_hard_runway,
+            has_lighted_runway=airport.has_lighted_runway,
+            has_soft_runway=airport.has_soft_runway,
+            has_water_runway=airport.has_water_runway,
+            has_snow_runway=airport.has_snow_runway,
+            longest_runway_length_ft=airport.longest_runway_length_ft,
             sources=list(airport.sources),
             runways=[r.to_dict() for r in airport.runways],
             procedures=[p.to_dict() for p in airport.procedures],

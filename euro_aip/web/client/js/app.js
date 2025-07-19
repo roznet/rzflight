@@ -65,8 +65,8 @@ class AirportExplorerApp {
             // Load filter options
             await filterManager.loadAvailableFilters();
             
-            // Load initial airports (first 100)
-            const airports = await api.getAirports({ limit: 100 });
+            // Load initial airports (France by default)
+            const airports = await api.getAirports({ country: 'FR', limit: 200 });
             
             // Add airports to map
             airports.forEach(airport => {

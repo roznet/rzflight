@@ -815,6 +815,10 @@ class DatabaseStorage:
                 model.add_border_crossing_points(border_crossing_points)
         
         logger.info(f"Loaded model with {len(model.airports)} airports and {len(model.get_all_border_crossing_points())} border crossing entries")
+        
+        # Update all derived fields after loading
+        model.update_all_derived_fields()
+        
         return model
     
     def _load_airport(self, conn: sqlite3.Connection, icao: str) -> Optional[Airport]:

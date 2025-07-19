@@ -32,6 +32,14 @@ class Airport:
     avgas : Optional[bool] = None
     jet_a : Optional[bool] = None
     
+    # Derived runway characteristics
+    has_hard_runway: Optional[bool] = None
+    has_lighted_runway: Optional[bool] = None
+    has_soft_runway: Optional[bool] = None
+    has_water_runway: Optional[bool] = None
+    has_snow_runway: Optional[bool] = None
+    longest_runway_length_ft: Optional[int] = None
+    
     # Source tracking
     sources: Set[str] = field(default_factory=set)
     created_at: datetime = field(default_factory=datetime.now)

@@ -11,8 +11,8 @@ class AirportMap {
     }
 
     initMap() {
-        // Initialize Leaflet map centered on Europe
-        this.map = L.map(this.containerId).setView([50.0, 10.0], 5);
+        // Initialize Leaflet map centered on France
+        this.map = L.map(this.containerId).setView([46.5, 2.0], 6);
         
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
