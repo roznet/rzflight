@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 import logging
 
@@ -24,30 +25,17 @@ from api import airports, procedures, filters, statistics
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="Euro AIP Airport Explorer",
-    description="Interactive web application for exploring European airport data",
-    version="1.0.0"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global database storage
 db_storage = None
 model = None
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database connection on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for FastAPI app."""
     global db_storage, model
+    
+    # Startup
+    logger.info("Starting up Euro AIP Airport Explorer...")
     
     # Get database path from environment or use default
     db_path = os.getenv("AIRPORTS_DB", "airports.db")
@@ -66,9 +54,34 @@ async def startup_event():
         filters.set_model(model)
         statistics.set_model(model)
         
+        logger.info("Application startup complete")
+        
     except Exception as e:
         logger.error(f"Failed to load database: {e}")
         raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down Euro AIP Airport Explorer...")
+    # Add any cleanup code here if needed
+
+# Create FastAPI app with lifespan context manager
+app = FastAPI(
+    title="Euro AIP Airport Explorer",
+    description="Interactive web application for exploring European airport data",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include API routes
 app.include_router(airports.router, prefix="/api/airports", tags=["airports"])

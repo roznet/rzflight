@@ -28,6 +28,7 @@ async def get_airports(
     has_procedures: Optional[bool] = Query(None, description="Filter airports with procedures"),
     has_runways: Optional[bool] = Query(None, description="Filter airports with runways"),
     has_aip_data: Optional[bool] = Query(None, description="Filter airports with AIP data"),
+    has_hard_runway: Optional[bool] = Query(None, description="Filter airports with hard runways"),
     point_of_entry: Optional[bool] = Query(None, description="Filter border crossing airports"),
     limit: int = Query(100, description="Maximum number of airports to return"),
     offset: int = Query(0, description="Number of airports to skip")
@@ -50,6 +51,9 @@ async def get_airports(
     
     if has_aip_data is not None:
         airports = [a for a in airports if bool(a.aip_entries) == has_aip_data]
+    
+    if has_hard_runway is not None:
+        airports = [a for a in airports if a.has_hard_runway == has_hard_runway]
     
     if point_of_entry is not None:
         airports = [a for a in airports if a.point_of_entry == point_of_entry]

@@ -109,7 +109,7 @@
                 <h1 class="text-center">
                     <i class="fas fa-plane"></i> Euro AIP Airport Explorer
                 </h1>
-                <p class="text-center text-muted">Interactive map of European airports with AIP data and procedures (France by default)</p>
+                <p class="text-center text-muted">Interactive map of European airports with AIP data and procedures (Border Crossing airports by default)</p>
             </div>
         </div>
 
@@ -199,6 +199,12 @@
                             </label>
                         </div>
                         <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="has-hard-runway">
+                            <label class="form-check-label" for="has-hard-runway">
+                                Has Hard Runway
+                            </label>
+                        </div>
+                        <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="border-crossing-only">
                             <label class="form-check-label" for="border-crossing-only">
                                 Border Crossing Only
@@ -209,6 +215,13 @@
                     <!-- Apply Filters Button -->
                     <button class="btn btn-primary w-100" id="apply-filters">
                         <i class="fas fa-search"></i> Apply Filters
+                    </button>
+                    
+                    <!-- Reset Zoom Button -->
+                    <button class="btn btn-outline-secondary w-100 mt-2" id="reset-zoom" 
+                            data-bs-toggle="tooltip" data-bs-placement="top" 
+                            title="Fit map to show all current airports (Ctrl+R)">
+                        <i class="fas fa-expand-arrows-alt"></i> Reset Zoom
                     </button>
                 </div>
 

@@ -65,26 +65,10 @@ class AirportExplorerApp {
             // Load filter options
             await filterManager.loadAvailableFilters();
             
-            // Load initial airports (France by default)
-            const airports = await api.getAirports({ country: 'FR', limit: 200 });
+            // Set default border crossing filter and load airports
+            filterManager.setDefaultBorderCrossingFilter();
             
-            // Add airports to map
-            airports.forEach(airport => {
-                airportMap.addAirport(airport);
-            });
-            
-            // Update statistics
-            filterManager.updateStatistics(airports);
-            
-            // Update charts
-            await chartManager.updateAllCharts();
-            
-            // Fit map to show all airports
-            if (airports.length > 0) {
-                airportMap.fitBounds();
-            }
-            
-            console.log(`Loaded ${airports.length} airports`);
+            console.log('Loaded border crossing airports by default');
             
         } catch (error) {
             console.error('Error loading initial data:', error);
@@ -107,6 +91,12 @@ class AirportExplorerApp {
             if (e.key === 'Escape') {
                 document.getElementById('search-input').value = '';
                 filterManager.handleSearch('');
+            }
+            
+            // Ctrl/Cmd + R to reset zoom
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                filterManager.resetZoom();
             }
         });
 
@@ -136,6 +126,7 @@ class AirportExplorerApp {
         // Disable filter controls
         const filterControls = [
             'apply-filters',
+            'reset-zoom',
             'search-input',
             'country-filter',
             'procedure-filter',
@@ -143,6 +134,7 @@ class AirportExplorerApp {
             'has-procedures',
             'has-runways',
             'has-aip-data',
+            'has-hard-runway',
             'border-crossing-only'
         ];
         
@@ -161,6 +153,7 @@ class AirportExplorerApp {
         // Re-enable filter controls
         const filterControls = [
             'apply-filters',
+            'reset-zoom',
             'search-input',
             'country-filter',
             'procedure-filter',
@@ -168,6 +161,7 @@ class AirportExplorerApp {
             'has-procedures',
             'has-runways',
             'has-aip-data',
+            'has-hard-runway',
             'border-crossing-only'
         ];
         

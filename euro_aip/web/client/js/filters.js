@@ -1,17 +1,23 @@
 // Filter functionality for Euro AIP Airport Explorer
 class FilterManager {
     constructor() {
-        this.currentFilters = { country: 'FR' }; // Default to France
+        this.currentFilters = { point_of_entry: true }; // Default to border crossing airports
         this.availableFilters = {};
         this.airports = [];
         
         this.initEventListeners();
+        this.updateResetZoomButton(); // Initialize button state
     }
 
     initEventListeners() {
         // Apply filters button
         document.getElementById('apply-filters').addEventListener('click', () => {
             this.applyFilters();
+        });
+
+        // Reset zoom button
+        document.getElementById('reset-zoom').addEventListener('click', () => {
+            this.resetZoom();
         });
 
         // Search input with debouncing
@@ -45,7 +51,7 @@ class FilterManager {
         });
 
         // Checkbox events
-        const checkboxes = ['has-procedures', 'has-runways', 'has-aip-data', 'border-crossing-only'];
+        const checkboxes = ['has-procedures', 'has-runways', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
         checkboxes.forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 this.updateFilters();
@@ -75,8 +81,7 @@ class FilterManager {
                 countrySelect.appendChild(option);
             });
             
-            // Set France as default
-            countrySelect.value = 'FR';
+            // No default country - show all border crossing airports
         }
 
         // Populate procedure type filter
@@ -114,6 +119,7 @@ class FilterManager {
             has_procedures: document.getElementById('has-procedures').checked ? true : undefined,
             has_runways: document.getElementById('has-runways').checked ? true : undefined,
             has_aip_data: document.getElementById('has-aip-data').checked ? true : undefined,
+            has_hard_runway: document.getElementById('has-hard-runway').checked ? true : undefined,
             point_of_entry: document.getElementById('border-crossing-only').checked ? true : undefined
         };
 
@@ -138,11 +144,14 @@ class FilterManager {
                 limit: 1000 // Get more airports for filtering
             });
             
-            // Update map with filtered airports
-            this.updateMapWithAirports(airports);
+            // Update map with filtered airports (preserve current view)
+            this.updateMapWithAirports(airports, true);
             
             // Update statistics
             this.updateStatistics(airports);
+            
+            // Show success message
+            this.showSuccess(`Applied filters: ${airports.length} airports found (view preserved)`);
             
         } catch (error) {
             console.error('Error applying filters:', error);
@@ -164,11 +173,14 @@ class FilterManager {
             
             const searchResults = await api.searchAirports(query, 50);
             
-            // Update map with search results
-            this.updateMapWithAirports(searchResults);
+            // Update map with search results (fit to bounds for better UX)
+            this.updateMapWithAirports(searchResults, false);
             
             // Update statistics
             this.updateStatistics(searchResults);
+            
+            // Show search success message
+            this.showSuccess(`Search results: ${searchResults.length} airports found`);
             
         } catch (error) {
             console.error('Error searching airports:', error);
@@ -178,7 +190,7 @@ class FilterManager {
         }
     }
 
-    updateMapWithAirports(airports) {
+    updateMapWithAirports(airports, preserveView = false) {
         // Clear existing markers
         airportMap.clearMarkers();
         
@@ -187,13 +199,16 @@ class FilterManager {
             airportMap.addAirport(airport);
         });
         
-        // Fit map to show all markers
-        if (airports.length > 0) {
+        // Only fit bounds if not preserving view (e.g., for search results)
+        if (airports.length > 0 && !preserveView) {
             airportMap.fitBounds();
         }
         
         // Store current airports
         this.airports = airports;
+        
+        // Update reset zoom button state
+        this.updateResetZoomButton();
     }
 
     updateStatistics(airports) {
@@ -221,6 +236,26 @@ class FilterManager {
         document.getElementById('apply-filters').innerHTML = '<i class="fas fa-search"></i> Apply Filters';
     }
 
+    showSuccess(message) {
+        // Create a temporary success alert
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="fas fa-check-circle"></i> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
+
     showError(message) {
         // Create a temporary error alert
         const alertDiv = document.createElement('div');
@@ -246,6 +281,45 @@ class FilterManager {
         return { ...this.currentFilters };
     }
 
+    // Set default border crossing filter
+    setDefaultBorderCrossingFilter() {
+        // Set the border crossing checkbox to checked
+        document.getElementById('border-crossing-only').checked = true;
+        
+        // Update filters to include border crossing
+        this.currentFilters = { point_of_entry: true };
+        
+        // Apply the filter with initial fit bounds
+        this.applyFiltersInitial();
+    }
+
+    async applyFiltersInitial() {
+        try {
+            this.showLoading();
+            
+            // Update filters from UI
+            this.updateFilters();
+            
+            // Load airports with filters
+            const airports = await api.getAirports({
+                ...this.currentFilters,
+                limit: 1000 // Get more airports for filtering
+            });
+            
+            // Update map with filtered airports (fit bounds for initial load)
+            this.updateMapWithAirports(airports, false);
+            
+            // Update statistics
+            this.updateStatistics(airports);
+            
+        } catch (error) {
+            console.error('Error applying initial filters:', error);
+            this.showError('Error applying initial filters: ' + error.message);
+        } finally {
+            this.hideLoading();
+        }
+    }
+
     // Clear all filters
     clearFilters() {
         document.getElementById('country-filter').value = '';
@@ -259,6 +333,24 @@ class FilterManager {
         });
         
         this.currentFilters = {};
+    }
+
+    // Update reset zoom button state
+    updateResetZoomButton() {
+        const resetButton = document.getElementById('reset-zoom');
+        if (resetButton) {
+            resetButton.disabled = this.airports.length === 0;
+        }
+    }
+
+    // Reset zoom to fit all current markers
+    resetZoom() {
+        if (this.airports.length > 0) {
+            airportMap.fitBounds();
+            this.showSuccess(`Reset zoom to show all ${this.airports.length} airports`);
+        } else {
+            this.showError('No airports to zoom to');
+        }
     }
 
     // Export current filter state

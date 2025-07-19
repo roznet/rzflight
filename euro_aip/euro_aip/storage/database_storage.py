@@ -784,7 +784,7 @@ class DatabaseStorage:
                 VALUES (?, ?, ?)
             ''', (source, datetime.now().isoformat(), airports_from_source))
     
-    def load_model(self) -> EuroAipModel:
+    def load_model(self,ignore_non_icao: bool = True) -> EuroAipModel:
         """
         Load the entire EuroAipModel from the database.
         
@@ -801,8 +801,8 @@ class DatabaseStorage:
             airport_codes = [row['icao_code'] for row in cursor.fetchall()]
             
             for icao in airport_codes:
-                if icao in ['EDSB', 'EGTK', 'LFQA']:
-                    print(f"Loading airport {icao}")
+                if ignore_non_icao and not len(icao) == 4:
+                    continue
                 airport = self._load_airport(conn, icao)
                 if airport:
                     model.airports[icao] = airport
