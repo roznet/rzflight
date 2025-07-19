@@ -162,14 +162,6 @@
                         </select>
                     </div>
 
-                    <!-- Procedure Filter -->
-                    <div class="filter-group">
-                        <label for="procedure-filter" class="form-label">Procedure Type</label>
-                        <select class="form-select" id="procedure-filter">
-                            <option value="">All Procedures</option>
-                        </select>
-                    </div>
-
                     <!-- Approach Type Filter -->
                     <div class="filter-group">
                         <label for="approach-filter" class="form-label">Approach Type</label>
@@ -178,14 +170,15 @@
                         </select>
                     </div>
 
-                    <!-- Sort By Filter -->
+                    <!-- Maximum Airports Filter -->
                     <div class="filter-group">
-                        <label for="sort-by-filter" class="form-label">Sort By</label>
-                        <select class="form-select" id="sort-by-filter">
-                            <option value="runway_length">Longest Runway (Default)</option>
-                            <option value="name">Airport Name</option>
-                            <option value="icao">ICAO Code</option>
-                            <option value="none">No Sorting</option>
+                        <label for="max-airports-filter" class="form-label">Maximum Airports</label>
+                        <select class="form-select" id="max-airports-filter">
+                            <option value="500">500 Airports</option>
+                            <option value="1000" selected>1000 Airports (Default)</option>
+                            <option value="2000">2000 Airports</option>
+                            <option value="5000">5000 Airports</option>
+                            <option value="10000">10000 Airports</option>
                         </select>
                     </div>
 

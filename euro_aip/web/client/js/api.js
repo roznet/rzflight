@@ -37,7 +37,7 @@ class APIClient {
         if (filters.has_hard_runway !== undefined) params.append('has_hard_runway', filters.has_hard_runway);
         if (filters.has_aip_data !== undefined) params.append('has_aip_data', filters.has_aip_data);
         if (filters.point_of_entry !== undefined) params.append('point_of_entry', filters.point_of_entry);
-        if (filters.limit) params.append('limit', filters.limit);
+        if (filters.max_airports) params.append('limit', filters.max_airports);
         if (filters.offset) params.append('offset', filters.offset);
 
         const queryString = params.toString();

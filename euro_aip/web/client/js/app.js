@@ -129,9 +129,8 @@ class AirportExplorerApp {
             'reset-zoom',
             'search-input',
             'country-filter',
-            'procedure-filter',
             'approach-filter',
-            'sort-by-filter',
+            'max-airports-filter',
             'has-procedures',
             'has-aip-data',
             'has-hard-runway',
@@ -156,9 +155,8 @@ class AirportExplorerApp {
             'reset-zoom',
             'search-input',
             'country-filter',
-            'procedure-filter',
             'approach-filter',
-            'sort-by-filter',
+            'max-airports-filter',
             'has-procedures',
             'has-aip-data',
             'has-hard-runway',
@@ -261,11 +259,11 @@ class AirportExplorerApp {
         if (filters.country) {
             document.getElementById('country-filter').value = filters.country;
         }
-        if (filters.procedure_type) {
-            document.getElementById('procedure-filter').value = filters.procedure_type;
-        }
         if (filters.approach_type) {
             document.getElementById('approach-filter').value = filters.approach_type;
+        }
+        if (filters.max_airports) {
+            document.getElementById('max-airports-filter').value = filters.max_airports;
         }
         
         // Update checkboxes

@@ -29,8 +29,7 @@ async def get_airports(
     has_aip_data: Optional[bool] = Query(None, description="Filter airports with AIP data"),
     has_hard_runway: Optional[bool] = Query(None, description="Filter airports with hard runways"),
     point_of_entry: Optional[bool] = Query(None, description="Filter border crossing airports"),
-    sort_by: Optional[str] = Query("runway_length", description="Sort by: runway_length, name, icao, or none"),
-    limit: int = Query(100, description="Maximum number of airports to return"),
+    limit: int = Query(1000, description="Maximum number of airports to return"),
     offset: int = Query(0, description="Number of airports to skip")
 ):
     """Get a list of airports with optional filtering."""
@@ -55,23 +54,9 @@ async def get_airports(
     if point_of_entry is not None:
         airports = [a for a in airports if a.point_of_entry == point_of_entry]
     
-    # Apply sorting based on sort_by parameter
-    if sort_by == "runway_length":
-        # Sort by longest runway length (descending) to prioritize larger airports
-        # Airports without runway data will be sorted last
-        airports.sort(key=lambda a: a.longest_runway_length_ft or 0, reverse=True)
-    elif sort_by == "name":
-        # Sort alphabetically by name
-        airports.sort(key=lambda a: a.name or "")
-    elif sort_by == "icao":
-        # Sort alphabetically by ICAO code
-        airports.sort(key=lambda a: a.ident)
-    elif sort_by == "none":
-        # No sorting - keep original order
-        pass
-    else:
-        # Default to runway length sorting
-        airports.sort(key=lambda a: a.longest_runway_length_ft or 0, reverse=True)
+    # Always sort by longest runway length (descending) to prioritize larger airports
+    # Airports without runway data will be sorted last
+    airports.sort(key=lambda a: a.longest_runway_length_ft or 0, reverse=True)
     
     # Apply pagination
     airports = airports[offset:offset + limit]

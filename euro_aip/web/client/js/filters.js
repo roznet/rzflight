@@ -42,15 +42,11 @@ class FilterManager {
             this.updateFilters();
         });
 
-        document.getElementById('procedure-filter').addEventListener('change', () => {
-            this.updateFilters();
-        });
-
         document.getElementById('approach-filter').addEventListener('change', () => {
             this.updateFilters();
         });
 
-        document.getElementById('sort-by-filter').addEventListener('change', () => {
+        document.getElementById('max-airports-filter').addEventListener('change', () => {
             this.updateFilters();
         });
 
@@ -88,18 +84,7 @@ class FilterManager {
             // No default country - show all border crossing airports
         }
 
-        // Populate procedure type filter
-        const procedureSelect = document.getElementById('procedure-filter');
-        procedureSelect.innerHTML = '<option value="">All Procedures</option>';
-        
-        if (this.availableFilters.procedure_types) {
-            this.availableFilters.procedure_types.forEach(proc => {
-                const option = document.createElement('option');
-                option.value = proc.type;
-                option.textContent = `${proc.type.toUpperCase()} (${proc.count})`;
-                procedureSelect.appendChild(option);
-            });
-        }
+
 
         // Populate approach type filter
         const approachSelect = document.getElementById('approach-filter');
@@ -118,9 +103,8 @@ class FilterManager {
     updateFilters() {
         this.currentFilters = {
             country: document.getElementById('country-filter').value,
-            procedure_type: document.getElementById('procedure-filter').value,
             approach_type: document.getElementById('approach-filter').value,
-            sort_by: document.getElementById('sort-by-filter').value,
+            max_airports: parseInt(document.getElementById('max-airports-filter').value),
             has_procedures: document.getElementById('has-procedures').checked ? true : undefined,
             has_aip_data: document.getElementById('has-aip-data').checked ? true : undefined,
             has_hard_runway: document.getElementById('has-hard-runway').checked ? true : undefined,
@@ -144,8 +128,7 @@ class FilterManager {
             
             // Load airports with filters
             const airports = await api.getAirports({
-                ...this.currentFilters,
-                limit: 1000 // Get more airports for filtering
+                ...this.currentFilters
             });
             
             // Update map with filtered airports (preserve current view)
@@ -306,8 +289,7 @@ class FilterManager {
             
             // Load airports with filters
             const airports = await api.getAirports({
-                ...this.currentFilters,
-                limit: 1000 // Get more airports for filtering
+                ...this.currentFilters
             });
             
             // Update map with filtered airports (fit bounds for initial load)
@@ -327,9 +309,8 @@ class FilterManager {
     // Clear all filters
     clearFilters() {
         document.getElementById('country-filter').value = '';
-        document.getElementById('procedure-filter').value = '';
         document.getElementById('approach-filter').value = '';
-        document.getElementById('sort-by-filter').value = 'runway_length';
+        document.getElementById('max-airports-filter').value = '1000';
         document.getElementById('search-input').value = '';
         
         // Uncheck all checkboxes
