@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Euro AIP Airport Explorer</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 8px;
+        }
+        
+        .filter-panel {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .airport-marker {
+            cursor: pointer;
+        }
+        
+        .airport-info {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .airport-detail-section {
+            margin-bottom: 20px;
+        }
+        
+        .procedure-badge {
+            margin: 2px;
+        }
+        
+        .aip-entry {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .runway-info {
+            background-color: #e9ecef;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        
+        .search-box {
+            margin-bottom: 20px;
+        }
+        
+        .legend {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <h1 class="text-center">
+                    <i class="fas fa-plane"></i> Euro AIP Airport Explorer
+                </h1>
+                <p class="text-center text-muted">Interactive map of European airports with AIP data and procedures</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-3" id="stats-row">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4 id="total-airports">-</h4>
+                    <p>Total Airports</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4 id="airports-with-procedures">-</h4>
+                    <p>With Procedures</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4 id="border-crossing">-</h4>
+                    <p>Border Crossing</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h4 id="total-procedures">-</h4>
+                    <p>Total Procedures</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row">
+            <!-- Filters Panel -->
+            <div class="col-md-3">
+                <div class="filter-panel">
+                    <h5><i class="fas fa-filter"></i> Filters</h5>
+                    
+                    <!-- Search -->
+                    <div class="search-box">
+                        <label for="search-input" class="form-label">Search Airports</label>
+                        <input type="text" class="form-control" id="search-input" placeholder="ICAO, name, or city...">
+                    </div>
+
+                    <!-- Country Filter -->
+                    <div class="filter-group">
+                        <label for="country-filter" class="form-label">Country</label>
+                        <select class="form-select" id="country-filter">
+                            <option value="">All Countries</option>
+                        </select>
+                    </div>
+
+                    <!-- Procedure Filter -->
+                    <div class="filter-group">
+                        <label for="procedure-filter" class="form-label">Procedure Type</label>
+                        <select class="form-select" id="procedure-filter">
+                            <option value="">All Procedures</option>
+                        </select>
+                    </div>
+
+                    <!-- Approach Type Filter -->
+                    <div class="filter-group">
+                        <label for="approach-filter" class="form-label">Approach Type</label>
+                        <select class="form-select" id="approach-filter">
+                            <option value="">All Approaches</option>
+                        </select>
+                    </div>
+
+                    <!-- Checkboxes -->
+                    <div class="filter-group">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="has-procedures">
+                            <label class="form-check-label" for="has-procedures">
+                                Has Procedures
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="has-runways">
+                            <label class="form-check-label" for="has-runways">
+                                Has Runways
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="has-aip-data">
+                            <label class="form-check-label" for="has-aip-data">
+                                Has AIP Data
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="border-crossing-only">
+                            <label class="form-check-label" for="border-crossing-only">
+                                Border Crossing Only
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Apply Filters Button -->
+                    <button class="btn btn-primary w-100" id="apply-filters">
+                        <i class="fas fa-search"></i> Apply Filters
+                    </button>
+                </div>
+
+                <!-- Legend -->
+                <div class="legend">
+                    <h6><i class="fas fa-info-circle"></i> Legend</h6>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #28a745;"></div>
+                        <span>Airport with Procedures</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffc107;"></div>
+                        <span>Airport without Procedures</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #dc3545;"></div>
+                        <span>Border Crossing</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="col-md-6">
+                <div id="map"></div>
+                
+                <!-- Loading Indicator -->
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading airports...</p>
+                </div>
+            </div>
+
+            <!-- Airport Details -->
+            <div class="col-md-3">
+                <div id="airport-details" style="display: none;">
+                    <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
+                    <div class="airport-info" id="airport-info">
+                        <!-- Airport details will be populated here -->
+                    </div>
+                </div>
+                
+                <div id="no-selection">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
+                        <p>Click on an airport marker to view details</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-chart-pie"></i> Procedure Types Distribution</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="procedure-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-chart-bar"></i> Airports by Country</h6>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="country-chart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/filters.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html> 

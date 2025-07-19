@@ -103,6 +103,19 @@
             "python": "${workspaceFolder}/venv/bin/python",
             "args": "${input:aipArgs}"
         },
+        {
+            "name": "Python Debugger: Start Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/web/server",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": ""
+        },
     ],
     "inputs": [
         {
