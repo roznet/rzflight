@@ -348,6 +348,35 @@ class AirportMap {
             </div>
         `;
 
+        // Add links section if available
+        const links = [];
+        if (airport.home_link) {
+            links.push(`<a href="${airport.home_link}" target="_blank" class="btn btn-outline-primary btn-sm me-2">
+                <i class="fas fa-home"></i> Home Page
+            </a>`);
+        }
+        if (airport.wikipedia_link) {
+            links.push(`<a href="${airport.wikipedia_link}" target="_blank" class="btn btn-outline-info btn-sm me-2">
+                <i class="fab fa-wikipedia-w"></i> Wikipedia
+            </a>`);
+        }
+        
+        // Always add EuroGA link since we have the ICAO code
+        links.push(`<a href="https://airports.euroga.org/search.php?icao=${airport.ident}" target="_blank" class="btn btn-outline-success btn-sm me-2">
+            <i class="fas fa-plane"></i> EuroGA
+        </a>`);
+        
+        if (links.length > 0) {
+            html += `
+                <div class="airport-detail-section">
+                    <h6><i class="fas fa-link"></i> Links</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        ${links.join('')}
+                    </div>
+                </div>
+            `;
+        }
+
         // Add runways section
         if (runways && runways.length > 0) {
             html += `
