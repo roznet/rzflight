@@ -179,16 +179,41 @@ class AirportMap {
     }
 
     addAirportMarker(airport) {
-        // Determine marker color based on airport characteristics
-        let color = '#ffc107'; // Default: yellow (no procedures)
+        // Determine marker color based on current legend mode
+        let color = '#ffc107'; // Default: yellow
         let radius = 6;
         
-        if (airport.point_of_entry) {
-            color = '#dc3545'; // Red for border crossing
-            radius = 8;
-        } else if (airport.has_procedures) {
-            color = '#28a745'; // Green for airports with procedures
-            radius = 7;
+        if (this.legendMode === 'runway-length') {
+            // Runway length legend mode
+            console.log(`Airport ${airport.ident}: longest_runway_length_ft = ${airport.longest_runway_length_ft}`);
+            if (airport.longest_runway_length_ft) {
+                if (airport.longest_runway_length_ft > 8000) {
+                    color = '#28a745'; // Green for long runways (>8000ft)
+                    radius = 8;
+                } else if (airport.longest_runway_length_ft > 4000) {
+                    color = '#ffc107'; // Yellow for medium runways (4000-8000ft)
+                    radius = 7;
+                } else {
+                    color = '#dc3545'; // Red for short runways (<4000ft)
+                    radius = 6;
+                }
+            } else {
+                // No runway length data
+                color = '#6c757d'; // Gray for unknown
+                radius = 5;
+            }
+        } else {
+            // Default airport type legend mode
+            if (airport.point_of_entry) {
+                color = '#dc3545'; // Red for border crossing
+                radius = 8;
+            } else if (airport.has_procedures) {
+                color = '#28a745'; // Green for airports with procedures
+                radius = 7;
+            } else {
+                color = '#ffc107'; // Yellow for airports without procedures
+                radius = 6;
+            }
         }
 
         // Create custom icon
@@ -998,6 +1023,10 @@ class AirportMap {
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #dc3545;"></div>
                         <span>Short Runway (<4000ft)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #6c757d;"></div>
+                        <span>Unknown Length</span>
                     </div>
                 `;
                 break;

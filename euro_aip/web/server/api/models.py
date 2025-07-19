@@ -34,6 +34,7 @@ class AirportSummary(BaseModel):
     has_soft_runway: Optional[bool]
     has_water_runway: Optional[bool]
     has_snow_runway: Optional[bool]
+    longest_runway_length_ft: Optional[int]
     procedure_count: int
     runway_count: int
     aip_entry_count: int
@@ -57,6 +58,7 @@ class AirportSummary(BaseModel):
             has_soft_runway=airport.has_soft_runway,
             has_water_runway=airport.has_water_runway,
             has_snow_runway=airport.has_snow_runway,
+            longest_runway_length_ft=airport.longest_runway_length_ft,
             procedure_count=len(airport.procedures),
             runway_count=len(airport.runways),
             aip_entry_count=len(airport.aip_entries)
