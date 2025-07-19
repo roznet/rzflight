@@ -134,82 +134,41 @@ class Command:
         # Get airports with procedures
         airports_with_procedures = self.model.get_airports_with_procedures()
         logger.info(f"Found {len(airports_with_procedures)} airports with procedures")
+        logger.info(f"Using procedure line distance: {self.args.procedure_distance}nm")
         
         for airport in airports_with_procedures:
-
             if airport.ident == 'EGHE' or airport.ident == 'EGTK':
                 logger.info(f"Processing {airport.ident}")
-            if not airport.runways:
-                continue
-                
-            # Get approach procedures for this airport
-            approaches = airport.get_approaches()
-            if not approaches:
-                continue
             
-            for runway in airport.runways:
-                # Get approach procedures for this runway
-                runway_approaches = airport.get_approaches_by_runway(runway)
-                if not runway_approaches:
-                    continue
+            # Use the shared method to get procedure lines
+            procedure_data = airport.get_procedure_lines(distance_nm=self.args.procedure_distance)
+            
+            # Process each procedure line
+            for line_data in procedure_data['procedure_lines']:
+                approach_type = line_data['approach_type']
                 
-                # Process each runway end
-                for end in ['le', 'he']:
-                    other = 'he' if end == 'le' else 'le'
-                    
-                    # Get runway end coordinates
-                    end_lat = getattr(runway, f'{end}_latitude_deg')
-                    end_lon = getattr(runway, f'{end}_longitude_deg')
-                    other_heading = getattr(runway, f'{other}_heading_degT')
-                    current_ident = getattr(runway, f'{end}_ident')
+                # Get color for the approach type
+                color = approach_colors.get(approach_type, simplekml.Color.white)
+                
+                # Log the selection for debugging
+                if airport.ident in ['LFAC', 'LFOK']:
+                    logger.info(f"Selected {approach_type} approach for {airport.ident} {line_data['runway_end']}")
 
-                    if not all([end_lat, end_lon, other_heading]):
-                        continue
+                try:
+                    # Create approach line
+                    approach_name = line_data['procedure_name'] or f"RWY{line_data['runway_end']}"
+                    line = kml.newlinestring(
+                        name=f"{airport.ident} {approach_name}",
+                        description=f"{airport.ident} {line_data['runway_end']} {approach_name} ({approach_type})",
+                        coords=[(line_data['start_lon'], line_data['start_lat']),
+                              (line_data['end_lon'], line_data['end_lat'])]
+                    )
+                    line.style.linestyle.color = color
+                    line.style.linestyle.width = 10
                     
-                    # Get the most precise approach for this runway end
-                    most_precise_approach = airport.get_most_precise_approach_for_runway_end(runway, current_ident)
-                    
-                    if not most_precise_approach or not most_precise_approach.approach_type:
-                        continue
-                    
-                    approach_type = most_precise_approach.approach_type.upper()
-                    
-                    # Get color for the most precise approach type
-                    color = approach_colors.get(approach_type, simplekml.Color.white)
-                    
-                    # Log the selection for debugging
-                    if airport.ident in ['LFAC', 'LFOK']:
-                        logger.info(f"Selected {approach_type} approach for {airport.ident} {current_ident} "
-                                  f"(precision: {most_precise_approach.get_approach_precision()})")
-
-                    try:
-                        # Create NavPoint for runway end
-                        runway_end = NavPoint(
-                            latitude=float(end_lat),
-                            longitude=float(end_lon)
-                        )
-                        
-                        # Calculate end point (10nm away)
-                        bearing = float(other_heading)
-                        end_point = runway_end.point_from_bearing_distance(
-                            bearing,
-                            10.0  # 10 nautical miles
-                        )
-                        
-                        # Create approach line
-                        approach_name = most_precise_approach.name if most_precise_approach else f"RWY{current_ident}"
-                        line = kml.newlinestring(
-                            name=f"{airport.ident} {approach_name}",
-                            description=f"{airport.ident} {current_ident} {approach_name} ({approach_type})",
-                            coords=[(runway_end.longitude, runway_end.latitude),
-                                  (end_point.longitude, end_point.latitude)]
-                        )
-                        line.style.linestyle.color = color
-                        line.style.linestyle.width = 10
-                        
-                    except (ValueError, KeyError) as e:
-                        logger.warning(f"Error processing approach for {airport.ident} {current_ident}: {e}")
-                        continue
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"Error processing approach for {airport.ident} {line_data['runway_end']}: {e}")
+                    continue
 
         logger.info(f'Writing {dest}')
         kml.save(dest)
@@ -508,6 +467,8 @@ def main():
     parser.add_argument('-x', '--xlsx', help='Excel file with navdata and byop sheets (for approach command)')
     parser.add_argument('-d', '--database', help='SQLite database file', default='airports.db')
     parser.add_argument('--describe', help='Describe information about list of waypoints (comma-separated, for approach command)')
+    parser.add_argument('--procedure-distance', help='Distance in nautical miles for procedure lines (default: 10.0)', 
+                       default=10.0, type=float)
     
     args = parser.parse_args()
     
