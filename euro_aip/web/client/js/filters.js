@@ -217,6 +217,11 @@ class FilterManager {
         const hasHardRunwayCheckbox = document.getElementById('has-hard-runway');
         const borderCrossingCheckbox = document.getElementById('border-crossing-only');
         
+        // Preserve AIP field filters before resetting
+        const aipField = this.currentFilters.aip_field;
+        const aipValue = this.currentFilters.aip_value;
+        const aipOperator = this.currentFilters.aip_operator;
+        
         // Update current filters - only include defined values
         this.currentFilters = {};
         
@@ -240,11 +245,11 @@ class FilterManager {
             this.currentFilters.point_of_entry = true;
         }
         
-        // Add AIP field filters if present
-        if (this.currentFilters.aip_field) {
-            this.currentFilters.aip_field = this.currentFilters.aip_field;
-            this.currentFilters.aip_value = this.currentFilters.aip_value;
-            this.currentFilters.aip_operator = this.currentFilters.aip_operator;
+        // Restore AIP field filters if they were previously set
+        if (aipField) {
+            this.currentFilters.aip_field = aipField;
+            this.currentFilters.aip_value = aipValue;
+            this.currentFilters.aip_operator = aipOperator;
         }
     }
 

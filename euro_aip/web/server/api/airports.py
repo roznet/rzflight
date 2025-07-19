@@ -44,14 +44,26 @@ def _matches_aip_field(airport: Airport, field_name: str, value: str = None, ope
         entry_value = entry.value.lower() if entry.value else ""
         search_value = value.lower() if value else ""
         
+        # Handle negative values that should return False
+        if entry_value in ["nil", "none", "na", "n/a", "no", "not available", "unavailable"]:
+            continue  # Skip this entry, it's a negative value
+        
         if operator == "contains":
-            if search_value in entry_value:
-                return True
+            # Special handling for AVGAS detection
+            if search_value == "avgas" and field_name.lower() in ["fuel and oil types", "fuel types", "fuel"]:
+                # Check for various AVGAS/100LL variations
+                if any(avgas_term in entry_value for avgas_term in ["avgas", "100ll", "100 ll", "100/ll"]):
+                    return True
+            else:
+                # Standard contains logic
+                if search_value in entry_value:
+                    return True
         elif operator == "equals":
             if entry_value == search_value:
                 return True
         elif operator == "not_empty":
-            if entry_value and entry_value not in ["nil", "none", "na", "n/a", ""]:
+            # Enhanced not_empty logic - exclude negative values
+            if entry_value and entry_value not in ["nil", "none", "na", "n/a", "no", "not available", "unavailable", ""]:
                 return True
         elif operator == "starts_with":
             if entry_value.startswith(search_value):
