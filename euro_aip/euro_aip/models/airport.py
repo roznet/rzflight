@@ -1,9 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Set
+from typing import Optional, List, Dict, Set, Any
 from datetime import datetime
 from euro_aip.models.runway import Runway
 from euro_aip.models.aip_entry import AIPEntry
 from euro_aip.models.procedure import Procedure
+from euro_aip.models.navpoint import NavPoint
+
+# Shared constants for approach precision
+APPROACH_PRECISION_ORDER = ['ILS', 'RNP', 'RNAV', 'LOC', 'LDA', 'SDF', 'VOR', 'NDB']
 
 @dataclass
 class Airport:
@@ -239,6 +243,87 @@ class Airport:
     def get_procedures_by_source(self, source: str) -> List['Procedure']:
         """Get all procedures from a specific source."""
         return [p for p in self.procedures if p.source == source]
+    
+    def get_precision_category(self, approach_type: str) -> str:
+        """
+        Get precision category for an approach type.
+        
+        Args:
+            approach_type: The approach type (e.g., 'ILS', 'RNAV', 'VOR')
+            
+        Returns:
+            Precision category: 'precision', 'rnp', or 'non-precision'
+        """
+        approach_type_upper = approach_type.upper()
+        
+        if approach_type_upper == 'ILS':
+            return 'precision'
+        elif approach_type_upper in ['RNP', 'RNAV']:
+            return 'rnp'
+        else:
+            return 'non-precision'
+    
+    def get_procedure_lines(self, distance_nm: float = 10.0) -> Dict[str, Any]:
+        """
+        Get procedure lines for visualization.
+        
+        Args:
+            distance_nm: Distance in nautical miles for the procedure lines (default: 10.0)
+            
+        Returns:
+            Dictionary containing airport ident and list of procedure line data
+        """
+        procedure_lines = []
+        
+        for runway in self.runways:
+            
+            # Process each runway end
+            for end in ['le', 'he']:
+                other = 'le' if end == 'he' else 'he'
+                
+                # Get runway end coordinates
+                end_lat = getattr(runway, f'{end}_latitude_deg')
+                end_lon = getattr(runway, f'{end}_longitude_deg')
+                other_heading = getattr(runway, f'{other}_heading_degT')
+                current_ident = getattr(runway, f'{end}_ident')
+                
+                # Skip if missing required data
+                if not all([end_lat, end_lon, other_heading, current_ident]):
+                    continue
+                
+                # Get the most precise approach for this runway end
+                most_precise_approach = self.get_most_precise_approach_for_runway_end(runway, current_ident)
+                
+                if not most_precise_approach or not most_precise_approach.approach_type:
+                    continue
+                
+                approach_type = most_precise_approach.approach_type.upper()
+                
+                # Calculate end point using NavPoint
+                runway_end = NavPoint(latitude=float(end_lat), longitude=float(end_lon))
+                end_point = runway_end.point_from_bearing_distance(
+                    float(other_heading), distance_nm, f"{self.ident}_{current_ident}_end"
+                )
+                
+                # Create procedure line data
+                line_data = {
+                    "runway_end": current_ident,
+                    "start_lat": float(end_lat),
+                    "start_lon": float(end_lon),
+                    "end_lat": end_point.latitude,
+                    "end_lon": end_point.longitude,
+                    "approach_type": approach_type,
+                    "procedure_name": most_precise_approach.name,
+                    "precision_category": self.get_precision_category(approach_type),
+                    "distance_nm": distance_nm
+                }
+                
+                procedure_lines.append(line_data)
+        
+        return {
+            "airport_ident": self.ident,
+            "procedure_lines": procedure_lines
+        }
     
     def get_procedures_by_authority(self, authority: str) -> List['Procedure']:
         """Get all procedures from a specific authority."""

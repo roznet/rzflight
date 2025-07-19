@@ -138,6 +138,21 @@ async def get_airport_runways(icao: str):
     
     return [r.to_dict() for r in airport.runways]
 
+@router.get("/{icao}/procedure-lines")
+async def get_airport_procedure_lines(
+    icao: str,
+    distance_nm: float = Query(10.0, description="Distance in nautical miles for procedure lines")
+):
+    """Get procedure lines for an airport."""
+    if not model:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    airport = model.get_airport(icao.upper())
+    if not airport:
+        raise HTTPException(status_code=404, detail=f"Airport {icao} not found")
+    
+    return airport.get_procedure_lines(distance_nm)
+
 @router.get("/search/{query}")
 async def search_airports(
     query: str,

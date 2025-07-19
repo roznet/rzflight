@@ -78,6 +78,10 @@ class APIClient {
         return this.request(`/api/airports/${icao}/runways`);
     }
 
+    async getAirportProcedureLines(icao, distance_nm = 10.0) {
+        return this.request(`/api/airports/${icao}/procedure-lines?distance_nm=${distance_nm}`);
+    }
+
     async searchAirports(query, limit = 20) {
         return this.request(`/api/airports/search/${encodeURIComponent(query)}?limit=${limit}`);
     }

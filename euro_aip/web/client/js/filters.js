@@ -50,6 +50,11 @@ class FilterManager {
             this.updateFilters();
         });
 
+        // Legend mode change
+        document.getElementById('legend-mode-filter').addEventListener('change', () => {
+            this.updateLegendMode();
+        });
+
         // Checkbox events
         const checkboxes = ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
         checkboxes.forEach(id => {
@@ -336,6 +341,22 @@ class FilterManager {
             this.showSuccess(`Reset zoom to show all ${this.airports.length} airports`);
         } else {
             this.showError('No airports to zoom to');
+        }
+    }
+
+    updateLegendMode() {
+        const legendMode = document.getElementById('legend-mode-filter').value;
+        console.log(`Legend mode changed to: ${legendMode}`);
+        
+        if (airportMap) {
+            airportMap.setLegendMode(legendMode);
+            
+            // If switching to procedure precision mode, we need to reload airports
+            // to show the procedure lines
+            if (legendMode === 'procedure-precision') {
+                console.log('Switching to procedure precision mode, reloading airports...');
+                this.applyFilters();
+            }
         }
     }
 

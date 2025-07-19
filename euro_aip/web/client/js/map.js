@@ -4,8 +4,11 @@ class AirportMap {
         this.containerId = containerId;
         this.map = null;
         this.markers = new Map(); // ICAO -> marker
+        this.procedureLines = new Map(); // ICAO -> array of lines
         this.currentAirport = null;
         this.airportLayer = null;
+        this.procedureLayer = null;
+        this.legendMode = 'airport-type';
         
         this.initMap();
     }
@@ -22,13 +25,18 @@ class AirportMap {
         // Create airport layer group
         this.airportLayer = L.layerGroup().addTo(this.map);
         
+        // Create procedure lines layer group
+        this.procedureLayer = L.layerGroup().addTo(this.map);
+        
         // Add scale control
         L.control.scale().addTo(this.map);
     }
 
     clearMarkers() {
         this.airportLayer.clearLayers();
+        this.procedureLayer.clearLayers();
         this.markers.clear();
+        this.procedureLines.clear();
     }
 
     addAirport(airport) {
@@ -36,6 +44,15 @@ class AirportMap {
             return; // Skip airports without coordinates
         }
 
+        // Add airport marker based on current legend mode
+        if (this.legendMode === 'procedure-precision') {
+            this.addAirportWithProcedures(airport);
+        } else {
+            this.addAirportMarker(airport);
+        }
+    }
+
+    addAirportMarker(airport) {
         // Determine marker color based on airport characteristics
         let color = '#ffc107'; // Default: yellow (no procedures)
         let radius = 6;
@@ -83,6 +100,124 @@ class AirportMap {
         // Add to map and store reference
         marker.addTo(this.airportLayer);
         this.markers.set(airport.ident, marker);
+    }
+
+    async addAirportWithProcedures(airport) {
+        // Create transparent marker for airports without procedures
+        let color = 'rgba(128, 128, 128, 0.3)';
+        let borderColor = 'rgba(128, 128, 128, 0.5)';
+        let radius = 6;
+
+        // Create custom icon
+        const icon = L.divIcon({
+            className: 'airport-marker',
+            html: `<div style="
+                width: ${radius * 2}px; 
+                height: ${radius * 2}px; 
+                background-color: ${color}; 
+                border: 2px solid ${borderColor}; 
+                border-radius: 50%; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            "></div>`,
+            iconSize: [radius * 2, radius * 2],
+            iconAnchor: [radius, radius]
+        });
+
+        // Create marker
+        const marker = L.marker([airport.latitude_deg, airport.longitude_deg], {
+            icon: icon
+        });
+
+        // Create popup content
+        const popupContent = this.createPopupContent(airport);
+        marker.bindPopup(popupContent, {
+            maxWidth: 300,
+            maxHeight: 200
+        });
+
+        // Add click event
+        marker.on('click', () => {
+            this.onAirportClick(airport);
+        });
+
+        // Add to map and store reference
+        marker.addTo(this.airportLayer);
+        this.markers.set(airport.ident, marker);
+
+        // Add procedure lines if airport has procedures
+        if (airport.has_procedures) {
+            await this.addProcedureLines(airport);
+        }
+    }
+
+    async addProcedureLines(airport) {
+        try {
+            // Get procedure lines from the new API endpoint
+            const procedureData = await api.getAirportProcedureLines(airport.ident);
+
+            const lines = [];
+            
+            // Process each procedure line
+            for (const lineData of procedureData.procedure_lines) {
+                // Determine line color based on precision category
+                let lineColor = '#ffffff'; // Default: white
+                switch (lineData.precision_category) {
+                    case 'precision':
+                        lineColor = '#ffff00'; // Yellow for ILS
+                        break;
+                    case 'rnp':
+                        lineColor = '#0000ff'; // Blue for RNP/RNAV
+                        break;
+                    case 'non-precision':
+                        lineColor = '#ffffff'; // White for VOR/NDB
+                        break;
+                }
+
+                // Create the line
+                const line = L.polyline([
+                    [lineData.start_lat, lineData.start_lon],
+                    [lineData.end_lat, lineData.end_lon]
+                ], {
+                    color: lineColor,
+                    weight: 3,
+                    opacity: 0.8
+                });
+
+                // Add popup to line
+                line.bindPopup(`
+                    <div style="min-width: 200px;">
+                        <h6><strong>${airport.ident} ${lineData.runway_end}</strong></h6>
+                        <p><strong>Approach:</strong> ${lineData.procedure_name || 'N/A'}</p>
+                        <p><strong>Type:</strong> ${lineData.approach_type}</p>
+                        <p><strong>Precision:</strong> ${this.getPrecisionDescription(lineData.approach_type)}</p>
+                    </div>
+                `);
+
+                line.addTo(this.procedureLayer);
+                lines.push(line);
+            }
+
+            this.procedureLines.set(airport.ident, lines);
+
+        } catch (error) {
+            console.error(`Error adding procedure lines for ${airport.ident}:`, error);
+        }
+    }
+
+
+
+    getPrecisionDescription(approachType) {
+        switch (approachType) {
+            case 'ILS': return 'Highest (CAT I/II/III)';
+            case 'RNP':
+            case 'RNAV': return 'High (RNP 0.3-1.0)';
+            case 'LOC':
+            case 'LDA':
+            case 'SDF': return 'Medium (Localizer)';
+            case 'VOR':
+            case 'NDB': return 'Lower (Non-precision)';
+            default: return 'Standard';
+        }
     }
 
     createPopupContent(airport) {
@@ -328,6 +463,98 @@ class AirportMap {
             // For now, just show all markers
             marker.addTo(this.airportLayer);
         });
+    }
+
+    setLegendMode(mode) {
+        this.legendMode = mode;
+        this.updateLegend();
+    }
+
+    updateLegend() {
+        const legendContent = document.getElementById('legend-content');
+        if (!legendContent) return;
+
+        let html = '';
+        
+        switch (this.legendMode) {
+            case 'airport-type':
+                html = `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #28a745;"></div>
+                        <span>Airport with Procedures</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffc107;"></div>
+                        <span>Airport without Procedures</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #dc3545;"></div>
+                        <span>Border Crossing</span>
+                    </div>
+                `;
+                break;
+                
+            case 'procedure-precision':
+                html = `
+                    <div class="legend-item">
+                        <div class="legend-line" style="background-color: #ffff00;"></div>
+                        <span>ILS (Precision)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background-color: #0000ff;"></div>
+                        <span>RNP/RNAV (RNP)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-line" style="background-color: #ffffff;"></div>
+                        <span>VOR/NDB (Non-Precision)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color legend-transparent"></div>
+                        <span>Airport without Procedures</span>
+                    </div>
+                `;
+                break;
+                
+            case 'runway-length':
+                html = `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #28a745;"></div>
+                        <span>Long Runway (>8000ft)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffc107;"></div>
+                        <span>Medium Runway (4000-8000ft)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #dc3545;"></div>
+                        <span>Short Runway (<4000ft)</span>
+                    </div>
+                `;
+                break;
+                
+            case 'country':
+                html = `
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #007bff;"></div>
+                        <span>France (LF)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #dc3545;"></div>
+                        <span>United Kingdom (EG)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #28a745;"></div>
+                        <span>Germany (ED)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ffc107;"></div>
+                        <span>Other Countries</span>
+                    </div>
+                `;
+                break;
+        }
+        
+        legendContent.innerHTML = html;
     }
 }
 

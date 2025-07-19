@@ -38,9 +38,21 @@
         .stats-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+        }
+        
+        .stats-card h4 {
+            margin: 0 0 4px 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .stats-card p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
         }
         
         .loading {
@@ -99,22 +111,34 @@
             border-radius: 50%;
             margin-right: 8px;
         }
+        
+        .legend-line {
+            width: 30px;
+            height: 4px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        
+        .legend-transparent {
+            background-color: rgba(128, 128, 128, 0.3) !important;
+            border: 1px solid rgba(128, 128, 128, 0.5) !important;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid">
         <!-- Header -->
-        <div class="row mt-3">
+        <div class="row mt-2">
             <div class="col-12">
-                <h1 class="text-center">
+                <h2 class="text-center mb-1">
                     <i class="fas fa-plane"></i> Euro AIP Airport Explorer
-                </h1>
-                <p class="text-center text-muted">Interactive map of European airports with AIP data and procedures (Border Crossing airports by default)</p>
+                </h2>
+                <p class="text-center text-muted mb-2">Interactive map of European airports with AIP data and procedures (Border Crossing airports by default)</p>
             </div>
         </div>
 
         <!-- Statistics Cards -->
-        <div class="row mb-3" id="stats-row">
+        <div class="row mb-2" id="stats-row">
             <div class="col-md-3">
                 <div class="stats-card">
                     <h4 id="total-airports">-</h4>
@@ -224,20 +248,22 @@
                     </button>
                 </div>
 
+                <!-- Legend Mode Selector -->
+                <div class="filter-group">
+                    <label for="legend-mode-filter" class="form-label">Legend Mode</label>
+                    <select class="form-select" id="legend-mode-filter">
+                        <option value="airport-type" selected>Airport Type</option>
+                        <option value="procedure-precision">Procedure Precision</option>
+                        <option value="runway-length">Runway Length</option>
+                        <option value="country">Country</option>
+                    </select>
+                </div>
+
                 <!-- Legend -->
-                <div class="legend">
+                <div class="legend" id="legend">
                     <h6><i class="fas fa-info-circle"></i> Legend</h6>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #28a745;"></div>
-                        <span>Airport with Procedures</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #ffc107;"></div>
-                        <span>Airport without Procedures</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background-color: #dc3545;"></div>
-                        <span>Border Crossing</span>
+                    <div id="legend-content">
+                        <!-- Legend content will be dynamically updated -->
                     </div>
                 </div>
             </div>

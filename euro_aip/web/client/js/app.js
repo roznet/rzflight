@@ -55,6 +55,11 @@ class AirportExplorerApp {
         // Initialize chart manager
         chartManager = new ChartManager();
         
+        // Initialize legend
+        if (airportMap) {
+            airportMap.updateLegend();
+        }
+        
         console.log('Components initialized');
     }
 
@@ -131,6 +136,7 @@ class AirportExplorerApp {
             'country-filter',
             'approach-filter',
             'max-airports-filter',
+            'legend-mode-filter',
             'has-procedures',
             'has-aip-data',
             'has-hard-runway',
@@ -157,6 +163,7 @@ class AirportExplorerApp {
             'country-filter',
             'approach-filter',
             'max-airports-filter',
+            'legend-mode-filter',
             'has-procedures',
             'has-aip-data',
             'has-hard-runway',
