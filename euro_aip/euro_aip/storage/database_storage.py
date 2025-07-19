@@ -801,6 +801,8 @@ class DatabaseStorage:
             airport_codes = [row['icao_code'] for row in cursor.fetchall()]
             
             for icao in airport_codes:
+                if icao in ['EDSB', 'EGTK', 'LFQA']:
+                    print(f"Loading airport {icao}")
                 airport = self._load_airport(conn, icao)
                 if airport:
                     model.airports[icao] = airport

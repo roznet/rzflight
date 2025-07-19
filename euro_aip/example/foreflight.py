@@ -137,7 +137,7 @@ class Command:
         
         for airport in airports_with_procedures:
 
-            if airport.ident == 'LFBN' or airport.ident == 'LFOK':
+            if airport.ident == 'EGHE' or airport.ident == 'EGTK':
                 logger.info(f"Processing {airport.ident}")
             if not airport.runways:
                 continue

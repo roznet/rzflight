@@ -17,6 +17,7 @@ from euro_aip.models import EuroAipModel, Airport
 from euro_aip.sources.base import SourceInterface
 from euro_aip.utils.field_standardization_service import FieldStandardizationService
 from euro_aip.storage import DatabaseStorage
+from euro_aip.parsers import ProcedureParserFactory
 
 # Configure logging
 logging.basicConfig(

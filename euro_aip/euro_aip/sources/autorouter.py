@@ -11,6 +11,7 @@ from .cached import CachedSource
 from ..utils.autorouter_credentials import AutorouterCredentialManager
 from euro_aip.sources.base import SourceInterface
 from ..utils.field_standardization_service import FieldStandardizationService
+from ..parsers import ProcedureParserFactory
 
 logger = logging.getLogger(__name__)
 
@@ -319,8 +320,7 @@ class AutorouterSource(CachedSource, SourceInterface):
             logger.warning("No airports found to process")
             return
         
-        logger.info(f"Updating model with {len(airports)} airports from Autorouter")
-        
+        logger.info(f"Updating model with {len(airports)} airports from Autorouter") 
         for icao in airports:
             try:
                 # Get or create airport in model
@@ -348,24 +348,26 @@ class AutorouterSource(CachedSource, SourceInterface):
                             proc_type = proc_data.get('type', 'unknown')
                             if proc_type != 'approach':
                                 continue
-                            approach_type = proc_data.get('approach_type', 'unknown')
-                            if approach_type == 'unknown':
-                                continue
-                            procedure = Procedure(
-                                name=proc_data.get('name', ''),
-                                procedure_type=proc_type,
-                                approach_type=approach_type,
-                                runway_number=proc_data.get('runway_number'),
-                                runway_letter=proc_data.get('runway_letter'),
-                                runway_ident=proc_data.get('runway_ident'),
-                                category=proc_data.get('category'),
-                                notes=proc_data.get('notes'),
-                                source='autorouter',
-                                raw_name=proc_data.get('raw_name', ''),
-                                data=proc_data
-                            )
 
-                            airport.procedures.append(procedure)
+                            authority = airport.get_authority()
+                            procedure_parser = ProcedureParserFactory.get_parser(authority)
+                            parsed_procedure = procedure_parser.parse(proc_data.get('heading', ''), icao)
+                            
+                            if parsed_procedure:
+                                procedure = Procedure(
+                                    name=parsed_procedure.get('name', ''),
+                                    procedure_type=proc_data.get('type', 'unknown'),
+                                    approach_type=parsed_procedure.get('approach_type', ''),
+                                    runway_ident=parsed_procedure.get('runway_ident'),
+                                    runway_letter=parsed_procedure.get('runway_letter'),
+                                    runway_number=parsed_procedure.get('runway_number'),
+                                    source='autorouter',
+                                    authority=authority,
+                                    raw_name=proc_data.get('heading', ''),
+                                    data=proc_data
+                                )
+                                airport.add_procedure(procedure)
+
                 
                 logger.debug(f"Updated {icao} with Autorouter data")
                 

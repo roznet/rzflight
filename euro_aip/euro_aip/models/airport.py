@@ -41,6 +41,14 @@ class Airport:
     runways: List['Runway'] = field(default_factory=list)
     aip_entries: List['AIPEntry'] = field(default_factory=list)
     procedures: List['Procedure'] = field(default_factory=list)
+
+    def get_authority(self) -> str:
+        """Get the authority for the airport."""
+        # get the authority from the ICAO code first 2 letters
+        authority = self.ident[:2]
+        if authority == 'ET':
+            authority = 'ED'
+        return authority + 'C'
     
     def add_source(self, source_name: str):
         """Add a source to the tracking set."""
