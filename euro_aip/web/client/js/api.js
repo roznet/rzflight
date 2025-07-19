@@ -82,13 +82,41 @@ class APIClient {
         return this.request(`/api/airports/${icao}/procedure-lines?distance_nm=${distance_nm}`);
     }
 
+    async getBulkProcedureLines(airports, distance_nm = 10.0) {
+        const requestBody = {
+            airports: airports,
+            distance_nm: distance_nm
+        };
+        
+        console.log('getBulkProcedureLines request body:', requestBody);
+        
+        return this.request('/api/airports/bulk/procedure-lines', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
+    }
+
     async searchAirports(query, limit = 20) {
         return this.request(`/api/airports/search/${encodeURIComponent(query)}?limit=${limit}`);
     }
 
-    async searchAirportsNearRoute(routeAirports, distanceNm = 50.0) {
+    async searchAirportsNearRoute(routeAirports, distanceNm = 50.0, filters = {}) {
         const airportsParam = routeAirports.join(',');
-        return this.request(`/api/airports/route-search?airports=${encodeURIComponent(airportsParam)}&distance_nm=${distanceNm}`);
+        const params = new URLSearchParams();
+        params.append('airports', airportsParam);
+        params.append('distance_nm', distanceNm.toString());
+        
+        // Add filter parameters
+        if (filters.country) params.append('country', filters.country);
+        if (filters.has_procedures !== undefined) params.append('has_procedures', filters.has_procedures.toString());
+        if (filters.has_aip_data !== undefined) params.append('has_aip_data', filters.has_aip_data.toString());
+        if (filters.has_hard_runway !== undefined) params.append('has_hard_runway', filters.has_hard_runway.toString());
+        if (filters.point_of_entry !== undefined) params.append('point_of_entry', filters.point_of_entry.toString());
+        
+        return this.request(`/api/airports/route-search?${params.toString()}`);
     }
 
     // Filter endpoints

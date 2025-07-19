@@ -409,7 +409,7 @@
                         </div>
 
                         <!-- Maximum Airports Filter -->
-                        <div class="col-md-1">
+                        <div class="col-md-2">
                             <label for="max-airports-filter" class="form-label">Max Airports</label>
                             <select class="form-select" id="max-airports-filter">
                                 <option value="500">500</option>
@@ -417,17 +417,6 @@
                                 <option value="2000">2000</option>
                                 <option value="5000">5000</option>
                                 <option value="10000">10000</option>
-                            </select>
-                        </div>
-
-                        <!-- Legend Mode Selector -->
-                        <div class="col-md-1">
-                            <label for="legend-mode-filter" class="form-label">Legend Mode</label>
-                            <select class="form-select" id="legend-mode-filter">
-                                <option value="airport-type" selected>Airport Type</option>
-                                <option value="procedure-precision">Procedure Precision</option>
-                                <option value="runway-length">Runway Length</option>
-                                <option value="country">Country</option>
                             </select>
                         </div>
 
@@ -483,7 +472,15 @@
             <!-- Legend Panel (Right) -->
             <div class="col-md-4">
                 <div class="legend-horizontal" id="legend">
-                    <h6><i class="fas fa-info-circle"></i> Legend</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Legend</h6>
+                        <select class="form-select form-select-sm" id="legend-mode-filter" style="width: auto;">
+                            <option value="airport-type" selected>Airport Type</option>
+                            <option value="procedure-precision">Procedure Precision</option>
+                            <option value="runway-length">Runway Length</option>
+                            <option value="country">Country</option>
+                        </select>
+                    </div>
                     <div id="legend-content">
                         <!-- Legend content will be dynamically updated -->
                     </div>
@@ -524,10 +521,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Application Scripts -->
-    <script src="js/api.js?v=1.1"></script>
-    <script src="js/map.js?v=1.1"></script>
-    <script src="js/filters.js?v=1.1"></script>
-    <script src="js/charts.js?v=1.1"></script>
-    <script src="js/app.js?v=1.1"></script>
+    <script src="js/api.js?v=2.2"></script>
+    <script src="js/map.js?v=2.2"></script>
+    <script src="js/filters.js?v=2.2"></script>
+    <script src="js/charts.js?v=2.2"></script>
+    <script src="js/app.js?v=2.2"></script>
 </body>
 </html> 

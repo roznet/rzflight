@@ -137,11 +137,19 @@ class AirportMap {
             return; // Skip airports without coordinates
         }
 
+        // Check if this is a route airport (has route-specific data)
+        const isRouteAirport = airport._routeDistance !== undefined;
+
         // Add airport marker based on current legend mode
         if (this.legendMode === 'procedure-precision') {
             this.addAirportWithProcedures(airport);
         } else {
-            this.addAirportMarker(airport);
+            // For route airports, use the distance marker method
+            if (isRouteAirport) {
+                this.addAirportMarkerWithDistance(airport, airport._routeDistance, airport._closestSegment);
+            } else {
+                this.addAirportMarker(airport);
+            }
         }
     }
 
@@ -208,7 +216,7 @@ class AirportMap {
             radius = 7;
         }
 
-        // Create custom icon with distance indicator
+        // Create custom icon WITHOUT distance label to preserve color visibility
         const icon = L.divIcon({
             className: 'airport-marker',
             html: `<div style="
@@ -218,23 +226,8 @@ class AirportMap {
                 border: 2px solid white; 
                 border-radius: 50%; 
                 box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                position: relative;
-            "><div style="
-                position: absolute;
-                top: -8px;
-                right: -8px;
-                background-color: #007bff;
-                color: white;
-                border-radius: 50%;
-                width: 16px;
-                height: 16px;
-                font-size: 8px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-weight: bold;
-            ">${distanceNm}</div></div>`,
-            iconSize: [radius * 2 + 8, radius * 2 + 8],
+            "></div>`,
+            iconSize: [radius * 2, radius * 2],
             iconAnchor: [radius, radius]
         });
 
@@ -293,8 +286,15 @@ class AirportMap {
             icon: icon
         });
 
-        // Create popup content
-        const popupContent = this.createPopupContent(airport);
+        // Create popup content with route distance if available
+        let popupContent = this.createPopupContent(airport);
+        if (airport._routeDistance !== undefined) {
+            popupContent += `<hr><div style="font-size: 0.9em; color: #007bff;">
+                <strong>Route Distance:</strong> ${airport._routeDistance}nm<br>
+                ${airport._closestSegment ? `<strong>Closest to:</strong> ${airport._closestSegment[0]} → ${airport._closestSegment[1]}` : ''}
+            </div>`;
+        }
+        
         marker.bindPopup(popupContent, {
             maxWidth: 300,
             maxHeight: 200
@@ -309,61 +309,126 @@ class AirportMap {
         marker.addTo(this.airportLayer);
         this.markers.set(airport.ident, marker);
 
-        // Add procedure lines if airport has procedures
-        if (airport.has_procedures) {
-            await this.addProcedureLines(airport);
+        // Note: Procedure lines will be loaded in bulk separately, not here
+    }
+
+    async loadBulkProcedureLines(airports) {
+        try {
+            // Filter airports that have procedures
+            const airportsWithProcedures = airports.filter(airport => airport.has_procedures);
+            
+            if (airportsWithProcedures.length === 0) {
+                console.log('No airports with procedures found');
+                return;
+            }
+
+            console.log(`Loading procedure lines for ${airportsWithProcedures.length} airports...`);
+            
+            // Get ICAO codes
+            const icaoCodes = airportsWithProcedures.map(airport => airport.ident);
+            console.log('ICAO codes to request:', icaoCodes);
+            
+            // Process in batches of 100 (backend limit)
+            const batchSize = 100;
+            const batches = [];
+            for (let i = 0; i < icaoCodes.length; i += batchSize) {
+                batches.push(icaoCodes.slice(i, i + batchSize));
+            }
+            
+            console.log(`Processing ${batches.length} batches of up to ${batchSize} airports each`);
+            
+            // Process each batch
+            for (let i = 0; i < batches.length; i++) {
+                const batch = batches[i];
+                console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} airports`);
+                
+                // Load procedure lines in bulk for this batch
+                const bulkData = await api.getBulkProcedureLines(batch, 10.0);
+                console.log(`Batch ${i + 1} API response received:`, bulkData);
+                
+                // Process each airport's procedure lines in this batch
+                for (const airport of airportsWithProcedures) {
+                    const procedureData = bulkData[airport.ident];
+                    console.log(`Processing ${airport.ident}:`, procedureData);
+                    if (procedureData && procedureData.procedure_lines) {
+                        console.log(`Adding ${procedureData.procedure_lines.length} procedure lines for ${airport.ident}`);
+                        await this.addProcedureLinesFromData(airport, procedureData);
+                    } else {
+                        console.log(`No procedure data for ${airport.ident}`);
+                    }
+                }
+            }
+            
+            console.log('All bulk procedure lines loaded successfully');
+            
+        } catch (error) {
+            console.error('Error loading bulk procedure lines:', error);
+            console.error('Error details:', error.message);
+            if (error.response) {
+                console.error('Response status:', error.response.status);
+                console.error('Response data:', error.response.data);
+            }
         }
+    }
+
+    async addProcedureLinesFromData(airport, procedureData) {
+        const lines = [];
+        console.log(`Creating procedure lines for ${airport.ident}, ${procedureData.procedure_lines.length} lines`);
+        
+        // Process each procedure line
+        for (const lineData of procedureData.procedure_lines) {
+            console.log(`Processing line: ${lineData.runway_end} ${lineData.approach_type}`);
+            
+            // Determine line color based on precision category
+            let lineColor = '#ffffff'; // Default: white
+            switch (lineData.precision_category) {
+                case 'precision':
+                    lineColor = '#ffff00'; // Yellow for ILS
+                    break;
+                case 'rnp':
+                    lineColor = '#0000ff'; // Blue for RNP/RNAV
+                    break;
+                case 'non-precision':
+                    lineColor = '#ffffff'; // White for VOR/NDB
+                    break;
+            }
+
+            console.log(`Line color: ${lineColor}, coordinates: [${lineData.start_lat}, ${lineData.start_lon}] to [${lineData.end_lat}, ${lineData.end_lon}]`);
+
+            // Create the line
+            const line = L.polyline([
+                [lineData.start_lat, lineData.start_lon],
+                [lineData.end_lat, lineData.end_lon]
+            ], {
+                color: lineColor,
+                weight: 3,
+                opacity: 0.8
+            });
+
+            // Add popup to line
+            line.bindPopup(`
+                <div style="min-width: 200px;">
+                    <h6><strong>${airport.ident} ${lineData.runway_end}</strong></h6>
+                    <p><strong>Approach:</strong> ${lineData.procedure_name || 'N/A'}</p>
+                    <p><strong>Type:</strong> ${lineData.approach_type}</p>
+                    <p><strong>Precision:</strong> ${this.getPrecisionDescription(lineData.approach_type)}</p>
+                </div>
+            `);
+
+            console.log(`Adding line to procedure layer for ${airport.ident}`);
+            line.addTo(this.procedureLayer);
+            lines.push(line);
+        }
+
+        console.log(`Stored ${lines.length} lines for ${airport.ident}`);
+        this.procedureLines.set(airport.ident, lines);
     }
 
     async addProcedureLines(airport) {
         try {
             // Get procedure lines from the new API endpoint
             const procedureData = await api.getAirportProcedureLines(airport.ident);
-
-            const lines = [];
-            
-            // Process each procedure line
-            for (const lineData of procedureData.procedure_lines) {
-                // Determine line color based on precision category
-                let lineColor = '#ffffff'; // Default: white
-                switch (lineData.precision_category) {
-                    case 'precision':
-                        lineColor = '#ffff00'; // Yellow for ILS
-                        break;
-                    case 'rnp':
-                        lineColor = '#0000ff'; // Blue for RNP/RNAV
-                        break;
-                    case 'non-precision':
-                        lineColor = '#ffffff'; // White for VOR/NDB
-                        break;
-                }
-
-                // Create the line
-                const line = L.polyline([
-                    [lineData.start_lat, lineData.start_lon],
-                    [lineData.end_lat, lineData.end_lon]
-                ], {
-                    color: lineColor,
-                    weight: 3,
-                    opacity: 0.8
-                });
-
-                // Add popup to line
-                line.bindPopup(`
-                    <div style="min-width: 200px;">
-                        <h6><strong>${airport.ident} ${lineData.runway_end}</strong></h6>
-                        <p><strong>Approach:</strong> ${lineData.procedure_name || 'N/A'}</p>
-                        <p><strong>Type:</strong> ${lineData.approach_type}</p>
-                        <p><strong>Precision:</strong> ${this.getPrecisionDescription(lineData.approach_type)}</p>
-                    </div>
-                `);
-
-                line.addTo(this.procedureLayer);
-                lines.push(line);
-            }
-
-            this.procedureLines.set(airport.ident, lines);
-
+            await this.addProcedureLinesFromData(airport, procedureData);
         } catch (error) {
             console.error(`Error adding procedure lines for ${airport.ident}:`, error);
         }

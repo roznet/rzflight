@@ -131,6 +131,17 @@ class FilterManager {
             // Update filters from UI
             this.updateFilters();
             
+            // Check if we have an active route search
+            if (this.currentRoute && this.currentRoute.airports) {
+                console.log('applyFilters - Reapplying route search with new filters');
+                // Reapply route search with current filters
+                await this.handleRouteSearch(this.currentRoute.airports, true);
+                return;
+            }
+            
+            // Regular filter application (no active route)
+            console.log('applyFilters - Applying regular filters');
+            
             // Load airports with filters
             const airports = await api.getAirports({
                 ...this.currentFilters
@@ -177,6 +188,10 @@ class FilterManager {
             } else {
                 // This is a regular text search
                 console.log('handleSearch - Executing regular text search');
+                
+                // Clear any current route since this is a regular search
+                this.currentRoute = null;
+                
                 const searchResults = await api.searchAirports(query, 50);
                 
                 // Update map with search results (fit to bounds for better UX)
@@ -221,43 +236,65 @@ class FilterManager {
         return null;
     }
 
-    async handleRouteSearch(routeAirports) {
+    async handleRouteSearch(routeAirports, skipFilterUpdate = false) {
         try {
             // Get distance from UI or use default
             const distanceInput = document.getElementById('route-distance') || { value: '50' };
             const distanceNm = parseFloat(distanceInput.value) || 50.0;
             
-            // Search for airports near the route
-            const routeResults = await api.searchAirportsNearRoute(routeAirports, distanceNm);
+            // Get current filter settings (unless already updated)
+            if (!skipFilterUpdate) {
+                this.updateFilters();
+            }
+            const currentFilters = this.currentFilters;
             
-            // Clear existing markers
-            airportMap.clearMarkers();
+            console.log('handleRouteSearch - Current filters:', currentFilters);
             
-            // Add airports with distance information
-            routeResults.airports.forEach(item => {
-                airportMap.addAirportMarkerWithDistance(
-                    item.airport, 
-                    item.distance_nm, 
-                    item.closest_segment
-                );
-            });
+            // Search for airports near the route with filters
+            const routeResults = await api.searchAirportsNearRoute(routeAirports, distanceNm, currentFilters);
             
-            // Display the route on the map
+            // Extract airport data for unified handling
+            const airports = routeResults.airports.map(item => ({
+                ...item.airport,
+                // Add route-specific data as custom properties
+                _routeDistance: item.distance_nm,
+                _closestSegment: item.closest_segment
+            }));
+            
+            // Use the same unified airport handling as normal mode
+            this.updateMapWithAirports(airports, false);
+            
+            // Display the route on the map (after airports are added)
             airportMap.displayRoute(routeAirports, distanceNm);
-            
-            // Extract airport data for statistics
-            const airports = routeResults.airports.map(item => item.airport);
             
             // Update statistics
             this.updateStatistics(airports);
             
-            // Show route search success message
-            this.showSuccess(`Route search: ${routeResults.airports_found} airports within ${distanceNm}nm of route ${routeAirports.join(' → ')}`);
+            // Show route search success message with filter info
+            let message = `Route search: ${routeResults.airports_found} airports within ${distanceNm}nm of route ${routeAirports.join(' → ')}`;
+            if (routeResults.total_nearby > routeResults.airports_found) {
+                message += ` (filtered from ${routeResults.total_nearby} total nearby)`;
+            }
+            
+            // Add filter information to the message
+            const activeFilters = [];
+            if (currentFilters.country) activeFilters.push(`Country: ${currentFilters.country}`);
+            if (currentFilters.has_procedures) activeFilters.push('Has Procedures');
+            if (currentFilters.has_aip_data) activeFilters.push('Has AIP Data');
+            if (currentFilters.has_hard_runway) activeFilters.push('Has Hard Runway');
+            if (currentFilters.point_of_entry) activeFilters.push('Border Crossing');
+            
+            if (activeFilters.length > 0) {
+                message += ` | Filters: ${activeFilters.join(', ')}`;
+            }
+            
+            this.showSuccess(message);
             
             // Store route information for potential future use
             this.currentRoute = {
                 airports: routeAirports,
                 distance_nm: distanceNm,
+                filters: currentFilters,
                 results: routeResults
             };
             
@@ -286,6 +323,13 @@ class FilterManager {
         
         // Update reset zoom button state
         this.updateResetZoomButton();
+        
+        // If in procedure precision mode, load procedure lines in bulk
+        const legendMode = document.getElementById('legend-mode-filter').value;
+        if (legendMode === 'procedure-precision') {
+            console.log('In procedure precision mode, loading procedure lines in bulk...');
+            airportMap.loadBulkProcedureLines(airports);
+        }
     }
 
     updateStatistics(airports) {
@@ -435,12 +479,21 @@ class FilterManager {
         
         if (airportMap) {
             airportMap.setLegendMode(legendMode);
+            airportMap.updateLegend();
             
-            // If switching to procedure precision mode, we need to reload airports
-            // to show the procedure lines
-            if (legendMode === 'procedure-precision') {
-                console.log('Switching to procedure precision mode, reloading airports...');
-                this.applyFilters();
+            // Update the map markers to reflect the new legend mode
+            if (this.airports && this.airports.length > 0) {
+                // Clear and re-add markers to update their appearance
+                airportMap.clearMarkers();
+                this.airports.forEach(airport => {
+                    airportMap.addAirport(airport);
+                });
+                
+                // If switching to procedure precision mode, load procedure lines in bulk
+                if (legendMode === 'procedure-precision') {
+                    console.log('Switching to procedure precision mode, loading procedure lines in bulk...');
+                    airportMap.loadBulkProcedureLines(this.airports);
+                }
             }
         }
     }

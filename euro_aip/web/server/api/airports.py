@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from fastapi import APIRouter, Query, HTTPException, Request, Path
+from fastapi import APIRouter, Query, HTTPException, Request, Path, Body
 from typing import List, Optional, Dict, Any
 import logging
 
@@ -73,9 +73,14 @@ async def get_airports(
 async def get_airports_near_route(
     request: Request,
     airports: str = Query(..., description="Comma-separated list of ICAO airport codes defining the route", max_length=200),
-    distance_nm: float = Query(50.0, description="Distance in nautical miles from the route", ge=0.1, le=500.0)
+    distance_nm: float = Query(50.0, description="Distance in nautical miles from the route", ge=0.1, le=500.0),
+    country: Optional[str] = Query(None, description="Filter by ISO country code", max_length=3),
+    has_procedures: Optional[bool] = Query(None, description="Filter airports with procedures"),
+    has_aip_data: Optional[bool] = Query(None, description="Filter airports with AIP data"),
+    has_hard_runway: Optional[bool] = Query(None, description="Filter airports with hard runways"),
+    point_of_entry: Optional[bool] = Query(None, description="Filter border crossing airports")
 ):
-    """Find airports within a specified distance from a route defined by airport ICAO codes."""
+    """Find airports within a specified distance from a route defined by airport ICAO codes, with optional filtering."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
     
@@ -98,9 +103,43 @@ async def get_airports_near_route(
     # Find airports near the route
     nearby_airports = model.find_airports_near_route(route_airports, distance_nm)
     
+    # Apply additional filters
+    filtered_airports = []
+    for item in nearby_airports:
+        airport = item['airport']
+        
+        # Apply country filter
+        if country and airport.iso_country != country:
+            continue
+            
+        # Apply procedures filter
+        if has_procedures is not None:
+            has_procs = bool(airport.procedures)
+            if has_procs != has_procedures:
+                continue
+                
+        # Apply AIP data filter
+        if has_aip_data is not None:
+            has_aip = bool(airport.aip_entries)
+            if has_aip != has_aip_data:
+                continue
+                
+        # Apply hard runway filter
+        if has_hard_runway is not None:
+            if airport.has_hard_runway != has_hard_runway:
+                continue
+                
+        # Apply border crossing filter
+        if point_of_entry is not None:
+            if airport.point_of_entry != point_of_entry:
+                continue
+        
+        # Airport passed all filters
+        filtered_airports.append(item)
+    
     # Convert to response format
     result = []
-    for item in nearby_airports:
+    for item in filtered_airports:
         airport = item['airport']
         airport_summary = AirportSummary.from_airport(airport)
         
@@ -114,6 +153,14 @@ async def get_airports_near_route(
         'route_airports': route_airports,
         'distance_nm': distance_nm,
         'airports_found': len(result),
+        'total_nearby': len(nearby_airports),
+        'filters_applied': {
+            'country': country,
+            'has_procedures': has_procedures,
+            'has_aip_data': has_aip_data,
+            'has_hard_runway': has_hard_runway,
+            'point_of_entry': point_of_entry
+        },
         'airports': result
     }
 
@@ -214,6 +261,36 @@ async def get_airport_procedure_lines(
         raise HTTPException(status_code=404, detail=f"Airport {icao} not found")
     
     return airport.get_procedure_lines(distance_nm)
+
+@router.post("/bulk/procedure-lines")
+async def get_bulk_procedure_lines(
+    request: Request,
+    airports: List[str] = Body(..., description="List of ICAO airport codes", max_items=100),
+    distance_nm: float = Body(10.0, description="Distance in nautical miles for procedure lines", ge=0.1, le=100.0)
+):
+    """Get procedure lines for multiple airports in a single request."""
+    if not model:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    if len(airports) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 airports allowed per request")
+    
+    result = {}
+    
+    for icao in airports:
+        airport = model.get_airport(icao.upper())
+        if airport:
+            try:
+                procedure_lines = airport.get_procedure_lines(distance_nm)
+                result[icao.upper()] = procedure_lines
+            except Exception as e:
+                # Log error but continue with other airports
+                print(f"Error getting procedure lines for {icao}: {e}")
+                result[icao.upper()] = {"procedure_lines": [], "error": str(e)}
+        else:
+            result[icao.upper()] = {"procedure_lines": [], "error": "Airport not found"}
+    
+    return result
 
 @router.get("/search/{query}")
 async def search_airports(
