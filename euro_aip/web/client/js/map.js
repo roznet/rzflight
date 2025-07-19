@@ -81,7 +81,7 @@ class AirportMap {
         // Clear any existing route
         this.clearRoute();
         
-        if (!routeAirports || routeAirports.length < 2) {
+        if (!routeAirports || routeAirports.length < 1) {
             return;
         }
         
@@ -123,13 +123,16 @@ class AirportMap {
                     }).addTo(this.routeLayer);
                     
                     // Add popup with route info
-                    routeMarker.bindPopup(`<b>Route Airport: ${icao}</b><br>Distance: ${distanceNm}nm corridor`);
+                    const popupText = routeAirports.length === 1 
+                        ? `<b>Search Center: ${icao}</b><br>Distance: ${distanceNm}nm radius`
+                        : `<b>Route Airport: ${icao}</b><br>Distance: ${distanceNm}nm corridor`;
+                    routeMarker.bindPopup(popupText);
                     routeMarkers.push(routeMarker);
                 }
             }
         }
         
-        // Draw the route line (always complete, regardless of filtering)
+        // Draw the route line only if we have multiple airports
         if (routeCoordinates.length >= 2) {
             this.routeLine = L.polyline(routeCoordinates, {
                 color: '#007bff',
@@ -147,6 +150,10 @@ class AirportMap {
         // Only fit bounds if not preserving view (e.g., for initial route search)
         if (this.routeLine && !preserveView) {
             this.map.fitBounds(this.routeLine.getBounds(), { padding: [20, 20] });
+        } else if (routeCoordinates.length === 1 && !preserveView) {
+            // For single airport, fit to a reasonable zoom level around the airport
+            const point = L.latLng(routeCoordinates[0][0], routeCoordinates[0][1]);
+            this.map.setView(point, 8); // Zoom level 8 shows a good area around the airport
         }
     }
 

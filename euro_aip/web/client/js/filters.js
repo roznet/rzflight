@@ -2,68 +2,102 @@
 class FilterManager {
     constructor() {
         this.currentFilters = {};
-        this.availableFilters = null;
         this.airports = [];
         this.currentRoute = null;
-        this.autoApplyTimeout = null; // For debouncing auto-apply
-        this.lastAppliedFilters = null; // To detect meaningful changes
+        this.autoApplyTimeout = null;
+        this.aipPresets = [];
+        this.aipFields = [];
         
         this.initEventListeners();
         this.loadAvailableFilters();
+        this.loadAIPFilterPresets();
+        this.loadAIPFields();
     }
 
     initEventListeners() {
-        // Apply filters button (now optional, but still available)
-        document.getElementById('apply-filters').addEventListener('click', () => {
+        // Search input
+        const searchInput = document.getElementById('search-input');
+        searchInput.addEventListener('input', (e) => {
+            this.handleSearch(e.target.value);
+        });
+
+        // Filter controls
+        const filterControls = [
+            'country-filter',
+            'has-procedures',
+            'has-aip-data', 
+            'has-hard-runway',
+            'border-crossing-only'
+        ];
+
+        filterControls.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('change', () => {
+                    this.autoApplyFilters();
+                });
+            }
+        });
+
+        // AIP field filter controls
+        const aipFieldSelect = document.getElementById('aip-field-select');
+        const aipOperatorSelect = document.getElementById('aip-operator-select');
+        const aipValueInput = document.getElementById('aip-value-input');
+        const clearAIPFilterBtn = document.getElementById('clear-aip-filter');
+        const removeAIPFilterBtn = document.getElementById('remove-aip-filter');
+
+        if (aipFieldSelect) {
+            aipFieldSelect.addEventListener('change', () => {
+                if (aipFieldSelect.value) {
+                    this.applyCustomAIPFilter();
+                }
+            });
+        }
+
+        if (aipOperatorSelect) {
+            aipOperatorSelect.addEventListener('change', () => {
+                if (aipFieldSelect.value) {
+                    this.applyCustomAIPFilter();
+                }
+            });
+        }
+
+        if (aipValueInput) {
+            aipValueInput.addEventListener('input', () => {
+                if (aipFieldSelect.value) {
+                    this.applyCustomAIPFilter();
+                }
+            });
+        }
+
+        if (clearAIPFilterBtn) {
+            clearAIPFilterBtn.addEventListener('click', () => {
+                this.clearAIPFilter();
+            });
+        }
+
+        if (removeAIPFilterBtn) {
+            removeAIPFilterBtn.addEventListener('click', () => {
+                this.clearAIPFilter();
+            });
+        }
+
+        // Apply filters button
+        const applyButton = document.getElementById('apply-filters');
+        applyButton.addEventListener('click', () => {
             this.applyFilters();
         });
 
         // Reset zoom button
-        document.getElementById('reset-zoom').addEventListener('click', () => {
+        const resetZoomButton = document.getElementById('reset-zoom');
+        resetZoomButton.addEventListener('click', () => {
             this.resetZoom();
         });
 
-        // Search input with debouncing
-        const searchInput = document.getElementById('search-input');
-        let searchTimeout;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                this.handleSearch(e.target.value);
-            }, 300);
-        });
-
-        // Enter key in search
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                this.handleSearch(e.target.value);
-            }
-        });
-
-        // Filter change events with auto-apply
-        document.getElementById('country-filter').addEventListener('change', () => {
-            this.autoApplyFilters();
-        });
-
-        document.getElementById('approach-filter').addEventListener('change', () => {
-            this.autoApplyFilters();
-        });
-
-        document.getElementById('max-airports-filter').addEventListener('change', () => {
-            this.autoApplyFilters();
-        });
-
-        // Legend mode change (immediate, no debouncing needed)
-        document.getElementById('legend-mode-filter').addEventListener('change', () => {
+        // Legend mode filter
+        const legendModeFilter = document.getElementById('legend-mode-filter');
+        legendModeFilter.addEventListener('change', () => {
             this.updateLegendMode();
-        });
-
-        // Checkbox events with auto-apply
-        const checkboxes = ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
-        checkboxes.forEach(id => {
-            document.getElementById(id).addEventListener('change', () => {
-                this.autoApplyFilters();
-            });
         });
     }
 
@@ -95,62 +129,218 @@ class FilterManager {
 
     async loadAvailableFilters() {
         try {
-            this.availableFilters = await api.getAllFilters();
-            this.populateFilterOptions();
+            const filters = await api.getAllFilters();
+            this.populateFilterOptions(filters);
         } catch (error) {
-            console.error('Error loading filter options:', error);
+            console.error('Error loading available filters:', error);
         }
     }
 
-    populateFilterOptions() {
+    async loadAIPFilterPresets() {
+        try {
+            this.aipPresets = await api.getAIPFilterPresets();
+            this.populateAIPPresets();
+        } catch (error) {
+            console.error('Error loading AIP filter presets:', error);
+        }
+    }
+
+    async loadAIPFields() {
+        try {
+            const fields = await api.getAvailableAIPFields();
+            this.aipFields = fields;
+            this.populateAIPFields();
+        } catch (error) {
+            console.error('Error loading AIP fields:', error);
+        }
+    }
+
+    populateFilterOptions(filters) {
         // Populate country filter
         const countrySelect = document.getElementById('country-filter');
         countrySelect.innerHTML = '<option value="">All Countries</option>';
         
-        if (this.availableFilters.countries) {
-            this.availableFilters.countries.forEach(country => {
+        if (filters.countries) {
+            filters.countries.forEach(country => {
                 const option = document.createElement('option');
                 option.value = country.code;
                 option.textContent = `${country.code} (${country.count})`;
                 countrySelect.appendChild(option);
             });
-            
-            // No default country - show all border crossing airports
         }
+    }
 
-
-
-        // Populate approach type filter
-        const approachSelect = document.getElementById('approach-filter');
-        approachSelect.innerHTML = '<option value="">All Approaches</option>';
+    populateAIPPresets() {
+        const presetsContainer = document.getElementById('aip-preset-buttons');
+        presetsContainer.innerHTML = '';
         
-        if (this.availableFilters.approach_types) {
-            this.availableFilters.approach_types.forEach(approach => {
+        if (this.aipPresets) {
+            this.aipPresets.forEach(preset => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'aip-preset-btn';
+                button.dataset.presetId = preset.id;
+                button.innerHTML = `
+                    <span class="icon">${preset.icon}</span>
+                    <span>${preset.name}</span>
+                `;
+                button.title = preset.description;
+                
+                button.addEventListener('click', () => {
+                    this.applyAIPPreset(preset);
+                });
+                
+                presetsContainer.appendChild(button);
+            });
+        }
+    }
+
+    populateAIPFields() {
+        const fieldSelect = document.getElementById('aip-field-select');
+        fieldSelect.innerHTML = '<option value="">Select AIP Field...</option>';
+        
+        if (this.aipFields) {
+            this.aipFields.forEach(field => {
                 const option = document.createElement('option');
-                option.value = approach.type;
-                option.textContent = `${approach.type} (${approach.count})`;
-                approachSelect.appendChild(option);
+                option.value = field.field;
+                option.textContent = field.field;
+                fieldSelect.appendChild(option);
             });
         }
     }
 
     updateFilters() {
-        this.currentFilters = {
-            country: document.getElementById('country-filter').value,
-            approach_type: document.getElementById('approach-filter').value,
-            max_airports: parseInt(document.getElementById('max-airports-filter').value),
-            has_procedures: document.getElementById('has-procedures').checked ? true : undefined,
-            has_aip_data: document.getElementById('has-aip-data').checked ? true : undefined,
-            has_hard_runway: document.getElementById('has-hard-runway').checked ? true : undefined,
-            point_of_entry: document.getElementById('border-crossing-only').checked ? true : undefined
-        };
+        // Get current filter values
+        const countrySelect = document.getElementById('country-filter');
+        const hasProceduresCheckbox = document.getElementById('has-procedures');
+        const hasAIPDataCheckbox = document.getElementById('has-aip-data');
+        const hasHardRunwayCheckbox = document.getElementById('has-hard-runway');
+        const borderCrossingCheckbox = document.getElementById('border-crossing-only');
+        
+        // Update current filters - only include defined values
+        this.currentFilters = {};
+        
+        if (countrySelect.value) {
+            this.currentFilters.country = countrySelect.value;
+        }
+        
+        if (hasProceduresCheckbox.checked) {
+            this.currentFilters.has_procedures = true;
+        }
+        
+        if (hasAIPDataCheckbox.checked) {
+            this.currentFilters.has_aip_data = true;
+        }
+        
+        if (hasHardRunwayCheckbox.checked) {
+            this.currentFilters.has_hard_runway = true;
+        }
+        
+        if (borderCrossingCheckbox.checked) {
+            this.currentFilters.point_of_entry = true;
+        }
+        
+        // Add AIP field filters if present
+        if (this.currentFilters.aip_field) {
+            this.currentFilters.aip_field = this.currentFilters.aip_field;
+            this.currentFilters.aip_value = this.currentFilters.aip_value;
+            this.currentFilters.aip_operator = this.currentFilters.aip_operator;
+        }
+    }
 
-        // Remove undefined values
-        Object.keys(this.currentFilters).forEach(key => {
-            if (this.currentFilters[key] === undefined) {
-                delete this.currentFilters[key];
-            }
-        });
+    applyAIPPreset(preset) {
+        // Clear any existing custom AIP filter
+        this.clearCustomAIPFilter();
+        
+        // Apply the preset
+        this.currentFilters.aip_field = preset.field;
+        this.currentFilters.aip_value = preset.value;
+        this.currentFilters.aip_operator = preset.operator;
+        
+        // Update UI to show active preset
+        this.updateActiveAIPFilterDisplay(preset.name, preset.icon);
+        
+        // Apply filters
+        this.applyFilters();
+    }
+
+    applyCustomAIPFilter() {
+        const fieldSelect = document.getElementById('aip-field-select');
+        const operatorSelect = document.getElementById('aip-operator-select');
+        const valueInput = document.getElementById('aip-value-input');
+        
+        const field = fieldSelect.value;
+        const operator = operatorSelect.value;
+        const value = valueInput.value.trim();
+        
+        if (!field) {
+            return;
+        }
+        
+        // Clear any existing preset
+        this.clearAIPPresetSelection();
+        
+        // Apply custom filter
+        this.currentFilters.aip_field = field;
+        this.currentFilters.aip_value = value || null;
+        this.currentFilters.aip_operator = operator;
+        
+        // Update UI
+        const displayText = this.getAIPFilterDisplayText(field, operator, value);
+        this.updateActiveAIPFilterDisplay(displayText);
+        
+        // Apply filters
+        this.applyFilters();
+    }
+
+    clearAIPFilter() {
+        this.currentFilters.aip_field = null;
+        this.currentFilters.aip_value = null;
+        this.currentFilters.aip_operator = null;
+        
+        this.clearAIPPresetSelection();
+        this.clearCustomAIPFilter();
+        this.hideActiveAIPFilterDisplay();
+        
+        this.applyFilters();
+    }
+
+    clearAIPPresetSelection() {
+        const presetButtons = document.querySelectorAll('.aip-preset-btn');
+        presetButtons.forEach(btn => btn.classList.remove('active'));
+    }
+
+    clearCustomAIPFilter() {
+        const fieldSelect = document.getElementById('aip-field-select');
+        const operatorSelect = document.getElementById('aip-operator-select');
+        const valueInput = document.getElementById('aip-value-input');
+        
+        fieldSelect.value = '';
+        operatorSelect.value = 'contains';
+        valueInput.value = '';
+    }
+
+    updateActiveAIPFilterDisplay(text, icon = '') {
+        const displayDiv = document.getElementById('active-aip-filter');
+        const textSpan = document.getElementById('active-aip-filter-text');
+        
+        textSpan.innerHTML = icon ? `${icon} ${text}` : text;
+        displayDiv.style.display = 'block';
+    }
+
+    hideActiveAIPFilterDisplay() {
+        const displayDiv = document.getElementById('active-aip-filter');
+        displayDiv.style.display = 'none';
+    }
+
+    getAIPFilterDisplayText(field, operator, value) {
+        if (operator === 'not_empty') {
+            return `${field} is not empty`;
+        } else if (value) {
+            return `${field} ${operator} "${value}"`;
+        } else {
+            return `${field} ${operator}`;
+        }
     }
 
     async applyFilters() {
@@ -160,8 +350,11 @@ class FilterManager {
             // Update filters from UI
             this.updateFilters();
             
-            // Check if we have an active route search
-            if (this.currentRoute && this.currentRoute.airports) {
+            console.log('applyFilters - currentRoute:', this.currentRoute);
+            console.log('applyFilters - currentFilters:', this.currentFilters);
+            
+            // Check if we have an active route search AND it's not null
+            if (this.currentRoute && this.currentRoute.airports && this.currentRoute.airports.length > 0) {
                 console.log('applyFilters - Reapplying route search with new filters');
                 // Reapply route search with current filters
                 await this.handleRouteSearch(this.currentRoute.airports, true);
@@ -169,7 +362,7 @@ class FilterManager {
             }
             
             // Regular filter application (no active route)
-            console.log('applyFilters - Applying regular filters');
+            console.log('applyFilters - Applying regular filters to all airports');
             
             // Load airports with filters
             const airports = await api.getAirports({
@@ -202,50 +395,52 @@ class FilterManager {
     }
 
     async handleSearch(query) {
-        if (!query.trim()) {
-            // If search is empty, apply current filters
-            this.applyFilters();
+        console.log('handleSearch - Input query:', query);
+        
+        // Trim the query
+        query = query.trim();
+        
+        // If query is empty, reset to show all airports
+        if (!query) {
+            console.log('handleSearch - Empty query, resetting to all airports');
+            this.clearFilters();
             return;
         }
-
-        try {
-            this.showLoading();
-            
-            console.log('handleSearch - Input query:', query);
-            
-            // Check if this looks like a route search (space-separated ICAO codes)
-            const routeAirports = this.parseRouteFromQuery(query);
-            
-            console.log('handleSearch - Route airports detected:', routeAirports);
-            
-            if (routeAirports && routeAirports.length >= 2) {
-                // This is a route search
-                console.log('handleSearch - Executing route search');
-                await this.handleRouteSearch(routeAirports);
-            } else {
-                // This is a regular text search
-                console.log('handleSearch - Executing regular text search');
+        
+        // Check if this is a route search
+        const routeAirports = this.parseRouteFromQuery(query);
+        console.log('handleSearch - Route airports detected:', routeAirports);
+        
+        if (routeAirports) {
+            console.log('handleSearch - Executing route search');
+            await this.handleRouteSearch(routeAirports);
+        } else {
+            console.log('handleSearch - Executing regular text search');
+            try {
+                this.showLoading();
                 
-                // Clear any current route since this is a regular search
-                this.currentRoute = null;
+                // Update filters from UI
+                this.updateFilters();
                 
-                const searchResults = await api.searchAirports(query, 50);
+                // Search for airports
+                const airports = await api.searchAirports(query, 50);
                 
-                // Update map with search results (fit to bounds for better UX)
-                this.updateMapWithAirports(searchResults, false);
+                // Use the same unified airport handling as route search
+                this.updateMapWithAirports(airports, false);
                 
                 // Update statistics
-                this.updateStatistics(searchResults);
+                this.updateStatistics(airports);
                 
-                // Show search success message
-                this.showSuccess(`Search results: ${searchResults.length} airports found`);
+                // Show success message
+                this.showSuccess(`Search results: ${airports.length} airports found for "${query}"`);
+                
+            } catch (error) {
+                console.error('Error in search:', error);
+                this.showError('Error searching airports: ' + error.message);
+            } finally {
+                this.hideLoading();
+                this.resetApplyButton();
             }
-            
-        } catch (error) {
-            console.error('Error searching airports:', error);
-            this.showError('Error searching airports: ' + error.message);
-        } finally {
-            this.hideLoading();
         }
     }
 
@@ -263,7 +458,7 @@ class FilterManager {
         console.log('parseRouteFromQuery - All ICAO codes:', allIcaoCodes);
         console.log('parseRouteFromQuery - Parts length:', parts.length);
         
-        if (allIcaoCodes && parts.length >= 2) {
+        if (allIcaoCodes && parts.length >= 1) {
             const result = parts.map(part => part.toUpperCase());
             console.log('parseRouteFromQuery - Returning route airports:', result);
             return result;
@@ -521,17 +716,59 @@ class FilterManager {
 
     // Clear all filters
     clearFilters() {
+        console.log('clearFilters - Starting clear operation');
+        console.log('clearFilters - currentRoute before clear:', this.currentRoute);
+        
+        // Clear current route FIRST to prevent auto-apply from using it
+        this.currentRoute = null;
+        console.log('clearFilters - currentRoute cleared immediately:', this.currentRoute);
+        
+        // Clear all filter inputs
         document.getElementById('country-filter').value = '';
-        document.getElementById('approach-filter').value = '';
-        document.getElementById('max-airports-filter').value = '1000';
+        document.getElementById('has-procedures').checked = false;
+        document.getElementById('has-aip-data').checked = false;
+        document.getElementById('has-hard-runway').checked = false;
+        document.getElementById('border-crossing-only').checked = false;
+        
+        // Clear AIP filters
+        this.clearAIPFilter();
+        
+        // Clear search input
         document.getElementById('search-input').value = '';
         
-        // Uncheck all checkboxes
-        ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'].forEach(id => {
-            document.getElementById(id).checked = false;
-        });
-        
+        // Reset current filters
         this.currentFilters = {};
+        
+        // Clear the route line from the map
+        airportMap.clearRoute();
+        
+        // Load all airports without filters (don't call applyFilters to avoid recursion)
+        this.loadAllAirports();
+    }
+
+    async loadAllAirports() {
+        try {
+            this.showLoading();
+            
+            // Load all airports without any filters
+            const airports = await api.getAirports({});
+            
+            // Update map with all airports
+            this.updateMapWithAirports(airports, false);
+            
+            // Update statistics
+            this.updateStatistics(airports);
+            
+            // Show success message
+            this.showSuccess(`Loaded all airports: ${airports.length} airports`);
+            
+        } catch (error) {
+            console.error('Error loading all airports:', error);
+            this.showError('Error loading airports: ' + error.message);
+        } finally {
+            this.hideLoading();
+            this.resetApplyButton();
+        }
     }
 
     // Update reset zoom button state

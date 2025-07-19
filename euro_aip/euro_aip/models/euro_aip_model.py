@@ -685,6 +685,7 @@ class EuroAipModel:
     def find_airports_near_route(self, route_airports: List[str], distance_nm: float = 50.0) -> List[Dict[str, Any]]:
         """
         Find all airports within a specified distance from a route defined by airport ICAO codes.
+        For single airports, treats them as a point search within the specified distance.
         
         Args:
             route_airports: List of ICAO airport codes defining the route
@@ -693,8 +694,8 @@ class EuroAipModel:
         Returns:
             List of dictionaries containing airport data and distance information
         """
-        if len(route_airports) < 2:
-            logger.warning("Route must contain at least 2 airports")
+        if len(route_airports) < 1:
+            logger.warning("Route must contain at least 1 airport")
             return []
         
         # Convert route airports to NavPoints
@@ -710,8 +711,8 @@ class EuroAipModel:
                 name=icao.upper()
             ))
         
-        if len(route_points) < 2:
-            logger.warning("Not enough valid airports in route")
+        if len(route_points) < 1:
+            logger.warning("No valid airports in route")
             return []
         
         # Find airports near the route
@@ -727,17 +728,23 @@ class EuroAipModel:
                 name=airport.ident
             )
             
-            # Calculate minimum distance to any segment of the route
+            # Calculate minimum distance to the route
             min_distance = float('inf')
             closest_segment = None
             
-            for i in range(len(route_points) - 1):
-                segment_distance = self._distance_to_line_segment(
-                    airport_point, route_points[i], route_points[i + 1]
-                )
-                if segment_distance < min_distance:
-                    min_distance = segment_distance
-                    closest_segment = (route_points[i].name, route_points[i + 1].name)
+            if len(route_points) == 1:
+                # Single airport: calculate direct distance to the point
+                _, min_distance = airport_point.haversine_distance(route_points[0])
+                closest_segment = (route_points[0].name, route_points[0].name)
+            else:
+                # Multiple airports: calculate minimum distance to any segment of the route
+                for i in range(len(route_points) - 1):
+                    segment_distance = self._distance_to_line_segment(
+                        airport_point, route_points[i], route_points[i + 1]
+                    )
+                    if segment_distance < min_distance:
+                        min_distance = segment_distance
+                        closest_segment = (route_points[i].name, route_points[i + 1].name)
             
             # Check if airport is within the specified distance
             if min_distance <= distance_nm:

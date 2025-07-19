@@ -33,10 +33,14 @@ class APIClient {
         const params = new URLSearchParams();
         
         if (filters.country) params.append('country', filters.country);
-        if (filters.has_procedures !== undefined) params.append('has_procedures', filters.has_procedures);
-        if (filters.has_hard_runway !== undefined) params.append('has_hard_runway', filters.has_hard_runway);
-        if (filters.has_aip_data !== undefined) params.append('has_aip_data', filters.has_aip_data);
-        if (filters.point_of_entry !== undefined) params.append('point_of_entry', filters.point_of_entry);
+        if (filters.has_procedures === true) params.append('has_procedures', 'true');
+        if (filters.has_hard_runway === true) params.append('has_hard_runway', 'true');
+        if (filters.has_aip_data === true) params.append('has_aip_data', 'true');
+        if (filters.point_of_entry === true) params.append('point_of_entry', 'true');
+        // New AIP field filters
+        if (filters.aip_field) params.append('aip_field', filters.aip_field);
+        if (filters.aip_value) params.append('aip_value', filters.aip_value);
+        if (filters.aip_operator) params.append('aip_operator', filters.aip_operator);
         if (filters.max_airports) params.append('limit', filters.max_airports);
         if (filters.offset) params.append('offset', filters.offset);
 
@@ -111,10 +115,14 @@ class APIClient {
         
         // Add filter parameters
         if (filters.country) params.append('country', filters.country);
-        if (filters.has_procedures !== undefined) params.append('has_procedures', filters.has_procedures.toString());
-        if (filters.has_aip_data !== undefined) params.append('has_aip_data', filters.has_aip_data.toString());
-        if (filters.has_hard_runway !== undefined) params.append('has_hard_runway', filters.has_hard_runway.toString());
-        if (filters.point_of_entry !== undefined) params.append('point_of_entry', filters.point_of_entry.toString());
+        if (filters.has_procedures === true) params.append('has_procedures', 'true');
+        if (filters.has_aip_data === true) params.append('has_aip_data', 'true');
+        if (filters.has_hard_runway === true) params.append('has_hard_runway', 'true');
+        if (filters.point_of_entry === true) params.append('point_of_entry', 'true');
+        // New AIP field filters
+        if (filters.aip_field) params.append('aip_field', filters.aip_field);
+        if (filters.aip_value) params.append('aip_value', filters.aip_value);
+        if (filters.aip_operator) params.append('aip_operator', filters.aip_operator);
         
         return this.request(`/api/airports/route-search?${params.toString()}`);
     }
@@ -150,6 +158,10 @@ class APIClient {
 
     async getBorderCrossingStatistics() {
         return this.request('/api/filters/border-crossing');
+    }
+
+    async getAIPFilterPresets() {
+        return this.request('/api/airports/aip-filter-presets');
     }
 
     async getAllFilters() {
