@@ -797,6 +797,9 @@ class FilterManager {
             airportMap.setLegendMode(legendMode);
             airportMap.updateLegend();
             
+            // Store current route information before clearing markers
+            const currentRoute = this.currentRoute;
+            
             // Update the map markers to reflect the new legend mode
             if (this.airports && this.airports.length > 0) {
                 // Clear and re-add markers to update their appearance
@@ -809,6 +812,17 @@ class FilterManager {
                 if (legendMode === 'procedure-precision') {
                     console.log('Switching to procedure precision mode, loading procedure lines in bulk...');
                     airportMap.loadBulkProcedureLines(this.airports);
+                }
+                
+                // Redraw route if there was an active route
+                if (currentRoute && currentRoute.airports) {
+                    console.log('Redrawing route after legend mode change');
+                    airportMap.displayRoute(
+                        currentRoute.airports, 
+                        currentRoute.distance_nm, 
+                        true, // preserve view
+                        currentRoute.originalRouteAirports
+                    );
                 }
             }
         }

@@ -189,29 +189,29 @@ class AirportMap {
             if (airport.longest_runway_length_ft) {
                 if (airport.longest_runway_length_ft > 8000) {
                     color = '#28a745'; // Green for long runways (>8000ft)
-                    radius = 8;
+                    radius = 10; // Larger for major airports
                 } else if (airport.longest_runway_length_ft > 4000) {
                     color = '#ffc107'; // Yellow for medium runways (4000-8000ft)
-                    radius = 7;
+                    radius = 7; // Medium size for regional airports
                 } else {
                     color = '#dc3545'; // Red for short runways (<4000ft)
-                    radius = 6;
+                    radius = 5; // Smaller for small airports
                 }
             } else {
                 // No runway length data
                 color = '#6c757d'; // Gray for unknown
-                radius = 5;
+                radius = 4; // Smallest for unknown data
             }
         } else {
             // Default airport type legend mode
             if (airport.point_of_entry) {
-                color = '#dc3545'; // Red for border crossing
+                color = '#28a745'; // Green for border crossing
                 radius = 8;
             } else if (airport.has_procedures) {
-                color = '#28a745'; // Green for airports with procedures
+                color = '#ffc107'; // Yellow for airports with procedures
                 radius = 7;
             } else {
-                color = '#ffc107'; // Yellow for airports without procedures
+                color = '#dc3545'; // Red for airports without procedures and not border crossing
                 radius = 6;
             }
         }
@@ -254,16 +254,40 @@ class AirportMap {
     }
 
     addAirportMarkerWithDistance(airport, distanceNm, closestSegment) {
-        // Determine marker color based on airport characteristics
-        let color = '#ffc107'; // Default: yellow (no procedures)
+        // Determine marker color based on current legend mode
+        let color = '#ffc107'; // Default: yellow
         let radius = 6;
         
-        if (airport.point_of_entry) {
-            color = '#dc3545'; // Red for border crossing
-            radius = 8;
-        } else if (airport.has_procedures) {
-            color = '#28a745'; // Green for airports with procedures
-            radius = 7;
+        if (this.legendMode === 'runway-length') {
+            // Runway length legend mode
+            if (airport.longest_runway_length_ft) {
+                if (airport.longest_runway_length_ft > 8000) {
+                    color = '#28a745'; // Green for long runways (>8000ft)
+                    radius = 10; // Larger for major airports
+                } else if (airport.longest_runway_length_ft > 4000) {
+                    color = '#ffc107'; // Yellow for medium runways (4000-8000ft)
+                    radius = 7; // Medium size for regional airports
+                } else {
+                    color = '#dc3545'; // Red for short runways (<4000ft)
+                    radius = 5; // Smaller for small airports
+                }
+            } else {
+                // No runway length data
+                color = '#6c757d'; // Gray for unknown
+                radius = 4; // Smallest for unknown data
+            }
+        } else {
+            // Default airport type legend mode
+            if (airport.point_of_entry) {
+                color = '#28a745'; // Green for border crossing
+                radius = 8;
+            } else if (airport.has_procedures) {
+                color = '#ffc107'; // Yellow for airports with procedures
+                radius = 7;
+            } else {
+                color = '#dc3545'; // Red for airports without procedures and not border crossing
+                radius = 6;
+            }
         }
 
         // Create custom icon WITHOUT distance label to preserve color visibility
@@ -516,6 +540,13 @@ class AirportMap {
         if (airport.iso_country) {
             content += `<p style="margin: 2px 0; font-size: 0.9em; color: #666;">
                 <i class="fas fa-flag"></i> ${airport.iso_country}
+            </p>`;
+        }
+
+        // Add longest runway length
+        if (airport.longest_runway_length_ft) {
+            content += `<p style="margin: 2px 0; font-size: 0.9em; color: #ff6b35;">
+                <i class="fas fa-ruler"></i> Longest runway: ${airport.longest_runway_length_ft.toLocaleString()} ft
             </p>`;
         }
 
@@ -976,15 +1007,15 @@ class AirportMap {
                 html = `
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #28a745;"></div>
-                        <span>Airport with Procedures</span>
+                        <span>Border Crossing</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #ffc107;"></div>
-                        <span>Airport without Procedures</span>
+                        <span>Airport with Procedures</span>
                     </div>
                     <div class="legend-item">
                         <div class="legend-color" style="background-color: #dc3545;"></div>
-                        <span>Border Crossing</span>
+                        <span>Airport without Procedures</span>
                     </div>
                 `;
                 break;
