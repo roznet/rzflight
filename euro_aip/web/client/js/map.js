@@ -315,7 +315,19 @@ class AirportMap {
 
     displayAirportDetails(airport, procedures, runways, aipEntries) {
         const infoContainer = document.getElementById('airport-info');
+        const detailsContainer = document.getElementById('airport-details');
+        const noSelectionContainer = document.getElementById('no-selection');
         
+        if (!airport) {
+            detailsContainer.style.display = 'none';
+            noSelectionContainer.style.display = 'block';
+            return;
+        }
+        
+        detailsContainer.style.display = 'block';
+        noSelectionContainer.style.display = 'none';
+        
+        // Display airport details (left panel)
         let html = `
             <div class="airport-detail-section">
                 <h6><i class="fas fa-info-circle"></i> Basic Information</h6>
@@ -382,39 +394,6 @@ class AirportMap {
             html += '</div>';
         }
 
-        // Add AIP entries section
-        if (aipEntries && aipEntries.length > 0) {
-            html += `
-                <div class="airport-detail-section">
-                    <h6><i class="fas fa-file-alt"></i> AIP Data (${aipEntries.length})</h6>
-            `;
-            
-            // Group by section
-            const entriesBySection = {};
-            aipEntries.forEach(entry => {
-                const section = entry.section || 'Unknown';
-                if (!entriesBySection[section]) {
-                    entriesBySection[section] = [];
-                }
-                entriesBySection[section].push(entry);
-            });
-            
-            Object.entries(entriesBySection).forEach(([section, entries]) => {
-                html += `<h6 class="mt-2">${section.charAt(0).toUpperCase() + section.slice(1)}</h6>`;
-                entries.forEach(entry => {
-                    const fieldName = entry.std_field || entry.field;
-                    html += `
-                        <div class="aip-entry">
-                            <strong>${fieldName}:</strong> ${entry.value}
-                            ${entry.alt_value ? `<br><em>${entry.alt_value}</em>` : ''}
-                        </div>
-                    `;
-                });
-            });
-            
-            html += '</div>';
-        }
-
         // Add sources section
         if (airport.sources && airport.sources.length > 0) {
             html += `
@@ -426,6 +405,197 @@ class AirportMap {
         }
 
         infoContainer.innerHTML = html;
+        
+        // Display AIP data (right panel)
+        this.displayAIPData(aipEntries);
+    }
+
+    displayAIPData(aipEntries) {
+        const aipContainer = document.getElementById('aip-data-content');
+        
+        if (!aipEntries || aipEntries.length === 0) {
+            aipContainer.innerHTML = '<div class="text-muted">No AIP data available</div>';
+            return;
+        }
+
+        // Group by standardized field section
+        const entriesBySection = {};
+        aipEntries.forEach(entry => {
+            // Extract section from std_field_id (e.g., 201 -> admin, 301 -> operational, etc.)
+            let section = 'Other';
+            if (entry.std_field_id) {
+                const sectionId = Math.floor(entry.std_field_id / 100) * 100;
+                switch (sectionId) {
+                    case 200: section = 'Admin'; break;
+                    case 300: section = 'Operational'; break;
+                    case 400: section = 'Handling'; break;
+                    case 500: section = 'Passenger'; break;
+                    default: section = 'Other'; break;
+                }
+            } else {
+                section = entry.section || 'Other';
+            }
+            
+            if (!entriesBySection[section]) {
+                entriesBySection[section] = [];
+            }
+            entriesBySection[section].push(entry);
+        });
+
+        let html = '';
+        Object.entries(entriesBySection).forEach(([section, entries]) => {
+            const sectionId = `aip-section-${section.toLowerCase()}`;
+            html += `
+                <div class="aip-section" data-section="${section}">
+                    <div class="aip-section-header" onclick="airportMap.toggleAIPSection('${sectionId}')">
+                        <span>
+                            <i class="fas fa-chevron-right aip-section-toggle" id="toggle-${sectionId}"></i>
+                            ${section} (${entries.length})
+                        </span>
+                    </div>
+                    <div class="aip-section-content" id="${sectionId}">
+            `;
+            
+            entries.forEach(entry => {
+                const fieldName = entry.std_field || entry.field;
+                const entryId = `aip-entry-${entry.std_field_id || entry.field}`;
+                html += `
+                    <div class="aip-entry" id="${entryId}" data-field="${fieldName}" data-value="${entry.value}">
+                        <strong>${fieldName}:</strong> ${entry.value}
+                        ${entry.alt_value ? `<br><em>${entry.alt_value}</em>` : ''}
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        aipContainer.innerHTML = html;
+        
+        // Initialize AIP filter
+        this.initializeAIPFilter();
+    }
+
+    toggleAIPSection(sectionId) {
+        const content = document.getElementById(sectionId);
+        const toggle = document.getElementById(`toggle-${sectionId}`);
+        const isExpanded = content.classList.contains('expanded');
+        
+        if (isExpanded) {
+            content.classList.remove('expanded');
+            toggle.classList.remove('expanded');
+        } else {
+            content.classList.add('expanded');
+            toggle.classList.add('expanded');
+        }
+        
+        // Remember state
+        this.saveAIPSectionState(sectionId, !isExpanded);
+    }
+
+    saveAIPSectionState(sectionId, isExpanded) {
+        const states = JSON.parse(localStorage.getItem('aipSectionStates') || '{}');
+        states[sectionId] = isExpanded;
+        localStorage.setItem('aipSectionStates', JSON.stringify(states));
+    }
+
+    loadAIPSectionStates() {
+        const states = JSON.parse(localStorage.getItem('aipSectionStates') || '{}');
+        Object.entries(states).forEach(([sectionId, isExpanded]) => {
+            const content = document.getElementById(sectionId);
+            const toggle = document.getElementById(`toggle-${sectionId}`);
+            if (content && toggle) {
+                if (isExpanded) {
+                    content.classList.add('expanded');
+                    toggle.classList.add('expanded');
+                } else {
+                    content.classList.remove('expanded');
+                    toggle.classList.remove('expanded');
+                }
+            }
+        });
+    }
+
+    initializeAIPFilter() {
+        const filterInput = document.getElementById('aip-filter-input');
+        const clearButton = document.getElementById('aip-filter-clear');
+        if (!filterInput) return;
+
+        // Remove existing event listeners
+        filterInput.removeEventListener('input', this.handleAIPFilter);
+        if (clearButton) {
+            clearButton.removeEventListener('click', this.clearAIPFilter);
+        }
+        
+        // Add new event listeners
+        this.handleAIPFilter = this.handleAIPFilter.bind(this);
+        this.clearAIPFilter = this.clearAIPFilter.bind(this);
+        filterInput.addEventListener('input', this.handleAIPFilter);
+        if (clearButton) {
+            clearButton.addEventListener('click', this.clearAIPFilter);
+        }
+        
+        // Load saved section states
+        this.loadAIPSectionStates();
+    }
+
+    clearAIPFilter() {
+        const filterInput = document.getElementById('aip-filter-input');
+        if (filterInput) {
+            filterInput.value = '';
+            this.handleAIPFilter({ target: { value: '' } });
+        }
+    }
+
+    handleAIPFilter(event) {
+        const filterText = event.target.value.toLowerCase();
+        const entries = document.querySelectorAll('.aip-entry');
+        
+        entries.forEach(entry => {
+            const fieldName = entry.dataset.field || '';
+            const value = entry.dataset.value || '';
+            const altValue = entry.querySelector('em')?.textContent || '';
+            
+            const matches = fieldName.toLowerCase().includes(filterText) || 
+                           value.toLowerCase().includes(filterText) ||
+                           altValue.toLowerCase().includes(filterText);
+            
+            if (matches) {
+                entry.classList.remove('hidden');
+                // Highlight matching text if filter is not empty
+                if (filterText) {
+                    entry.classList.add('highlight');
+                } else {
+                    entry.classList.remove('highlight');
+                }
+                
+                // Show parent section if entry matches
+                const section = entry.closest('.aip-section');
+                if (section) {
+                    const content = section.querySelector('.aip-section-content');
+                    const toggle = section.querySelector('.aip-section-toggle');
+                    content.classList.add('expanded');
+                    toggle.classList.add('expanded');
+                }
+            } else {
+                entry.classList.add('hidden');
+                entry.classList.remove('highlight');
+            }
+        });
+        
+        // Hide sections that have no visible entries
+        const sections = document.querySelectorAll('.aip-section');
+        sections.forEach(section => {
+            const visibleEntries = section.querySelectorAll('.aip-entry:not(.hidden)');
+            if (visibleEntries.length === 0) {
+                section.style.display = 'none';
+            } else {
+                section.style.display = 'block';
+            }
+        });
     }
 
     getProcedureBadgeClass(procedureType, approachType) {

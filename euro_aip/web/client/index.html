@@ -14,7 +14,7 @@
     
     <style>
         #map {
-            height: 600px;
+            height: 500px;
             width: 100%;
             border-radius: 8px;
         }
@@ -33,6 +33,87 @@
         .airport-info {
             max-height: 400px;
             overflow-y: auto;
+        }
+        
+        .airport-details-panel, .aip-data-panel {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            height: 500px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .airport-info, .aip-data-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+        
+        .aip-section {
+            margin-bottom: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background-color: white;
+        }
+        
+        .aip-section-header {
+            background-color: #e9ecef;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+        
+        .aip-section-header:hover {
+            background-color: #dee2e6;
+        }
+        
+        .aip-section-content {
+            padding: 10px 15px;
+            display: none;
+        }
+        
+        .aip-section-content.expanded {
+            display: block;
+        }
+        
+        .aip-section-toggle {
+            transition: transform 0.2s ease;
+        }
+        
+        .aip-section-toggle.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .aip-entry {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .aip-entry.hidden {
+            display: none;
+        }
+        
+        .aip-filter {
+            flex-shrink: 0;
+        }
+        
+        .aip-section-header:active {
+            background-color: #ced4da;
+        }
+        
+        .aip-entry.highlight {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
         }
         
         .stats-card {
@@ -269,7 +350,7 @@
             </div>
 
             <!-- Map -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div id="map"></div>
                 
                 <!-- Loading Indicator -->
@@ -281,12 +362,41 @@
                 </div>
             </div>
 
-            <!-- Airport Details -->
-            <div class="col-md-3">
+            <!-- Airport Details Panel -->
+            <div class="col-md-5">
                 <div id="airport-details" style="display: none;">
-                    <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
-                    <div class="airport-info" id="airport-info">
-                        <!-- Airport details will be populated here -->
+                    <div class="row">
+                        <!-- Left Panel: Airport Details & Procedures -->
+                        <div class="col-md-6">
+                            <div class="airport-details-panel">
+                                <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
+                                <div class="airport-info" id="airport-info">
+                                    <!-- Airport details will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Panel: AIP Data -->
+                        <div class="col-md-6">
+                            <div class="aip-data-panel">
+                                <h5><i class="fas fa-file-alt"></i> AIP Data</h5>
+                                
+                                <!-- AIP Filter -->
+                                <div class="aip-filter mb-3">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="aip-filter-input" 
+                                               placeholder="Filter AIP entries...">
+                                        <button class="btn btn-outline-secondary" type="button" id="aip-filter-clear">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="aip-data-content" id="aip-data-content">
+                                    <!-- AIP data will be populated here -->
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
