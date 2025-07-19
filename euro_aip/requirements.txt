@@ -5,3 +5,5 @@ pathlib
 pytest 
 simplekml
 beautifulsoup4
+pdfplumber>=0.7.0
+openpyxl>=3.0.0

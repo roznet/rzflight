@@ -6,8 +6,6 @@ euro_aip.egg-info/SOURCES.txt
 euro_aip.egg-info/dependency_links.txt
 euro_aip.egg-info/requires.txt
 euro_aip.egg-info/top_level.txt
-euro_aip/core/__init__.py
-euro_aip/core/models.py
 euro_aip/parsers/__init__.py
 euro_aip/parsers/aip_default.py
 euro_aip/parsers/aip_factory.py
