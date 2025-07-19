@@ -69,6 +69,54 @@ async def get_airports(
     # Convert to response format using factory methods
     return [AirportSummary.from_airport(airport) for airport in airports]
 
+@router.get("/route-search")
+async def get_airports_near_route(
+    request: Request,
+    airports: str = Query(..., description="Comma-separated list of ICAO airport codes defining the route", max_length=200),
+    distance_nm: float = Query(50.0, description="Distance in nautical miles from the route", ge=0.1, le=500.0)
+):
+    """Find airports within a specified distance from a route defined by airport ICAO codes."""
+    if not model:
+        raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    # Parse airport codes
+    try:
+        route_airports = [code.strip().upper() for code in airports.split(',') if code.strip()]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid airport codes format: {str(e)}")
+    
+    if len(route_airports) < 2:
+        raise HTTPException(status_code=400, detail="Route must contain at least 2 airports")
+    
+    # Validate airport codes
+    for icao in route_airports:
+        if len(icao) != 4:
+            raise HTTPException(status_code=400, detail=f"Invalid ICAO code: {icao}")
+        if not model.get_airport(icao):
+            raise HTTPException(status_code=404, detail=f"Airport {icao} not found")
+    
+    # Find airports near the route
+    nearby_airports = model.find_airports_near_route(route_airports, distance_nm)
+    
+    # Convert to response format
+    result = []
+    for item in nearby_airports:
+        airport = item['airport']
+        airport_summary = AirportSummary.from_airport(airport)
+        
+        result.append({
+            'airport': airport_summary.dict(),
+            'distance_nm': item['distance_nm'],
+            'closest_segment': item['closest_segment']
+        })
+    
+    return {
+        'route_airports': route_airports,
+        'distance_nm': distance_nm,
+        'airports_found': len(result),
+        'airports': result
+    }
+
 @router.get("/{icao}", response_model=AirportDetail)
 async def get_airport_detail(
     request: Request,

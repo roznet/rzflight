@@ -86,6 +86,11 @@ class APIClient {
         return this.request(`/api/airports/search/${encodeURIComponent(query)}?limit=${limit}`);
     }
 
+    async searchAirportsNearRoute(routeAirports, distanceNm = 50.0) {
+        const airportsParam = routeAirports.join(',');
+        return this.request(`/api/airports/route-search?airports=${encodeURIComponent(airportsParam)}&distance_nm=${distanceNm}`);
+    }
+
     // Filter endpoints
     async getAvailableCountries() {
         return this.request('/api/filters/countries');

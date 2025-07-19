@@ -1,221 +1,129 @@
-# Euro AIP
+# Euro AIP Airport Explorer
 
-A Python library for parsing and processing European AIP (Aeronautical Information Publication) documents and airport data from multiple sources.
+A comprehensive web application for exploring European airports, their procedures, and AIP (Aeronautical Information Publication) data.
 
 ## Features
 
-- **Multiple Data Sources**: Support for various European AIP sources
-  - Autorouter API (requires credentials)
-  - France eAIP (local HTML/PDF files)
-  - UK eAIP (local HTML/PDF files)
-  - World Airports database
-  - Point de Passage journal processing
-- **Flexible Parser System**: Automatic format detection (HTML/PDF) with dual-format parsing
-- **Structured Data Extraction**: Parse AIP documents into organized data structures
-- **Caching System**: Efficient caching with refresh control options
-- **Database Integration**: SQLite database support for data persistence
-- **Multi-language Support**: Handle original and alternative language content
+### Core Functionality
+- **Airport Database**: Comprehensive database of European airports with detailed information
+- **Interactive Map**: Visual exploration of airports using Leaflet.js
+- **Advanced Filtering**: Filter airports by country, procedure types, runway characteristics, and more
+- **AIP Data Integration**: Access to standardized AIP entries and field mappings
+- **Procedure Analysis**: Detailed procedure information including approach types and precision rankings
+- **Border Crossing Points**: Specialized data for border crossing airports
+- **Statistics and Charts**: Visual analytics of airport and procedure distributions
 
-## Installation
+### Route-Based Airport Search
+- **Route Definition**: Enter space-separated ICAO codes to define a flight route
+- **Distance-Based Search**: Find all airports within a specified distance (default 50nm) from the route
+- **Visual Route Display**: Route is displayed on the map with special markers and a dashed line
+- **Distance Indicators**: Airport markers show their distance from the route
+- **Great Circle Calculations**: Accurate geographic distance calculations using the Haversine formula
 
-1. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  
+#### How to Use Route Search
+1. In the search box, enter ICAO codes separated by spaces (e.g., `LFPO LFOB LFST`)
+2. Adjust the "Route Distance" field to set the search corridor width (default: 50nm)
+3. Press Enter or click the search button
+4. The map will display:
+   - The route as a blue dashed line
+   - Route airports as blue circle markers
+   - Nearby airports with distance indicators
+   - Distance information in airport popups
+
+## Architecture
+
+### Backend (FastAPI)
+- **Models**: Domain models for airports, procedures, runways, and AIP data
+- **API Endpoints**: RESTful API for data access and filtering
+- **Database Storage**: SQLite-based storage with efficient querying
+- **Security**: CORS, rate limiting, and input validation
+
+### Frontend (Vanilla JavaScript)
+- **Interactive Map**: Leaflet.js-based map with custom markers and layers
+- **Real-time Filtering**: Dynamic filtering with immediate visual feedback
+- **Responsive Design**: Bootstrap-based responsive layout
+- **Chart Visualization**: Chart.js for statistical displays
+
+### Core Library (`euro_aip`)
+- **Data Models**: Comprehensive data structures for aviation data
+- **Parsers**: Specialized parsers for different AIP sources
+- **Sources**: Data source integrations (WorldAirports, Autorouter, etc.)
+- **Utilities**: Geographic calculations, field standardization, and data processing
+
+## Installation and Setup
+
+### Prerequisites
+- Python 3.8+
+- Node.js (for development tools)
+
+### Quick Start
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run the server: `cd web/server && python main.py`
+4. Open http://localhost:8000 in your browser
+
+### Development Setup
+1. Create a virtual environment: `python -m venv venv`
+2. Activate the environment: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run the development server: `cd web/server && python main.py`
+
+## API Documentation
+
+### Core Endpoints
+- `GET /api/airports/` - List airports with filtering
+- `GET /api/airports/{icao}` - Get detailed airport information
+- `GET /api/airports/route-search` - Find airports near a route
+- `GET /api/procedures/` - List procedures with filtering
+- `GET /api/statistics/` - Get various statistics
+
+### Route Search API
+```
+GET /api/airports/route-search?airports=LFPO,LFOB,LFST&distance_nm=50
 ```
 
-2. Install the package:
-```bash
-pip install -e .
+**Parameters:**
+- `airports`: Comma-separated list of ICAO airport codes
+- `distance_nm`: Distance in nautical miles from the route (default: 50)
+
+**Response:**
+```json
+{
+  "route_airports": ["LFPO", "LFOB", "LFST"],
+  "distance_nm": 50,
+  "airports_found": 61,
+  "airports": [
+    {
+      "airport": { /* airport data */ },
+      "distance_nm": 3.59,
+      "closest_segment": ["LFPO", "LFOB"]
+    }
+  ]
+}
 ```
 
-## Usage
+## Data Sources
 
-### Command Line Interface
+- **WorldAirports**: Comprehensive airport database from OurAirports
+- **Autorouter**: European AIP data and procedures
+- **Border Crossing Data**: Specialized border crossing point information
+- **Custom Parsers**: Specialized parsers for different European aviation authorities
 
-The library includes a comprehensive command-line interface `example/aip.py` that supports multiple data sources:
+## Contributing
 
-```bash
-# Download and process World Airports data
-python example/aip.py worldairports
-
-# Parse AIP documents from Autorouter (requires credentials)
-python example/aip.py autorouter -u username -p password EGKB LFAT 
-
-# Parse France eAIP data from local directories
-python example/aip.py france_eaip -r /path/to/france_eaip LFMD LFAT
-
-# Parse UK eAIP data from local directories
-python example/aip.py uk_eaip -r /path/to/uk_eaip EGLL EGKB
-
-# Process Point de Passage journal PDF
-python example/aip.py pointdepassage -j /path/to/journal.pdf
-
-# Query the database
-python example/aip.py querydb -w "runway_length > 2000"
-```
-
-### Available Commands
-
-| Command | Description | Required Arguments |
-|---------|-------------|-------------------|
-| `autorouter` | Download and parse AIP documents from Autorouter API | `-u username -p password` |
-| `france_eaip` | Parse France eAIP data from local directories | `-r root_dir` |
-| `uk_eaip` | Parse UK eAIP data from local directories | `-r root_dir` |
-| `worldairports` | Download and process World Airports database | None |
-| `pointdepassage` | Process Point de Passage journal PDF | `-j journal_path` |
-| `querydb` | Query the database with SQL WHERE clause | `-w where_clause` |
-
-### Command Line Options
-
-- `-c, --cache-dir`: Directory to cache files (default: 'cache')
-- `-r, --root-dir`: Root directory for eAIP data (required for france_eaip and uk_eaip)
-- `-u, --username`: Autorouter username (required for autorouter)
-- `-p, --password`: Autorouter password (required for autorouter)
-- `-d, --database`: SQLite database file (default: 'airports.db')
-- `-j, --journal-path`: Path to Point de Passage journal PDF file
-- `-w, --where`: SQL WHERE clause for database query
-- `-v, --verbose`: Enable verbose output
-- `-f, --force-refresh`: Force refresh of cached data
-- `-n, --never-refresh`: Never refresh cached data if it exists
-
-### Data Sources
-
-#### Autorouter API
-Downloads AIP documents and procedures from the Autorouter API.
-```bash
-python example/aip.py autorouter -u your_username -p your_password EGKB LFAT
-```
-
-#### France eAIP
-Parses France eAIP data from local directories. Download from [SIA website](https://www.sia.aviation-civile.gouv.fr/produits-numeriques-en-libre-disposition/eaip.html).
-```bash
-python example/aip.py france_eaip -r /path/to/france_eaip LFMD LFAT
-```
-
-#### UK eAIP
-Parses UK eAIP data from local directories. Download from [NATS website](https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/).
-```bash
-python example/aip.py uk_eaip -r /path/to/uk_eaip EGLL EGKB
-```
-
-#### World Airports
-Downloads and processes airport data from OurAirports database.
-```bash
-python example/aip.py worldairports
-```
-
-#### Point de Passage
-Processes Point de Passage journal PDF files. Download from [Legifrance](https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009).
-```bash
-python example/aip.py pointdepassage -j /path/to/journal.pdf
-```
-
-### Programmatic Usage
-
-```python
-from euro_aip.parsers import AIPParserFactory
-from euro_aip.sources import UKEAIPSource, FranceEAIPSource
-
-# Initialize UK eAIP source
-uk_source = UKEAIPSource(cache_dir='cache', root_dir='/path/to/uk_eaip')
-
-# Get available airports
-airports = uk_source.find_available_airports()
-
-# Get airport AIP data (automatically detects HTML/PDF format)
-airport_data = uk_source.get_airport_aip('EGLL')
-
-# Get procedures
-procedures = uk_source.get_procedures('EGLL')
-
-# Use different parser types
-parser = AIPParserFactory.get_parser('EGC', 'html')  # HTML only
-parser = AIPParserFactory.get_parser('EGC', 'pdf')   # PDF only
-parser = AIPParserFactory.get_parser('EGC', 'dual')  # Both formats
-parser = AIPParserFactory.get_parser('EGC', 'auto')  # Auto-detect (default)
-```
-
-### Parser System
-
-The library supports a flexible parser system with automatic format detection:
-
-- **HTML Parsers**: Parse HTML-based AIP documents
-- **PDF Parsers**: Parse PDF-based AIP documents  
-- **Dual Parsers**: Automatically detect and parse both HTML and PDF formats
-- **Auto Mode**: System chooses the best available parser
-
-```python
-# Check parser availability
-info = AIPParserFactory.get_parser_info('EGC')
-# Returns: {'html': True, 'pdf': True, 'dual': True}
-
-# Get specific parser type
-html_parser = AIPParserFactory.get_parser('EGC', 'html')
-pdf_parser = AIPParserFactory.get_parser('EGC', 'pdf')
-dual_parser = AIPParserFactory.get_parser('EGC', 'dual')
-```
-
-### Data Models
-
-The library provides structured data models for parsed information:
-
-- **AIP Data**: Structured airport information from AIP documents
-- **Procedures**: Approach and departure procedures
-- **Airport Database**: Comprehensive airport information from World Airports
-
-### Caching
-
-All sources support intelligent caching:
-
-```python
-# Force refresh cached data
-source.set_force_refresh()
-
-# Never refresh if cached data exists
-source.set_never_refresh()
-
-# Normal caching behavior (default)
-# Uses cached data if not expired, fetches new data if expired
-```
-
-## Development
-
-### Running Tests
-
-```bash
-pytest tests/
-```
-
-### Project Structure
-
-```
-euro_aip/
-├── models/          # Data models and persistence
-├── parsers/         # AIP document parsers (HTML, PDF, dual-format)
-├── sources/         # Data sources (Autorouter, eAIP, World Airports)
-├── storage/         # Storage backends
-├── utils/           # Utility functions
-└── tests/           # Test suite
-```
-
-### Adding New Sources
-
-To add a new data source:
-
-1. Create a new source class inheriting from `CachedSource`
-2. Implement required methods (`find_available_airports`, `fetch_airport_aip`, etc.)
-3. Register the source in `euro_aip/sources/__init__.py`
-4. Add a corresponding `run_` method in `example/aip.py`
-
-### Adding New Parsers
-
-To add a new parser:
-
-1. Create a parser class inheriting from `AIPParser`
-2. Register it with `AIPParserFactory.register_html_parser()` or `register_pdf_parser()`
-3. For dual-format support, both HTML and PDF parsers can be registered for the same authority
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- **OurAirports**: For the comprehensive airport database
+- **Autorouter**: For European AIP data
+- **OpenStreetMap**: For map tiles
+- **Leaflet.js**: For the interactive map functionality 

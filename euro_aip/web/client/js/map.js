@@ -8,6 +8,9 @@ class AirportMap {
         this.currentAirport = null;
         this.airportLayer = null;
         this.procedureLayer = null;
+        this.routeLayer = null; // New layer for route display
+        this.routeMarkers = []; // Store route airport markers
+        this.routeLine = null; // Store route line
         this.legendMode = 'airport-type';
         
         // Don't initialize map immediately - let the app handle it
@@ -43,6 +46,9 @@ class AirportMap {
             // Create procedure lines layer group
             this.procedureLayer = L.layerGroup().addTo(this.map);
             
+            // Create route layer group
+            this.routeLayer = L.layerGroup().addTo(this.map);
+            
             // Add scale control
             L.control.scale().addTo(this.map);
             
@@ -57,6 +63,73 @@ class AirportMap {
         this.procedureLayer.clearLayers();
         this.markers.clear();
         this.procedureLines.clear();
+        
+        // Clear route display
+        this.clearRoute();
+    }
+
+    clearRoute() {
+        // Clear route layer
+        if (this.routeLayer) {
+            this.routeLayer.clearLayers();
+        }
+        this.routeMarkers = [];
+        this.routeLine = null;
+    }
+
+    displayRoute(routeAirports, distanceNm) {
+        // Clear any existing route
+        this.clearRoute();
+        
+        if (!routeAirports || routeAirports.length < 2) {
+            return;
+        }
+        
+        // Get airport coordinates for the route
+        const routeCoordinates = [];
+        const routeMarkers = [];
+        
+        for (const icao of routeAirports) {
+            const marker = this.markers.get(icao);
+            if (marker) {
+                const latlng = marker.getLatLng();
+                routeCoordinates.push([latlng.lat, latlng.lng]);
+                
+                // Create a special marker for route airports
+                const routeMarker = L.circleMarker(latlng, {
+                    radius: 12,
+                    fillColor: '#007bff',
+                    color: '#ffffff',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(this.routeLayer);
+                
+                // Add popup with route info
+                routeMarker.bindPopup(`<b>Route Airport: ${icao}</b><br>Distance: ${distanceNm}nm corridor`);
+                routeMarkers.push(routeMarker);
+            }
+        }
+        
+        // Draw the route line
+        if (routeCoordinates.length >= 2) {
+            this.routeLine = L.polyline(routeCoordinates, {
+                color: '#007bff',
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 5'
+            }).addTo(this.routeLayer);
+            
+            // Add popup to the line
+            this.routeLine.bindPopup(`<b>Route: ${routeAirports.join(' → ')}</b><br>Search corridor: ${distanceNm}nm`);
+        }
+        
+        this.routeMarkers = routeMarkers;
+        
+        // Fit map to show the entire route
+        if (this.routeLine) {
+            this.map.fitBounds(this.routeLine.getBounds(), { padding: [20, 20] });
+        }
     }
 
     addAirport(airport) {
@@ -107,6 +180,78 @@ class AirportMap {
 
         // Create popup content
         const popupContent = this.createPopupContent(airport);
+        marker.bindPopup(popupContent, {
+            maxWidth: 300,
+            maxHeight: 200
+        });
+
+        // Add click event
+        marker.on('click', () => {
+            this.onAirportClick(airport);
+        });
+
+        // Add to map and store reference
+        marker.addTo(this.airportLayer);
+        this.markers.set(airport.ident, marker);
+    }
+
+    addAirportMarkerWithDistance(airport, distanceNm, closestSegment) {
+        // Determine marker color based on airport characteristics
+        let color = '#ffc107'; // Default: yellow (no procedures)
+        let radius = 6;
+        
+        if (airport.point_of_entry) {
+            color = '#dc3545'; // Red for border crossing
+            radius = 8;
+        } else if (airport.has_procedures) {
+            color = '#28a745'; // Green for airports with procedures
+            radius = 7;
+        }
+
+        // Create custom icon with distance indicator
+        const icon = L.divIcon({
+            className: 'airport-marker',
+            html: `<div style="
+                width: ${radius * 2}px; 
+                height: ${radius * 2}px; 
+                background-color: ${color}; 
+                border: 2px solid white; 
+                border-radius: 50%; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                position: relative;
+            "><div style="
+                position: absolute;
+                top: -8px;
+                right: -8px;
+                background-color: #007bff;
+                color: white;
+                border-radius: 50%;
+                width: 16px;
+                height: 16px;
+                font-size: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+            ">${distanceNm}</div></div>`,
+            iconSize: [radius * 2 + 8, radius * 2 + 8],
+            iconAnchor: [radius, radius]
+        });
+
+        // Create marker
+        const marker = L.marker([airport.latitude_deg, airport.longitude_deg], {
+            icon: icon
+        });
+
+        // Create enhanced popup content with distance info
+        let popupContent = this.createPopupContent(airport);
+        if (distanceNm !== undefined) {
+            popupContent += `<hr><div style="font-size: 0.9em; color: #007bff;">
+                <strong>Route Distance:</strong> ${distanceNm}nm<br>
+                ${closestSegment ? `<strong>Closest to:</strong> ${closestSegment[0]} → ${closestSegment[1]}` : ''}
+            </div>`;
+        }
+        
         marker.bindPopup(popupContent, {
             maxWidth: 300,
             maxHeight: 200

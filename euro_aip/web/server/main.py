@@ -186,7 +186,21 @@ logger.info(f"Client directory: {client_dir}")
 logger.info(f"JS directory: {js_dir}")
 logger.info(f"JS directory exists: {js_dir.exists()}")
 
-app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
+# Add cache control middleware for development
+@app.middleware("http")
+async def add_cache_control_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Add cache control headers for JavaScript files in development
+    if request.url.path.endswith('.js'):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    
+    return response
+
+# Mount static files
+app.mount("/js", StaticFiles(directory=js_dir, html=True), name="js")
 
 @app.get("/")
 async def read_root():

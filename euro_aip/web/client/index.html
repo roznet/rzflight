@@ -381,11 +381,19 @@
                         <!-- Search -->
                         <div class="col-md-3">
                             <label for="search-input" class="form-label">Search Airports</label>
-                            <input type="text" class="form-control" id="search-input" placeholder="ICAO, name, or city...">
+                            <input type="text" class="form-control" id="search-input" placeholder="ICAO, name, city, or route (LFPO LFOB LFST)...">
+                            <small class="form-text text-muted">For routes: enter space-separated ICAO codes</small>
+                        </div>
+
+                        <!-- Route Distance -->
+                        <div class="col-md-2">
+                            <label for="route-distance" class="form-label">Route Distance (nm)</label>
+                            <input type="number" class="form-control" id="route-distance" value="50" min="1" max="500" step="5">
+                            <small class="form-text text-muted">Distance from route for airport search</small>
                         </div>
 
                         <!-- Country Filter -->
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label for="country-filter" class="form-label">Country</label>
                             <select class="form-select" id="country-filter">
                                 <option value="">All Countries</option>
@@ -393,7 +401,7 @@
                         </div>
 
                         <!-- Approach Type Filter -->
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label for="approach-filter" class="form-label">Approach Type</label>
                             <select class="form-select" id="approach-filter">
                                 <option value="">All Approaches</option>
@@ -401,7 +409,7 @@
                         </div>
 
                         <!-- Maximum Airports Filter -->
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label for="max-airports-filter" class="form-label">Max Airports</label>
                             <select class="form-select" id="max-airports-filter">
                                 <option value="500">500</option>
@@ -413,7 +421,7 @@
                         </div>
 
                         <!-- Legend Mode Selector -->
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label for="legend-mode-filter" class="form-label">Legend Mode</label>
                             <select class="form-select" id="legend-mode-filter">
                                 <option value="airport-type" selected>Airport Type</option>
@@ -516,10 +524,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Application Scripts -->
-    <script src="js/api.js"></script>
-    <script src="js/map.js"></script>
-    <script src="js/filters.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/api.js?v=1.1"></script>
+    <script src="js/map.js?v=1.1"></script>
+    <script src="js/filters.js?v=1.1"></script>
+    <script src="js/charts.js?v=1.1"></script>
+    <script src="js/app.js?v=1.1"></script>
 </body>
 </html> 

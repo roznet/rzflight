@@ -10,6 +10,7 @@ from .runway import Runway
 from .aip_entry import AIPEntry
 from .procedure import Procedure
 from .border_crossing_entry import BorderCrossingEntry
+from .navpoint import NavPoint
 
 logger = logging.getLogger(__name__)
 
@@ -680,3 +681,133 @@ class EuroAipModel:
         Kept for backward compatibility.
         """
         self._update_border_crossing_airports() 
+
+    def find_airports_near_route(self, route_airports: List[str], distance_nm: float = 50.0) -> List[Dict[str, Any]]:
+        """
+        Find all airports within a specified distance from a route defined by airport ICAO codes.
+        
+        Args:
+            route_airports: List of ICAO airport codes defining the route
+            distance_nm: Distance in nautical miles from the route (default: 50.0)
+            
+        Returns:
+            List of dictionaries containing airport data and distance information
+        """
+        if len(route_airports) < 2:
+            logger.warning("Route must contain at least 2 airports")
+            return []
+        
+        # Convert route airports to NavPoints
+        route_points = []
+        for icao in route_airports:
+            airport = self.get_airport(icao.upper())
+            if not airport or not airport.latitude_deg or not airport.longitude_deg:
+                logger.warning(f"Airport {icao} not found or missing coordinates, skipping")
+                continue
+            route_points.append(NavPoint(
+                latitude=airport.latitude_deg,
+                longitude=airport.longitude_deg,
+                name=icao.upper()
+            ))
+        
+        if len(route_points) < 2:
+            logger.warning("Not enough valid airports in route")
+            return []
+        
+        # Find airports near the route
+        nearby_airports = []
+        
+        for airport in self.airports.values():
+            if not airport.latitude_deg or not airport.longitude_deg:
+                continue
+            
+            airport_point = NavPoint(
+                latitude=airport.latitude_deg,
+                longitude=airport.longitude_deg,
+                name=airport.ident
+            )
+            
+            # Calculate minimum distance to any segment of the route
+            min_distance = float('inf')
+            closest_segment = None
+            
+            for i in range(len(route_points) - 1):
+                segment_distance = self._distance_to_line_segment(
+                    airport_point, route_points[i], route_points[i + 1]
+                )
+                if segment_distance < min_distance:
+                    min_distance = segment_distance
+                    closest_segment = (route_points[i].name, route_points[i + 1].name)
+            
+            # Check if airport is within the specified distance
+            if min_distance <= distance_nm:
+                nearby_airports.append({
+                    'airport': airport,
+                    'distance_nm': round(min_distance, 2),
+                    'closest_segment': closest_segment
+                })
+        
+        # Sort by distance
+        nearby_airports.sort(key=lambda x: x['distance_nm'])
+        
+        logger.info(f"Found {len(nearby_airports)} airports within {distance_nm}nm of route")
+        return nearby_airports
+    
+    def _distance_to_line_segment(self, point: NavPoint, line_start: NavPoint, line_end: NavPoint) -> float:
+        """
+        Calculate the distance from a point to a line segment using great circle calculations.
+        
+        Args:
+            point: The point to calculate distance from
+            line_start: Start point of the line segment
+            line_end: End point of the line segment
+            
+        Returns:
+            Distance in nautical miles
+        """
+        # Calculate distances to endpoints
+        _, dist_to_start = point.haversine_distance(line_start)
+        _, dist_to_end = point.haversine_distance(line_end)
+        
+        # Calculate length of line segment
+        _, segment_length = line_start.haversine_distance(line_end)
+        
+        # If segment is very short, just return distance to start point
+        if segment_length < 0.1:  # Less than 0.1nm
+            return dist_to_start
+        
+        # Calculate bearing from start to end
+        bearing_start_to_end, _ = line_start.haversine_distance(line_end)
+        
+        # Calculate bearing from start to point
+        bearing_start_to_point, _ = line_start.haversine_distance(point)
+        
+        # Calculate the angle between the line and the point
+        angle_diff = abs(bearing_start_to_end - bearing_start_to_point)
+        if angle_diff > 180:
+            angle_diff = 360 - angle_diff
+        
+        # If angle is close to 0 or 180 degrees, point is roughly on the line
+        if angle_diff < 10 or angle_diff > 170:
+            # Calculate perpendicular distance using great circle
+            # Project point onto the line segment
+            if angle_diff < 10:  # Point is roughly in line with segment
+                # Calculate where along the segment the perpendicular point would be
+                # This is an approximation using the ratio of distances
+                ratio = dist_to_start / (dist_to_start + dist_to_end) if (dist_to_start + dist_to_end) > 0 else 0.5
+                
+                # Calculate the perpendicular point along the segment
+                perpendicular_point = line_start.point_from_bearing_distance(
+                    bearing_start_to_end, 
+                    segment_length * ratio,
+                    "perpendicular"
+                )
+                
+                # Calculate distance to this perpendicular point
+                _, perpendicular_distance = point.haversine_distance(perpendicular_point)
+                return perpendicular_distance
+            else:  # Point is roughly opposite direction
+                return min(dist_to_start, dist_to_end)
+        else:
+            # Point is not roughly on the line, return minimum distance to endpoints
+            return min(dist_to_start, dist_to_end) 

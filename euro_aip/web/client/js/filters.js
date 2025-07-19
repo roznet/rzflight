@@ -163,22 +163,107 @@ class FilterManager {
         try {
             this.showLoading();
             
-            const searchResults = await api.searchAirports(query, 50);
+            console.log('handleSearch - Input query:', query);
             
-            // Update map with search results (fit to bounds for better UX)
-            this.updateMapWithAirports(searchResults, false);
+            // Check if this looks like a route search (space-separated ICAO codes)
+            const routeAirports = this.parseRouteFromQuery(query);
             
-            // Update statistics
-            this.updateStatistics(searchResults);
+            console.log('handleSearch - Route airports detected:', routeAirports);
             
-            // Show search success message
-            this.showSuccess(`Search results: ${searchResults.length} airports found`);
+            if (routeAirports && routeAirports.length >= 2) {
+                // This is a route search
+                console.log('handleSearch - Executing route search');
+                await this.handleRouteSearch(routeAirports);
+            } else {
+                // This is a regular text search
+                console.log('handleSearch - Executing regular text search');
+                const searchResults = await api.searchAirports(query, 50);
+                
+                // Update map with search results (fit to bounds for better UX)
+                this.updateMapWithAirports(searchResults, false);
+                
+                // Update statistics
+                this.updateStatistics(searchResults);
+                
+                // Show search success message
+                this.showSuccess(`Search results: ${searchResults.length} airports found`);
+            }
             
         } catch (error) {
             console.error('Error searching airports:', error);
             this.showError('Error searching airports: ' + error.message);
         } finally {
             this.hideLoading();
+        }
+    }
+
+    parseRouteFromQuery(query) {
+        // Split by spaces and filter out empty strings
+        const parts = query.trim().split(/\s+/).filter(part => part.length > 0);
+        
+        console.log('parseRouteFromQuery - Input query:', query);
+        console.log('parseRouteFromQuery - Parts:', parts);
+        
+        // Check if all parts look like ICAO codes (4 letters, case insensitive)
+        const icaoPattern = /^[A-Za-z]{4}$/;
+        const allIcaoCodes = parts.every(part => icaoPattern.test(part));
+        
+        console.log('parseRouteFromQuery - All ICAO codes:', allIcaoCodes);
+        console.log('parseRouteFromQuery - Parts length:', parts.length);
+        
+        if (allIcaoCodes && parts.length >= 2) {
+            const result = parts.map(part => part.toUpperCase());
+            console.log('parseRouteFromQuery - Returning route airports:', result);
+            return result;
+        }
+        
+        console.log('parseRouteFromQuery - Not a route, returning null');
+        return null;
+    }
+
+    async handleRouteSearch(routeAirports) {
+        try {
+            // Get distance from UI or use default
+            const distanceInput = document.getElementById('route-distance') || { value: '50' };
+            const distanceNm = parseFloat(distanceInput.value) || 50.0;
+            
+            // Search for airports near the route
+            const routeResults = await api.searchAirportsNearRoute(routeAirports, distanceNm);
+            
+            // Clear existing markers
+            airportMap.clearMarkers();
+            
+            // Add airports with distance information
+            routeResults.airports.forEach(item => {
+                airportMap.addAirportMarkerWithDistance(
+                    item.airport, 
+                    item.distance_nm, 
+                    item.closest_segment
+                );
+            });
+            
+            // Display the route on the map
+            airportMap.displayRoute(routeAirports, distanceNm);
+            
+            // Extract airport data for statistics
+            const airports = routeResults.airports.map(item => item.airport);
+            
+            // Update statistics
+            this.updateStatistics(airports);
+            
+            // Show route search success message
+            this.showSuccess(`Route search: ${routeResults.airports_found} airports within ${distanceNm}nm of route ${routeAirports.join(' → ')}`);
+            
+            // Store route information for potential future use
+            this.currentRoute = {
+                airports: routeAirports,
+                distance_nm: distanceNm,
+                results: routeResults
+            };
+            
+        } catch (error) {
+            console.error('Error in route search:', error);
+            this.showError('Error searching route: ' + error.message);
         }
     }
 
