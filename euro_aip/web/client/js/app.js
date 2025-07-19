@@ -46,14 +46,40 @@ class AirportExplorerApp {
     }
 
     initializeComponents() {
+        console.log('Initializing components...');
+        
         // Initialize map
         airportMap = new AirportMap('map');
+        console.log('AirportMap created:', airportMap);
+        
+        // Initialize the map after creation
+        if (airportMap) {
+            airportMap.initMap();
+            console.log('Map initialization called');
+            
+            // Check if map was initialized successfully
+            setTimeout(() => {
+                if (airportMap.isInitialized()) {
+                    console.log('Map initialized successfully');
+                } else {
+                    console.warn('Map may not have initialized properly');
+                }
+            }, 100);
+        }
         
         // Initialize filter manager
         filterManager = new FilterManager();
+        console.log('FilterManager created:', filterManager);
         
         // Initialize chart manager
         chartManager = new ChartManager();
+        console.log('ChartManager created:', chartManager);
+        
+        // Initialize charts after creation
+        if (chartManager) {
+            chartManager.initCharts();
+            console.log('Charts initialization called');
+        }
         
         // Initialize legend
         if (airportMap) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any, List
 import logging
 
@@ -19,7 +19,7 @@ def set_model(m: EuroAipModel):
     model = m
 
 @router.get("/overview")
-async def get_overview_statistics():
+async def get_overview_statistics(request: Request):
     """Get overview statistics for the entire model."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -27,7 +27,7 @@ async def get_overview_statistics():
     return model.get_statistics()
 
 @router.get("/by-country")
-async def get_statistics_by_country():
+async def get_statistics_by_country(request: Request):
     """Get airport statistics grouped by country."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -72,7 +72,7 @@ async def get_statistics_by_country():
     ]
 
 @router.get("/procedure-distribution")
-async def get_procedure_distribution():
+async def get_procedure_distribution(request: Request):
     """Get procedure type distribution statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -107,7 +107,7 @@ async def get_procedure_distribution():
     }
 
 @router.get("/aip-data-distribution")
-async def get_aip_data_distribution():
+async def get_aip_data_distribution(request: Request):
     """Get AIP data distribution statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -154,7 +154,7 @@ async def get_aip_data_distribution():
     }
 
 @router.get("/runway-statistics")
-async def get_runway_statistics():
+async def get_runway_statistics(request: Request):
     """Get runway statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -213,31 +213,32 @@ async def get_runway_statistics():
     }
 
 def get_length_distribution(lengths: List[int]) -> List[Dict[str, Any]]:
-    """Create length distribution buckets for charting."""
+    """Get runway length distribution in categories."""
     if not lengths:
         return []
     
-    min_length = min(lengths)
-    max_length = max(lengths)
-    
-    # Create buckets
-    bucket_size = (max_length - min_length) // 10 if max_length > min_length else 1000
-    buckets = {}
-    
-    for length in lengths:
-        bucket = (length // bucket_size) * bucket_size
-        bucket_key = f"{bucket}-{bucket + bucket_size}"
-        if bucket_key not in buckets:
-            buckets[bucket_key] = 0
-        buckets[bucket_key] += 1
-    
-    return [
-        {"range": bucket, "count": count}
-        for bucket, count in sorted(buckets.items())
+    # Define length categories
+    categories = [
+        {"name": "Short (< 3000 ft)", "min": 0, "max": 3000},
+        {"name": "Medium (3000-6000 ft)", "min": 3000, "max": 6000},
+        {"name": "Long (6000-9000 ft)", "min": 6000, "max": 9000},
+        {"name": "Very Long (> 9000 ft)", "min": 9000, "max": float('inf')}
     ]
+    
+    distribution = []
+    for category in categories:
+        count = sum(1 for length in lengths if category["min"] <= length < category["max"])
+        if count > 0:
+            distribution.append({
+                "category": category["name"],
+                "count": count,
+                "percentage": round((count / len(lengths)) * 100, 1)
+            })
+    
+    return distribution
 
 @router.get("/data-quality")
-async def get_data_quality_statistics():
+async def get_data_quality_statistics(request: Request):
     """Get data quality statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -247,60 +248,47 @@ async def get_data_quality_statistics():
     airports_with_runways = 0
     airports_with_procedures = 0
     airports_with_aip_data = 0
-    airports_with_border_crossing = 0
-    
-    total_aip_entries = 0
-    standardized_entries = 0
+    airports_with_complete_data = 0
     
     for airport in model.airports.values():
-        if airport.latitude_deg and airport.longitude_deg:
+        has_coordinates = airport.latitude_deg is not None and airport.longitude_deg is not None
+        has_runways = len(airport.runways) > 0
+        has_procedures = len(airport.procedures) > 0
+        has_aip_data = len(airport.aip_entries) > 0
+        
+        if has_coordinates:
             airports_with_coordinates += 1
-        
-        if airport.runways:
+        if has_runways:
             airports_with_runways += 1
-        
-        if airport.procedures:
+        if has_procedures:
             airports_with_procedures += 1
-        
-        if airport.aip_entries:
+        if has_aip_data:
             airports_with_aip_data += 1
-            total_aip_entries += len(airport.aip_entries)
-            
-            # Count standardized entries
-            for entry in airport.aip_entries:
-                if entry.is_standardized():
-                    standardized_entries += 1
-        
-        if airport.point_of_entry:
-            airports_with_border_crossing += 1
+        if has_coordinates and has_runways and has_procedures and has_aip_data:
+            airports_with_complete_data += 1
     
     return {
         "total_airports": total_airports,
-        "completeness": {
+        "coverage": {
             "coordinates": {
                 "count": airports_with_coordinates,
-                "percentage": (airports_with_coordinates / total_airports * 100) if total_airports > 0 else 0
+                "percentage": round((airports_with_coordinates / total_airports) * 100, 1)
             },
             "runways": {
                 "count": airports_with_runways,
-                "percentage": (airports_with_runways / total_airports * 100) if total_airports > 0 else 0
+                "percentage": round((airports_with_runways / total_airports) * 100, 1)
             },
             "procedures": {
                 "count": airports_with_procedures,
-                "percentage": (airports_with_procedures / total_airports * 100) if total_airports > 0 else 0
+                "percentage": round((airports_with_procedures / total_airports) * 100, 1)
             },
             "aip_data": {
                 "count": airports_with_aip_data,
-                "percentage": (airports_with_aip_data / total_airports * 100) if total_airports > 0 else 0
+                "percentage": round((airports_with_aip_data / total_airports) * 100, 1)
             },
-            "border_crossing": {
-                "count": airports_with_border_crossing,
-                "percentage": (airports_with_border_crossing / total_airports * 100) if total_airports > 0 else 0
+            "complete_data": {
+                "count": airports_with_complete_data,
+                "percentage": round((airports_with_complete_data / total_airports) * 100, 1)
             }
-        },
-        "aip_standardization": {
-            "total_entries": total_aip_entries,
-            "standardized_entries": standardized_entries,
-            "standardization_rate": (standardized_entries / total_aip_entries * 100) if total_aip_entries > 0 else 0
         }
     } 

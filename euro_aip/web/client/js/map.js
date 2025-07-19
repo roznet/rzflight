@@ -10,26 +10,46 @@ class AirportMap {
         this.procedureLayer = null;
         this.legendMode = 'airport-type';
         
-        this.initMap();
+        // Don't initialize map immediately - let the app handle it
+        console.log(`AirportMap constructor called for container: ${containerId}`);
     }
 
     initMap() {
-        // Initialize Leaflet map centered on Europe
-        this.map = L.map(this.containerId).setView([50.0, 10.0], 5);
+        // Check if Leaflet is available
+        if (typeof L === 'undefined') {
+            console.error('Leaflet library not loaded. Please ensure leaflet.js is loaded before map.js');
+            return;
+        }
         
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(this.map);
+        // Check if container exists
+        const container = document.getElementById(this.containerId);
+        if (!container) {
+            console.error(`Map container with id '${this.containerId}' not found. DOM may not be ready yet.`);
+            return;
+        }
         
-        // Create airport layer group
-        this.airportLayer = L.layerGroup().addTo(this.map);
-        
-        // Create procedure lines layer group
-        this.procedureLayer = L.layerGroup().addTo(this.map);
-        
-        // Add scale control
-        L.control.scale().addTo(this.map);
+        try {
+            // Initialize Leaflet map centered on Europe
+            this.map = L.map(this.containerId).setView([50.0, 10.0], 5);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(this.map);
+            
+            // Create airport layer group
+            this.airportLayer = L.layerGroup().addTo(this.map);
+            
+            // Create procedure lines layer group
+            this.procedureLayer = L.layerGroup().addTo(this.map);
+            
+            // Add scale control
+            L.control.scale().addTo(this.map);
+            
+            console.log('Map initialized successfully');
+        } catch (error) {
+            console.error('Error initializing map:', error);
+        }
     }
 
     clearMarkers() {
@@ -662,7 +682,13 @@ class AirportMap {
     }
 
     setView(lat, lng, zoom) {
-        this.map.setView([lat, lng], zoom);
+        if (this.map) {
+            this.map.setView([lat, lng], zoom);
+        }
+    }
+
+    isInitialized() {
+        return this.map !== null && typeof this.map !== 'undefined';
     }
 
     // Filter markers based on criteria

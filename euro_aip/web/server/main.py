@@ -7,27 +7,65 @@ from pathlib import Path
 # Add the euro_aip package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from contextlib import asynccontextmanager
 import uvicorn
 import logging
+from datetime import datetime
+import time
 
 from euro_aip.storage.database_storage import DatabaseStorage
 from euro_aip.models.euro_aip_model import EuroAipModel
+
+# Import security configuration
+from security_config import (
+    ALLOWED_ORIGINS, ALLOWED_HOSTS, RATE_LIMIT_WINDOW, RATE_LIMIT_MAX_REQUESTS,
+    FORCE_HTTPS, get_safe_db_path, SECURITY_HEADERS, LOG_LEVEL, LOG_FORMAT
+)
 
 # Import API routes
 from api import airports, procedures, filters, statistics
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=getattr(logging, LOG_LEVEL), format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 
 # Global database storage
 db_storage = None
 model = None
+
+# Simple rate limiting storage
+request_counts = {}
+
+def check_rate_limit(client_ip: str) -> bool:
+    """Simple rate limiting implementation."""
+    global request_counts
+    current_time = time.time()
+    
+    # Clean old entries
+    request_counts = {ip: (count, timestamp) for ip, (count, timestamp) in request_counts.items() 
+                     if current_time - timestamp < RATE_LIMIT_WINDOW}
+    
+    if client_ip not in request_counts:
+        request_counts[client_ip] = (1, current_time)
+        return True
+    
+    count, timestamp = request_counts[client_ip]
+    
+    if current_time - timestamp > RATE_LIMIT_WINDOW:
+        request_counts[client_ip] = (1, current_time)
+        return True
+    
+    if count >= RATE_LIMIT_MAX_REQUESTS:
+        return False
+    
+    request_counts[client_ip] = (count + 1, timestamp)
+    return True
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,7 +76,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up Euro AIP Airport Explorer...")
     
     # Get database path from environment or use default
-    db_path = os.getenv("AIRPORTS_DB", "airports.db")
+    db_path = get_safe_db_path()
     
     try:
         db_storage = DatabaseStorage(db_path)
@@ -74,12 +112,62 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Add security headers
+    for header, value in SECURITY_HEADERS.items():
+        response.headers[header] = value
+    
+    return response
+
+# Add request logging middleware
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    client_ip = request.client.host if request.client else "unknown"
+    logger.info(
+        f"{request.method} {request.url.path} - "
+        f"{response.status_code} - {process_time:.3f}s - {client_ip}"
+    )
+    return response
+
+# Add rate limiting middleware
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    client_ip = request.client.host if request.client else "unknown"
+    
+    if not check_rate_limit(client_ip):
+        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests. Please try again later."}
+        )
+    
+    response = await call_next(request)
+    return response
+
+# Add security middleware
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=ALLOWED_HOSTS
+)
+
+# Force HTTPS in production
+if FORCE_HTTPS:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+# Add CORS middleware with restricted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -90,20 +178,28 @@ app.include_router(filters.router, prefix="/api/filters", tags=["filters"])
 app.include_router(statistics.router, prefix="/api/statistics", tags=["statistics"])
 
 # Serve static files for client assets
-app.mount("/js", StaticFiles(directory="../client/js"), name="js")
+client_dir = Path(__file__).parent.parent / "client"
+js_dir = client_dir / "js"
+
+# Debug logging to verify paths
+logger.info(f"Client directory: {client_dir}")
+logger.info(f"JS directory: {js_dir}")
+logger.info(f"JS directory exists: {js_dir.exists()}")
+
+app.mount("/js", StaticFiles(directory=str(js_dir)), name="js")
 
 @app.get("/")
 async def read_root():
     """Serve the main HTML page."""
-    return FileResponse("../client/index.html")
+    html_file = client_dir / "index.html"
+    return FileResponse(str(html_file))
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "airports_count": len(model.airports) if model else 0,
-        "database_path": db_storage.database_path if db_storage else None
+        "timestamp": datetime.utcnow().isoformat()
     }
 
 if __name__ == "__main__":

@@ -107,10 +107,11 @@
             "name": "Python Debugger: Start Server",
             "type": "debugpy",
             "request": "launch",
-            "program": "main.py",
+            "program": "${workspaceFolder}/web/server/main.py",
             "console": "integratedTerminal",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}",
+                "AIRPORTS_DB": "${workspaceFolder}/example/airports.db"
             },
             "cwd": "${workspaceFolder}/web/server",
             "python": "${workspaceFolder}/venv/bin/python",

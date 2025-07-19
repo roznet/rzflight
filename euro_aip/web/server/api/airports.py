@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request, Path
 from typing import List, Optional, Dict, Any
 import logging
 
@@ -24,17 +24,22 @@ def set_model(m: EuroAipModel):
 
 @router.get("/", response_model=List[AirportSummary])
 async def get_airports(
-    country: Optional[str] = Query(None, description="Filter by ISO country code"),
+    request: Request,
+    country: Optional[str] = Query(None, description="Filter by ISO country code", max_length=3),
     has_procedures: Optional[bool] = Query(None, description="Filter airports with procedures"),
     has_aip_data: Optional[bool] = Query(None, description="Filter airports with AIP data"),
     has_hard_runway: Optional[bool] = Query(None, description="Filter airports with hard runways"),
     point_of_entry: Optional[bool] = Query(None, description="Filter border crossing airports"),
-    limit: int = Query(1000, description="Maximum number of airports to return"),
-    offset: int = Query(0, description="Number of airports to skip")
+    limit: int = Query(1000, description="Maximum number of airports to return", ge=1, le=10000),
+    offset: int = Query(0, description="Number of airports to skip", ge=0, le=100000)
 ):
     """Get a list of airports with optional filtering."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    # Validate offset against actual data size
+    if offset >= len(model.airports):
+        raise HTTPException(status_code=400, detail="Offset too large")
     
     airports = list(model.airports.values())
     
@@ -65,7 +70,10 @@ async def get_airports(
     return [AirportSummary.from_airport(airport) for airport in airports]
 
 @router.get("/{icao}", response_model=AirportDetail)
-async def get_airport_detail(icao: str):
+async def get_airport_detail(
+    request: Request,
+    icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4)
+):
     """Get detailed information about a specific airport."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -78,9 +86,10 @@ async def get_airport_detail(icao: str):
 
 @router.get("/{icao}/aip-entries", response_model=List[AIPEntryResponse])
 async def get_airport_aip_entries(
-    icao: str,
-    section: Optional[str] = Query(None, description="Filter by AIP section"),
-    std_field: Optional[str] = Query(None, description="Filter by standardized field name")
+    request: Request,
+    icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4),
+    section: Optional[str] = Query(None, description="Filter by AIP section", max_length=100),
+    std_field: Optional[str] = Query(None, description="Filter by standardized field name", max_length=100)
 ):
     """Get AIP entries for a specific airport."""
     if not model:
@@ -103,9 +112,10 @@ async def get_airport_aip_entries(
 
 @router.get("/{icao}/procedures")
 async def get_airport_procedures(
-    icao: str,
-    procedure_type: Optional[str] = Query(None, description="Filter by procedure type"),
-    runway: Optional[str] = Query(None, description="Filter by runway identifier")
+    request: Request,
+    icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4),
+    procedure_type: Optional[str] = Query(None, description="Filter by procedure type", max_length=50),
+    runway: Optional[str] = Query(None, description="Filter by runway identifier", max_length=10)
 ):
     """Get procedures for a specific airport."""
     if not model:
@@ -127,7 +137,10 @@ async def get_airport_procedures(
     return [p.to_dict() for p in procedures]
 
 @router.get("/{icao}/runways")
-async def get_airport_runways(icao: str):
+async def get_airport_runways(
+    request: Request,
+    icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4)
+):
     """Get runways for a specific airport."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -140,8 +153,9 @@ async def get_airport_runways(icao: str):
 
 @router.get("/{icao}/procedure-lines")
 async def get_airport_procedure_lines(
-    icao: str,
-    distance_nm: float = Query(10.0, description="Distance in nautical miles for procedure lines")
+    request: Request,
+    icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4),
+    distance_nm: float = Query(10.0, description="Distance in nautical miles for procedure lines", ge=0.1, le=100.0)
 ):
     """Get procedure lines for an airport."""
     if not model:
@@ -155,8 +169,9 @@ async def get_airport_procedure_lines(
 
 @router.get("/search/{query}")
 async def search_airports(
-    query: str,
-    limit: int = Query(20, description="Maximum number of results")
+    request: Request,
+    query: str = Path(..., description="Search query", max_length=100, min_length=1),
+    limit: int = Query(20, description="Maximum number of results", ge=1, le=100)
 ):
     """Search airports by ICAO code, name, or municipality."""
     if not model:

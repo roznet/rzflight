@@ -2,15 +2,28 @@
 class ChartManager {
     constructor() {
         this.charts = {};
-        this.initCharts();
+        // Don't initialize charts immediately - let the app handle it
+        console.log('ChartManager constructor called');
     }
 
     initCharts() {
-        // Initialize procedure distribution chart
-        this.initProcedureChart();
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js library not loaded. Please ensure chart.js is loaded before charts.js');
+            return;
+        }
         
-        // Initialize country distribution chart
-        this.initCountryChart();
+        try {
+            // Initialize procedure distribution chart
+            this.initProcedureChart();
+            
+            // Initialize country distribution chart
+            this.initCountryChart();
+            
+            console.log('Charts initialized successfully');
+        } catch (error) {
+            console.error('Error initializing charts:', error);
+        }
     }
 
     initProcedureChart() {
@@ -107,6 +120,11 @@ class ChartManager {
 
     async updateProcedureChart() {
         try {
+            if (!this.charts.procedure) {
+                console.warn('Procedure chart not initialized');
+                return;
+            }
+            
             const data = await api.getProcedureDistribution();
             
             if (data.procedure_types && data.procedure_types.length > 0) {
@@ -124,6 +142,11 @@ class ChartManager {
 
     async updateCountryChart() {
         try {
+            if (!this.charts.country) {
+                console.warn('Country chart not initialized');
+                return;
+            }
+            
             const data = await api.getStatisticsByCountry();
             
             if (data && data.length > 0) {
@@ -149,6 +172,10 @@ class ChartManager {
             this.updateProcedureChart(),
             this.updateCountryChart()
         ]);
+    }
+
+    isInitialized() {
+        return this.charts && Object.keys(this.charts).length > 0;
     }
 
     // Create a custom chart for approach types

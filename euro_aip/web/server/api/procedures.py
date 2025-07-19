@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request, Path
 from typing import List, Optional, Dict, Any
 import logging
 
@@ -23,14 +23,15 @@ def set_model(m: EuroAipModel):
 
 @router.get("/", response_model=List[ProcedureSummary])
 async def get_procedures(
-    procedure_type: Optional[str] = Query(None, description="Filter by procedure type"),
-    approach_type: Optional[str] = Query(None, description="Filter by approach type"),
-    runway: Optional[str] = Query(None, description="Filter by runway identifier"),
-    authority: Optional[str] = Query(None, description="Filter by authority"),
-    source: Optional[str] = Query(None, description="Filter by source"),
-    airport: Optional[str] = Query(None, description="Filter by airport ICAO"),
-    limit: int = Query(100, description="Maximum number of procedures to return"),
-    offset: int = Query(0, description="Number of procedures to skip")
+    request: Request,
+    procedure_type: Optional[str] = Query(None, description="Filter by procedure type", max_length=50),
+    approach_type: Optional[str] = Query(None, description="Filter by approach type", max_length=50),
+    runway: Optional[str] = Query(None, description="Filter by runway identifier", max_length=10),
+    authority: Optional[str] = Query(None, description="Filter by authority", max_length=100),
+    source: Optional[str] = Query(None, description="Filter by source", max_length=100),
+    airport: Optional[str] = Query(None, description="Filter by airport ICAO", max_length=4, min_length=4),
+    limit: int = Query(100, description="Maximum number of procedures to return", ge=1, le=1000),
+    offset: int = Query(0, description="Number of procedures to skip", ge=0, le=10000)
 ):
     """Get a list of procedures with optional filtering."""
     if not model:
@@ -68,10 +69,11 @@ async def get_procedures(
 
 @router.get("/approaches")
 async def get_approaches(
-    approach_type: Optional[str] = Query(None, description="Filter by approach type"),
-    runway: Optional[str] = Query(None, description="Filter by runway identifier"),
-    airport: Optional[str] = Query(None, description="Filter by airport ICAO"),
-    limit: int = Query(100, description="Maximum number of approaches to return")
+    request: Request,
+    approach_type: Optional[str] = Query(None, description="Filter by approach type", max_length=50),
+    runway: Optional[str] = Query(None, description="Filter by runway identifier", max_length=10),
+    airport: Optional[str] = Query(None, description="Filter by airport ICAO", max_length=4, min_length=4),
+    limit: int = Query(100, description="Maximum number of approaches to return", ge=1, le=1000)
 ):
     """Get all approach procedures with optional filtering."""
     if not model:
@@ -111,9 +113,10 @@ async def get_approaches(
 
 @router.get("/departures")
 async def get_departures(
-    runway: Optional[str] = Query(None, description="Filter by runway identifier"),
-    airport: Optional[str] = Query(None, description="Filter by airport ICAO"),
-    limit: int = Query(100, description="Maximum number of departures to return")
+    request: Request,
+    runway: Optional[str] = Query(None, description="Filter by runway identifier", max_length=10),
+    airport: Optional[str] = Query(None, description="Filter by airport ICAO", max_length=4, min_length=4),
+    limit: int = Query(100, description="Maximum number of departures to return", ge=1, le=1000)
 ):
     """Get all departure procedures with optional filtering."""
     if not model:
@@ -148,9 +151,10 @@ async def get_departures(
 
 @router.get("/arrivals")
 async def get_arrivals(
-    runway: Optional[str] = Query(None, description="Filter by runway identifier"),
-    airport: Optional[str] = Query(None, description="Filter by airport ICAO"),
-    limit: int = Query(100, description="Maximum number of arrivals to return")
+    request: Request,
+    runway: Optional[str] = Query(None, description="Filter by runway identifier", max_length=10),
+    airport: Optional[str] = Query(None, description="Filter by airport ICAO", max_length=4, min_length=4),
+    limit: int = Query(100, description="Maximum number of arrivals to return", ge=1, le=1000)
 ):
     """Get all arrival procedures with optional filtering."""
     if not model:
@@ -184,7 +188,10 @@ async def get_arrivals(
     return arrivals
 
 @router.get("/by-runway/{airport_icao}")
-async def get_procedures_by_runway(airport_icao: str):
+async def get_procedures_by_runway(
+    request: Request,
+    airport_icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4)
+):
     """Get procedures organized by runway for a specific airport."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -196,7 +203,10 @@ async def get_procedures_by_runway(airport_icao: str):
     return airport.get_runway_procedures_summary()
 
 @router.get("/most-precise/{airport_icao}")
-async def get_most_precise_approaches(airport_icao: str):
+async def get_most_precise_approaches(
+    request: Request,
+    airport_icao: str = Path(..., description="ICAO airport code", max_length=4, min_length=4)
+):
     """Get the most precise approach for each runway at an airport."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -205,80 +215,39 @@ async def get_most_precise_approaches(airport_icao: str):
     if not airport:
         raise HTTPException(status_code=404, detail=f"Airport {airport_icao} not found")
     
-    most_precise = {}
-    
-    for runway in airport.runways:
-        # Get most precise approach for the runway
-        approach = airport.get_most_precise_approach_for_runway(runway)
-        if approach:
-            most_precise[runway.le_ident] = {
-                "name": approach.name,
-                "approach_type": approach.approach_type,
-                "precision": approach.get_approach_precision(),
-                "runway_ident": approach.runway_ident,
-                "authority": approach.authority,
-                "source": approach.source
-            }
-    
-    return most_precise
+    return airport.get_most_precise_approaches()
 
 @router.get("/statistics")
-async def get_procedure_statistics():
-    """Get procedure statistics across all airports."""
+async def get_procedure_statistics(request: Request):
+    """Get statistics about procedures across all airports."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
     
     total_procedures = 0
     procedure_types = {}
     approach_types = {}
-    authorities = {}
-    sources = {}
+    airports_with_procedures = 0
     
     for airport in model.airports.values():
+        if airport.procedures:
+            airports_with_procedures += 1
+            
         for procedure in airport.procedures:
             total_procedures += 1
             
             # Count procedure types
-            proc_type = procedure.procedure_type.lower()
-            if proc_type not in procedure_types:
-                procedure_types[proc_type] = 0
-            procedure_types[proc_type] += 1
+            proc_type = procedure.procedure_type
+            procedure_types[proc_type] = procedure_types.get(proc_type, 0) + 1
             
             # Count approach types
-            if procedure.is_approach() and procedure.approach_type:
-                approach_type = procedure.approach_type.upper()
-                if approach_type not in approach_types:
-                    approach_types[approach_type] = 0
-                approach_types[approach_type] += 1
-            
-            # Count authorities
-            if procedure.authority:
-                if procedure.authority not in authorities:
-                    authorities[procedure.authority] = 0
-                authorities[procedure.authority] += 1
-            
-            # Count sources
-            if procedure.source:
-                if procedure.source not in sources:
-                    sources[procedure.source] = 0
-                sources[procedure.source] += 1
+            if procedure.approach_type:
+                app_type = procedure.approach_type
+                approach_types[app_type] = approach_types.get(app_type, 0) + 1
     
     return {
         "total_procedures": total_procedures,
-        "procedure_types": [
-            {"type": proc_type, "count": count}
-            for proc_type, count in sorted(procedure_types.items())
-        ],
-        "approach_types": [
-            {"type": approach_type, "count": count}
-            for approach_type, count in sorted(approach_types.items())
-        ],
-        "authorities": [
-            {"authority": authority, "count": count}
-            for authority, count in sorted(authorities.items())
-        ],
-        "sources": [
-            {"source": source, "count": count}
-            for source, count in sorted(sources.items())
-        ]
+        "airports_with_procedures": airports_with_procedures,
+        "procedure_types": procedure_types,
+        "approach_types": approach_types,
+        "average_procedures_per_airport": total_procedures / len(model.airports) if model.airports else 0
     } 

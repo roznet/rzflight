@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from typing import List, Dict, Any, Set
 import logging
 
@@ -19,7 +19,7 @@ def set_model(m: EuroAipModel):
     model = m
 
 @router.get("/countries")
-async def get_available_countries():
+async def get_available_countries(request: Request):
     """Get list of available countries with airport counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -37,7 +37,7 @@ async def get_available_countries():
     ]
 
 @router.get("/procedure-types")
-async def get_available_procedure_types():
+async def get_available_procedure_types(request: Request):
     """Get list of available procedure types with counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -56,7 +56,7 @@ async def get_available_procedure_types():
     ]
 
 @router.get("/approach-types")
-async def get_available_approach_types():
+async def get_available_approach_types(request: Request):
     """Get list of available approach types with counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -76,7 +76,7 @@ async def get_available_approach_types():
     ]
 
 @router.get("/aip-sections")
-async def get_available_aip_sections():
+async def get_available_aip_sections(request: Request):
     """Get list of available AIP sections with counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -95,7 +95,7 @@ async def get_available_aip_sections():
     ]
 
 @router.get("/aip-fields")
-async def get_available_aip_fields():
+async def get_available_aip_fields(request: Request):
     """Get list of available AIP standardized fields with counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -115,7 +115,7 @@ async def get_available_aip_fields():
     ]
 
 @router.get("/sources")
-async def get_available_sources():
+async def get_available_sources(request: Request):
     """Get list of available data sources with counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -133,7 +133,7 @@ async def get_available_sources():
     ]
 
 @router.get("/runway-characteristics")
-async def get_runway_characteristics():
+async def get_runway_characteristics(request: Request):
     """Get runway characteristics statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -180,7 +180,7 @@ async def get_runway_characteristics():
     }
 
 @router.get("/border-crossing")
-async def get_border_crossing_statistics():
+async def get_border_crossing_statistics(request: Request):
     """Get border crossing statistics."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
@@ -188,18 +188,18 @@ async def get_border_crossing_statistics():
     return model.get_border_crossing_statistics()
 
 @router.get("/all")
-async def get_all_filters():
+async def get_all_filters(request: Request):
     """Get all available filter options in one call."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
     
     return {
-        "countries": await get_available_countries(),
-        "procedure_types": await get_available_procedure_types(),
-        "approach_types": await get_available_approach_types(),
-        "aip_sections": await get_available_aip_sections(),
-        "aip_fields": await get_available_aip_fields(),
-        "sources": await get_available_sources(),
-        "runway_characteristics": await get_runway_characteristics(),
-        "border_crossing": await get_border_crossing_statistics()
+        "countries": await get_available_countries(request),
+        "procedure_types": await get_available_procedure_types(request),
+        "approach_types": await get_available_approach_types(request),
+        "aip_sections": await get_available_aip_sections(request),
+        "aip_fields": await get_available_aip_fields(request),
+        "sources": await get_available_sources(request),
+        "runway_characteristics": await get_runway_characteristics(request),
+        "border_crossing": await get_border_crossing_statistics(request)
     } 
