@@ -1,16 +1,19 @@
 // Filter functionality for Euro AIP Airport Explorer
 class FilterManager {
     constructor() {
-        this.currentFilters = { point_of_entry: true }; // Default to border crossing airports
-        this.availableFilters = {};
+        this.currentFilters = {};
+        this.availableFilters = null;
         this.airports = [];
+        this.currentRoute = null;
+        this.autoApplyTimeout = null; // For debouncing auto-apply
+        this.lastAppliedFilters = null; // To detect meaningful changes
         
         this.initEventListeners();
-        this.updateResetZoomButton(); // Initialize button state
+        this.loadAvailableFilters();
     }
 
     initEventListeners() {
-        // Apply filters button
+        // Apply filters button (now optional, but still available)
         document.getElementById('apply-filters').addEventListener('click', () => {
             this.applyFilters();
         });
@@ -37,31 +40,57 @@ class FilterManager {
             }
         });
 
-        // Filter change events
+        // Filter change events with auto-apply
         document.getElementById('country-filter').addEventListener('change', () => {
-            this.updateFilters();
+            this.autoApplyFilters();
         });
 
         document.getElementById('approach-filter').addEventListener('change', () => {
-            this.updateFilters();
+            this.autoApplyFilters();
         });
 
         document.getElementById('max-airports-filter').addEventListener('change', () => {
-            this.updateFilters();
+            this.autoApplyFilters();
         });
 
-        // Legend mode change
+        // Legend mode change (immediate, no debouncing needed)
         document.getElementById('legend-mode-filter').addEventListener('change', () => {
             this.updateLegendMode();
         });
 
-        // Checkbox events
+        // Checkbox events with auto-apply
         const checkboxes = ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
         checkboxes.forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
-                this.updateFilters();
+                this.autoApplyFilters();
             });
         });
+    }
+
+    autoApplyFilters() {
+        // Clear any existing timeout
+        if (this.autoApplyTimeout) {
+            clearTimeout(this.autoApplyTimeout);
+        }
+        
+        // Debounce the auto-apply to prevent rapid successive API calls
+        this.autoApplyTimeout = setTimeout(() => {
+            this.applyFilters();
+        }, 500); // 500ms delay
+        
+        // Show immediate feedback that filters are being applied
+        this.showFilterChangeIndicator();
+    }
+
+    showFilterChangeIndicator() {
+        const applyButton = document.getElementById('apply-filters');
+        const originalText = applyButton.innerHTML;
+        
+        // Show "Applying..." indicator
+        applyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
+        applyButton.disabled = true;
+        
+        // Reset after auto-apply completes (handled in applyFilters)
     }
 
     async loadAvailableFilters() {
@@ -161,7 +190,15 @@ class FilterManager {
             this.showError('Error applying filters: ' + error.message);
         } finally {
             this.hideLoading();
+            // Reset the apply button state after auto-apply
+            this.resetApplyButton();
         }
+    }
+
+    resetApplyButton() {
+        const applyButton = document.getElementById('apply-filters');
+        applyButton.innerHTML = '<i class="fas fa-search"></i> Apply Filters';
+        applyButton.disabled = false;
     }
 
     async handleSearch(query) {
@@ -265,7 +302,8 @@ class FilterManager {
             this.updateMapWithAirports(airports, false);
             
             // Display the route on the map (after airports are added)
-            airportMap.displayRoute(routeAirports, distanceNm);
+            // Preserve view if this is a filter reapplication (skipFilterUpdate = true)
+            airportMap.displayRoute(routeAirports, distanceNm, skipFilterUpdate);
             
             // Update statistics
             this.updateStatistics(airports);
@@ -353,8 +391,7 @@ class FilterManager {
 
     hideLoading() {
         document.getElementById('loading').style.display = 'none';
-        document.getElementById('apply-filters').disabled = false;
-        document.getElementById('apply-filters').innerHTML = '<i class="fas fa-search"></i> Apply Filters';
+        // Note: Apply button state is now handled separately in resetApplyButton()
     }
 
     showSuccess(message) {

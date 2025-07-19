@@ -77,7 +77,7 @@ class AirportMap {
         this.routeLine = null;
     }
 
-    displayRoute(routeAirports, distanceNm) {
+    displayRoute(routeAirports, distanceNm, preserveView = false) {
         // Clear any existing route
         this.clearRoute();
         
@@ -126,8 +126,8 @@ class AirportMap {
         
         this.routeMarkers = routeMarkers;
         
-        // Fit map to show the entire route
-        if (this.routeLine) {
+        // Only fit bounds if not preserving view (e.g., for initial route search)
+        if (this.routeLine && !preserveView) {
             this.map.fitBounds(this.routeLine.getBounds(), { padding: [20, 20] });
         }
     }
