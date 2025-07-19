@@ -64,6 +64,42 @@
             flex: 1;
             overflow-y: auto;
             padding-right: 5px;
+            min-height: 0; /* Important for flex child to shrink */
+        }
+        
+        #airport-details {
+            height: 100%;
+        }
+        
+        #airport-details .airport-details-panel {
+            height: 100%;
+        }
+        
+        /* Ensure the column containers have proper height */
+        .col-md-3:has(#airport-details),
+        .col-md-3:has(#aip-data) {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Fallback for browsers that don't support :has() */
+        .airport-details-container,
+        .aip-data-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        /* Ensure the main content row has proper height */
+        .main-content-row {
+            min-height: 600px;
+        }
+        
+        /* Ensure all columns in the main row have the same height */
+        .main-content-row > .col-md-3,
+        .main-content-row > .col-md-6 {
+            display: flex;
+            flex-direction: column;
         }
         
         .aip-section {
@@ -262,9 +298,9 @@
         </div>
 
         <!-- Main Content -->
-        <div class="row">
+        <div class="row main-content-row">
             <!-- Airport Details Panel (Left) -->
-            <div class="col-md-3">
+            <div class="col-md-3 airport-details-container">
                 <div id="airport-details" style="display: none;">
                     <div class="airport-details-panel">
                         <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
@@ -296,7 +332,7 @@
             </div>
 
             <!-- AIP Data Panel (Right) -->
-            <div class="col-md-3">
+            <div class="col-md-3 aip-data-container">
                 <div id="aip-data" style="display: none;">
                     <div class="aip-data-panel">
                         <h5><i class="fas fa-file-alt"></i> AIP Data</h5>
