@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
 import logging
 
 from euro_aip.models.euro_aip_model import EuroAipModel
+from .models import ProcedureSummary
 
 logger = logging.getLogger(__name__)
 
@@ -19,16 +19,7 @@ def set_model(m: EuroAipModel):
     global model
     model = m
 
-# Pydantic models for API responses
-class ProcedureSummary(BaseModel):
-    name: str
-    procedure_type: str
-    approach_type: Optional[str]
-    runway_ident: Optional[str]
-    authority: Optional[str]
-    source: Optional[str]
-    airport_ident: str
-    airport_name: Optional[str]
+# API models are now imported from ../models
 
 @router.get("/", response_model=List[ProcedureSummary])
 async def get_procedures(
@@ -68,16 +59,7 @@ async def get_procedures(
             if airport and airport.ident != airport:
                 continue
             
-            procedures.append(ProcedureSummary(
-                name=procedure.name,
-                procedure_type=procedure.procedure_type,
-                approach_type=procedure.approach_type,
-                runway_ident=procedure.runway_ident,
-                authority=procedure.authority,
-                source=procedure.source,
-                airport_ident=airport.ident,
-                airport_name=airport.name
-            ))
+            procedures.append(ProcedureSummary.from_procedure(procedure, airport))
     
     # Apply pagination
     procedures = procedures[offset:offset + limit]

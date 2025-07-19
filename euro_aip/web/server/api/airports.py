@@ -2,11 +2,11 @@
 
 from fastapi import APIRouter, Query, HTTPException
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
 import logging
 
 from euro_aip.models.euro_aip_model import EuroAipModel
 from euro_aip.models.airport import Airport
+from .models import AirportSummary, AirportDetail, AIPEntryResponse
 
 logger = logging.getLogger(__name__)
 
@@ -20,62 +20,7 @@ def set_model(m: EuroAipModel):
     global model
     model = m
 
-# Pydantic models for API responses
-class AirportSummary(BaseModel):
-    ident: str
-    name: Optional[str]
-    latitude_deg: Optional[float]
-    longitude_deg: Optional[float]
-    iso_country: Optional[str]
-    municipality: Optional[str]
-    point_of_entry: Optional[bool]
-    has_procedures: bool
-    has_runways: bool
-    has_aip_data: bool
-    procedure_count: int
-    runway_count: int
-    aip_entry_count: int
-
-class AirportDetail(BaseModel):
-    ident: str
-    name: Optional[str]
-    type: Optional[str]
-    latitude_deg: Optional[float]
-    longitude_deg: Optional[float]
-    elevation_ft: Optional[str]
-    continent: Optional[str]
-    iso_country: Optional[str]
-    iso_region: Optional[str]
-    municipality: Optional[str]
-    scheduled_service: Optional[str]
-    gps_code: Optional[str]
-    iata_code: Optional[str]
-    local_code: Optional[str]
-    home_link: Optional[str]
-    wikipedia_link: Optional[str]
-    keywords: Optional[str]
-    point_of_entry: Optional[bool]
-    avgas: Optional[bool]
-    jet_a: Optional[bool]
-    sources: List[str]
-    runways: List[Dict[str, Any]]
-    procedures: List[Dict[str, Any]]
-    aip_entries: List[Dict[str, Any]]
-    created_at: str
-    updated_at: str
-
-class AIPEntryResponse(BaseModel):
-    ident: str
-    section: str
-    field: str
-    value: str
-    std_field: Optional[str]
-    std_field_id: Optional[int]
-    mapping_score: Optional[float]
-    alt_field: Optional[str]
-    alt_value: Optional[str]
-    source: Optional[str]
-    created_at: str
+# API models are now imported from ../models
 
 @router.get("/", response_model=List[AirportSummary])
 async def get_airports(
@@ -112,26 +57,8 @@ async def get_airports(
     # Apply pagination
     airports = airports[offset:offset + limit]
     
-    # Convert to response format
-    result = []
-    for airport in airports:
-        result.append(AirportSummary(
-            ident=airport.ident,
-            name=airport.name,
-            latitude_deg=airport.latitude_deg,
-            longitude_deg=airport.longitude_deg,
-            iso_country=airport.iso_country,
-            municipality=airport.municipality,
-            point_of_entry=airport.point_of_entry,
-            has_procedures=bool(airport.procedures),
-            has_runways=bool(airport.runways),
-            has_aip_data=bool(airport.aip_entries),
-            procedure_count=len(airport.procedures),
-            runway_count=len(airport.runways),
-            aip_entry_count=len(airport.aip_entries)
-        ))
-    
-    return result
+    # Convert to response format using factory methods
+    return [AirportSummary.from_airport(airport) for airport in airports]
 
 @router.get("/{icao}", response_model=AirportDetail)
 async def get_airport_detail(icao: str):
@@ -143,34 +70,7 @@ async def get_airport_detail(icao: str):
     if not airport:
         raise HTTPException(status_code=404, detail=f"Airport {icao} not found")
     
-    return AirportDetail(
-        ident=airport.ident,
-        name=airport.name,
-        type=airport.type,
-        latitude_deg=airport.latitude_deg,
-        longitude_deg=airport.longitude_deg,
-        elevation_ft=airport.elevation_ft,
-        continent=airport.continent,
-        iso_country=airport.iso_country,
-        iso_region=airport.iso_region,
-        municipality=airport.municipality,
-        scheduled_service=airport.scheduled_service,
-        gps_code=airport.gps_code,
-        iata_code=airport.iata_code,
-        local_code=airport.local_code,
-        home_link=airport.home_link,
-        wikipedia_link=airport.wikipedia_link,
-        keywords=airport.keywords,
-        point_of_entry=airport.point_of_entry,
-        avgas=airport.avgas,
-        jet_a=airport.jet_a,
-        sources=list(airport.sources),
-        runways=[r.to_dict() for r in airport.runways],
-        procedures=[p.to_dict() for p in airport.procedures],
-        aip_entries=[e.to_dict() for e in airport.aip_entries],
-        created_at=airport.created_at.isoformat(),
-        updated_at=airport.updated_at.isoformat()
-    )
+    return AirportDetail.from_airport(airport)
 
 @router.get("/{icao}/aip-entries", response_model=List[AIPEntryResponse])
 async def get_airport_aip_entries(
@@ -195,19 +95,7 @@ async def get_airport_aip_entries(
     if std_field:
         entries = [e for e in entries if e.std_field == std_field]
     
-    return [AIPEntryResponse(
-        ident=e.ident,
-        section=e.section,
-        field=e.field,
-        value=e.value,
-        std_field=e.std_field,
-        std_field_id=e.std_field_id,
-        mapping_score=e.mapping_score,
-        alt_field=e.alt_field,
-        alt_value=e.alt_value,
-        source=e.source,
-        created_at=e.created_at.isoformat()
-    ) for e in entries]
+    return [AIPEntryResponse.from_aip_entry(e) for e in entries]
 
 @router.get("/{icao}/procedures")
 async def get_airport_procedures(
@@ -279,23 +167,5 @@ async def search_airports(
             results.append(airport)
             continue
     
-    # Convert to summary format and limit results
-    result_summaries = []
-    for airport in results[:limit]:
-        result_summaries.append(AirportSummary(
-            ident=airport.ident,
-            name=airport.name,
-            latitude_deg=airport.latitude_deg,
-            longitude_deg=airport.longitude_deg,
-            iso_country=airport.iso_country,
-            municipality=airport.municipality,
-            point_of_entry=airport.point_of_entry,
-            has_procedures=bool(airport.procedures),
-            has_runways=bool(airport.runways),
-            has_aip_data=bool(airport.aip_entries),
-            procedure_count=len(airport.procedures),
-            runway_count=len(airport.runways),
-            aip_entry_count=len(airport.aip_entries)
-        ))
-    
-    return result_summaries 
+    # Convert to summary format using factory methods
+    return [AirportSummary.from_airport(airport) for airport in results[:limit]] 
