@@ -77,7 +77,7 @@ class AirportMap {
         this.routeLine = null;
     }
 
-    displayRoute(routeAirports, distanceNm, preserveView = false) {
+    displayRoute(routeAirports, distanceNm, preserveView = false, originalRouteAirports = null) {
         // Clear any existing route
         this.clearRoute();
         
@@ -86,32 +86,50 @@ class AirportMap {
         }
         
         // Get airport coordinates for the route
+        // Use original route airport data if available, otherwise fall back to current markers
         const routeCoordinates = [];
         const routeMarkers = [];
         
         for (const icao of routeAirports) {
-            const marker = this.markers.get(icao);
-            if (marker) {
-                const latlng = marker.getLatLng();
+            let latlng = null;
+            let marker = this.markers.get(icao);
+            
+            // First try to get coordinates from original route airport data
+            if (originalRouteAirports) {
+                const originalAirport = originalRouteAirports.find(a => a.icao === icao);
+                if (originalAirport) {
+                    latlng = { lat: originalAirport.lat, lng: originalAirport.lng };
+                }
+            }
+            
+            // Fall back to current marker if no original data
+            if (!latlng && marker) {
+                latlng = marker.getLatLng();
+            }
+            
+            if (latlng) {
                 routeCoordinates.push([latlng.lat, latlng.lng]);
                 
-                // Create a special marker for route airports
-                const routeMarker = L.circleMarker(latlng, {
-                    radius: 12,
-                    fillColor: '#007bff',
-                    color: '#ffffff',
-                    weight: 3,
-                    opacity: 1,
-                    fillOpacity: 0.8
-                }).addTo(this.routeLayer);
-                
-                // Add popup with route info
-                routeMarker.bindPopup(`<b>Route Airport: ${icao}</b><br>Distance: ${distanceNm}nm corridor`);
-                routeMarkers.push(routeMarker);
+                // Only create visible markers for airports that are currently displayed
+                if (marker) {
+                    // Create a special marker for route airports
+                    const routeMarker = L.circleMarker(latlng, {
+                        radius: 12,
+                        fillColor: '#007bff',
+                        color: '#ffffff',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).addTo(this.routeLayer);
+                    
+                    // Add popup with route info
+                    routeMarker.bindPopup(`<b>Route Airport: ${icao}</b><br>Distance: ${distanceNm}nm corridor`);
+                    routeMarkers.push(routeMarker);
+                }
             }
         }
         
-        // Draw the route line
+        // Draw the route line (always complete, regardless of filtering)
         if (routeCoordinates.length >= 2) {
             this.routeLine = L.polyline(routeCoordinates, {
                 color: '#007bff',

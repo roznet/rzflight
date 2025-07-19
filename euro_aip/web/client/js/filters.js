@@ -286,9 +286,13 @@ class FilterManager {
             const currentFilters = this.currentFilters;
             
             console.log('handleRouteSearch - Current filters:', currentFilters);
+            console.log('handleRouteSearch - Route airports:', routeAirports);
+            console.log('handleRouteSearch - skipFilterUpdate:', skipFilterUpdate);
             
             // Search for airports near the route with filters
             const routeResults = await api.searchAirportsNearRoute(routeAirports, distanceNm, currentFilters);
+            
+            console.log('handleRouteSearch - Route results:', routeResults);
             
             // Extract airport data for unified handling
             const airports = routeResults.airports.map(item => ({
@@ -298,12 +302,49 @@ class FilterManager {
                 _closestSegment: item.closest_segment
             }));
             
+            console.log('handleRouteSearch - Extracted airports:', airports);
+            console.log('handleRouteSearch - Route airports in results:', routeAirports.map(icao => airports.find(a => a.ident === icao)));
+            
             // Use the same unified airport handling as normal mode
             this.updateMapWithAirports(airports, false);
             
+            // Get original route airport data for route line drawing
+            let originalRouteAirports;
+            
+            if (skipFilterUpdate && this.currentRoute && this.currentRoute.originalRouteAirports) {
+                // Use stored original data when reapplying filters
+                console.log('Using stored original route airport data for route line');
+                originalRouteAirports = this.currentRoute.originalRouteAirports;
+            } else {
+                // For new route searches, we need to get the complete route airport data
+                // regardless of filters to ensure the route line is always complete
+                console.log('Getting complete route airport data for new route search');
+                
+                // Get route airport data without filters to ensure completeness
+                const unfilteredRouteResults = await api.searchAirportsNearRoute(routeAirports, distanceNm, {});
+                const unfilteredAirports = unfilteredRouteResults.airports.map(item => item.airport);
+                
+                originalRouteAirports = routeAirports.map(icao => {
+                    const airport = unfilteredAirports.find(a => a.ident === icao);
+                    if (airport) {
+                        return {
+                            icao: icao,
+                            lat: airport.latitude_deg,
+                            lng: airport.longitude_deg
+                        };
+                    }
+                    console.error(`Route airport ${icao} not found in unfiltered results!`);
+                    return null;
+                }).filter(a => a !== null);
+                
+                console.log('Complete route airport data calculated:', originalRouteAirports);
+            }
+            
+            console.log('Original route airports for line drawing:', originalRouteAirports);
+            
             // Display the route on the map (after airports are added)
-            // Preserve view if this is a filter reapplication (skipFilterUpdate = true)
-            airportMap.displayRoute(routeAirports, distanceNm, skipFilterUpdate);
+            // Pass original route airport data to ensure complete route line
+            airportMap.displayRoute(routeAirports, distanceNm, skipFilterUpdate, originalRouteAirports);
             
             // Update statistics
             this.updateStatistics(airports);
@@ -333,7 +374,8 @@ class FilterManager {
                 airports: routeAirports,
                 distance_nm: distanceNm,
                 filters: currentFilters,
-                results: routeResults
+                results: routeResults,
+                originalRouteAirports: originalRouteAirports // Store for route line drawing
             };
             
         } catch (error) {
