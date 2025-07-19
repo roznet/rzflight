@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Literal
 from pathlib import Path
-import camelot.io as camelot
 import tempfile
 from pdfminer.high_level import extract_text
 import pandas as pd
-import pdfplumber
 from io import BytesIO
 import logging
 
@@ -37,6 +35,7 @@ class AIPParser(ABC):
     def _extract_tables_camelot(self, temp_file: str, flavor: Literal['stream', 'lattice']) -> List[pd.DataFrame]:
         """Extract tables using Camelot with specified flavor."""
         logger.debug(f"Extracting tables with Camelot ({flavor})")
+        import camelot.io as camelot
         tables = camelot.read_pdf(
             temp_file, 
             pages='1-3',
@@ -58,6 +57,7 @@ class AIPParser(ABC):
             List of pandas DataFrames containing the tables
         """
         logger.debug("Extracting tables with pdfplumber")
+        import pdfplumber
         tables = []
         with pdfplumber.open(temp_file) as pdf:
             # Process first two pages

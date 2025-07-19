@@ -1,6 +1,5 @@
 import re
 import pandas as pd
-import camelot
 from io import StringIO, BytesIO
 from typing import List, Dict, Any
 from .aip_base import AIPParser
