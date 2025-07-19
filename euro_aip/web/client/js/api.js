@@ -34,7 +34,7 @@ class APIClient {
         
         if (filters.country) params.append('country', filters.country);
         if (filters.has_procedures !== undefined) params.append('has_procedures', filters.has_procedures);
-        if (filters.has_runways !== undefined) params.append('has_runways', filters.has_runways);
+        if (filters.has_hard_runway !== undefined) params.append('has_hard_runway', filters.has_hard_runway);
         if (filters.has_aip_data !== undefined) params.append('has_aip_data', filters.has_aip_data);
         if (filters.point_of_entry !== undefined) params.append('point_of_entry', filters.point_of_entry);
         if (filters.limit) params.append('limit', filters.limit);

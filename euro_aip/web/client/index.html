@@ -178,6 +178,17 @@
                         </select>
                     </div>
 
+                    <!-- Sort By Filter -->
+                    <div class="filter-group">
+                        <label for="sort-by-filter" class="form-label">Sort By</label>
+                        <select class="form-select" id="sort-by-filter">
+                            <option value="runway_length">Longest Runway (Default)</option>
+                            <option value="name">Airport Name</option>
+                            <option value="icao">ICAO Code</option>
+                            <option value="none">No Sorting</option>
+                        </select>
+                    </div>
+
                     <!-- Checkboxes -->
                     <div class="filter-group">
                         <div class="form-check">
@@ -186,12 +197,7 @@
                                 Has Procedures
                             </label>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="has-runways">
-                            <label class="form-check-label" for="has-runways">
-                                Has Runways
-                            </label>
-                        </div>
+
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" id="has-aip-data">
                             <label class="form-check-label" for="has-aip-data">

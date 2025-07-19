@@ -50,8 +50,12 @@ class FilterManager {
             this.updateFilters();
         });
 
+        document.getElementById('sort-by-filter').addEventListener('change', () => {
+            this.updateFilters();
+        });
+
         // Checkbox events
-        const checkboxes = ['has-procedures', 'has-runways', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
+        const checkboxes = ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'];
         checkboxes.forEach(id => {
             document.getElementById(id).addEventListener('change', () => {
                 this.updateFilters();
@@ -116,8 +120,8 @@ class FilterManager {
             country: document.getElementById('country-filter').value,
             procedure_type: document.getElementById('procedure-filter').value,
             approach_type: document.getElementById('approach-filter').value,
+            sort_by: document.getElementById('sort-by-filter').value,
             has_procedures: document.getElementById('has-procedures').checked ? true : undefined,
-            has_runways: document.getElementById('has-runways').checked ? true : undefined,
             has_aip_data: document.getElementById('has-aip-data').checked ? true : undefined,
             has_hard_runway: document.getElementById('has-hard-runway').checked ? true : undefined,
             point_of_entry: document.getElementById('border-crossing-only').checked ? true : undefined
@@ -325,10 +329,11 @@ class FilterManager {
         document.getElementById('country-filter').value = '';
         document.getElementById('procedure-filter').value = '';
         document.getElementById('approach-filter').value = '';
+        document.getElementById('sort-by-filter').value = 'runway_length';
         document.getElementById('search-input').value = '';
         
         // Uncheck all checkboxes
-        ['has-procedures', 'has-runways', 'has-aip-data', 'border-crossing-only'].forEach(id => {
+        ['has-procedures', 'has-aip-data', 'has-hard-runway', 'border-crossing-only'].forEach(id => {
             document.getElementById(id).checked = false;
         });
         

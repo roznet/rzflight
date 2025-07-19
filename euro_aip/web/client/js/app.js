@@ -131,8 +131,8 @@ class AirportExplorerApp {
             'country-filter',
             'procedure-filter',
             'approach-filter',
+            'sort-by-filter',
             'has-procedures',
-            'has-runways',
             'has-aip-data',
             'has-hard-runway',
             'border-crossing-only'
@@ -158,8 +158,8 @@ class AirportExplorerApp {
             'country-filter',
             'procedure-filter',
             'approach-filter',
+            'sort-by-filter',
             'has-procedures',
-            'has-runways',
             'has-aip-data',
             'has-hard-runway',
             'border-crossing-only'
@@ -270,8 +270,8 @@ class AirportExplorerApp {
         
         // Update checkboxes
         document.getElementById('has-procedures').checked = filters.has_procedures === true;
-        document.getElementById('has-runways').checked = filters.has_runways === true;
         document.getElementById('has-aip-data').checked = filters.has_aip_data === true;
+        document.getElementById('has-hard-runway').checked = filters.has_hard_runway === true;
         document.getElementById('border-crossing-only').checked = filters.point_of_entry === true;
     }
 }
