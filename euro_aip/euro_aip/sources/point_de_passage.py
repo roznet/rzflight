@@ -15,7 +15,6 @@ import re
 import logging
 from pathlib import Path
 from typing import List, Set, Optional
-from pdfminer.high_level import extract_text
 from .base import SourceInterface
 from ..models.euro_aip_model import EuroAipModel
 
@@ -61,6 +60,7 @@ class PointDePassageJournalOfficielSource(SourceInterface):
             str: Extracted text content
         """
         try:
+            from pdfminer.high_level import extract_text
             return extract_text(str(self.pdf_path))
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")

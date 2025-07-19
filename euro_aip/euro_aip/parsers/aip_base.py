@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Literal
 from pathlib import Path
 import tempfile
-from pdfminer.high_level import extract_text
 import pandas as pd
 from io import BytesIO
 import logging
@@ -120,6 +119,7 @@ class AIPParser(ABC):
         pdf_file = BytesIO(pdf_data)
         
         # Extract text from PDF
+        from pdfminer.high_level import extract_text
         text = extract_text(pdf_file)
         return text
     
