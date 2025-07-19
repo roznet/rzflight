@@ -316,11 +316,15 @@ class AirportMap {
     displayAirportDetails(airport, procedures, runways, aipEntries) {
         const infoContainer = document.getElementById('airport-info');
         const detailsContainer = document.getElementById('airport-details');
+        const aipContainer = document.getElementById('aip-data');
         const noSelectionContainer = document.getElementById('no-selection');
+        const noAipDataContainer = document.getElementById('no-aip-data');
         
         if (!airport) {
             detailsContainer.style.display = 'none';
+            aipContainer.style.display = 'none';
             noSelectionContainer.style.display = 'block';
+            noAipDataContainer.style.display = 'block';
             return;
         }
         
@@ -411,12 +415,18 @@ class AirportMap {
     }
 
     displayAIPData(aipEntries) {
-        const aipContainer = document.getElementById('aip-data-content');
+        const aipContainer = document.getElementById('aip-data');
+        const aipContentContainer = document.getElementById('aip-data-content');
+        const noAipDataContainer = document.getElementById('no-aip-data');
         
         if (!aipEntries || aipEntries.length === 0) {
-            aipContainer.innerHTML = '<div class="text-muted">No AIP data available</div>';
+            aipContainer.style.display = 'none';
+            noAipDataContainer.style.display = 'block';
             return;
         }
+        
+        aipContainer.style.display = 'block';
+        noAipDataContainer.style.display = 'none';
 
         // Group by standardized field section
         const entriesBySection = {};
@@ -473,7 +483,7 @@ class AirportMap {
             `;
         });
 
-        aipContainer.innerHTML = html;
+        aipContentContainer.innerHTML = html;
         
         // Initialize AIP filter
         this.initializeAIPFilter();

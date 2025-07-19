@@ -14,7 +14,7 @@
     
     <style>
         #map {
-            height: 500px;
+            height: 600px;
             width: 100%;
             border-radius: 8px;
         }
@@ -24,6 +24,21 @@
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 20px;
+        }
+        
+        .filter-panel-horizontal {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .legend-horizontal {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            height: 100%;
         }
         
         .airport-marker {
@@ -39,7 +54,7 @@
             background-color: #f8f9fa;
             border-radius: 8px;
             padding: 15px;
-            height: 500px;
+            height: 600px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -248,109 +263,27 @@
 
         <!-- Main Content -->
         <div class="row">
-            <!-- Filters Panel -->
+            <!-- Airport Details Panel (Left) -->
             <div class="col-md-3">
-                <div class="filter-panel">
-                    <h5><i class="fas fa-filter"></i> Filters</h5>
-                    
-                    <!-- Search -->
-                    <div class="search-box">
-                        <label for="search-input" class="form-label">Search Airports</label>
-                        <input type="text" class="form-control" id="search-input" placeholder="ICAO, name, or city...">
-                    </div>
-
-                    <!-- Country Filter -->
-                    <div class="filter-group">
-                        <label for="country-filter" class="form-label">Country</label>
-                        <select class="form-select" id="country-filter">
-                            <option value="">All Countries</option>
-                        </select>
-                    </div>
-
-                    <!-- Approach Type Filter -->
-                    <div class="filter-group">
-                        <label for="approach-filter" class="form-label">Approach Type</label>
-                        <select class="form-select" id="approach-filter">
-                            <option value="">All Approaches</option>
-                        </select>
-                    </div>
-
-                    <!-- Maximum Airports Filter -->
-                    <div class="filter-group">
-                        <label for="max-airports-filter" class="form-label">Maximum Airports</label>
-                        <select class="form-select" id="max-airports-filter">
-                            <option value="500">500 Airports</option>
-                            <option value="1000" selected>1000 Airports (Default)</option>
-                            <option value="2000">2000 Airports</option>
-                            <option value="5000">5000 Airports</option>
-                            <option value="10000">10000 Airports</option>
-                        </select>
-                    </div>
-
-                    <!-- Checkboxes -->
-                    <div class="filter-group">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="has-procedures">
-                            <label class="form-check-label" for="has-procedures">
-                                Has Procedures
-                            </label>
-                        </div>
-
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="has-aip-data">
-                            <label class="form-check-label" for="has-aip-data">
-                                Has AIP Data
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="has-hard-runway">
-                            <label class="form-check-label" for="has-hard-runway">
-                                Has Hard Runway
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="border-crossing-only">
-                            <label class="form-check-label" for="border-crossing-only">
-                                Border Crossing Only
-                            </label>
+                <div id="airport-details" style="display: none;">
+                    <div class="airport-details-panel">
+                        <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
+                        <div class="airport-info" id="airport-info">
+                            <!-- Airport details will be populated here -->
                         </div>
                     </div>
-
-                    <!-- Apply Filters Button -->
-                    <button class="btn btn-primary w-100" id="apply-filters">
-                        <i class="fas fa-search"></i> Apply Filters
-                    </button>
-                    
-                    <!-- Reset Zoom Button -->
-                    <button class="btn btn-outline-secondary w-100 mt-2" id="reset-zoom" 
-                            data-bs-toggle="tooltip" data-bs-placement="top" 
-                            title="Fit map to show all current airports (Ctrl+R)">
-                        <i class="fas fa-expand-arrows-alt"></i> Reset Zoom
-                    </button>
                 </div>
-
-                <!-- Legend Mode Selector -->
-                <div class="filter-group">
-                    <label for="legend-mode-filter" class="form-label">Legend Mode</label>
-                    <select class="form-select" id="legend-mode-filter">
-                        <option value="airport-type" selected>Airport Type</option>
-                        <option value="procedure-precision">Procedure Precision</option>
-                        <option value="runway-length">Runway Length</option>
-                        <option value="country">Country</option>
-                    </select>
-                </div>
-
-                <!-- Legend -->
-                <div class="legend" id="legend">
-                    <h6><i class="fas fa-info-circle"></i> Legend</h6>
-                    <div id="legend-content">
-                        <!-- Legend content will be dynamically updated -->
+                
+                <div id="no-selection">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
+                        <p>Click on an airport marker to view details</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Map -->
-            <div class="col-md-4">
+            <!-- Map (Center) -->
+            <div class="col-md-6">
                 <div id="map"></div>
                 
                 <!-- Loading Indicator -->
@@ -362,48 +295,144 @@
                 </div>
             </div>
 
-            <!-- Airport Details Panel -->
-            <div class="col-md-5">
-                <div id="airport-details" style="display: none;">
-                    <div class="row">
-                        <!-- Left Panel: Airport Details & Procedures -->
-                        <div class="col-md-6">
-                            <div class="airport-details-panel">
-                                <h5><i class="fas fa-info-circle"></i> Airport Details</h5>
-                                <div class="airport-info" id="airport-info">
-                                    <!-- Airport details will be populated here -->
-                                </div>
+            <!-- AIP Data Panel (Right) -->
+            <div class="col-md-3">
+                <div id="aip-data" style="display: none;">
+                    <div class="aip-data-panel">
+                        <h5><i class="fas fa-file-alt"></i> AIP Data</h5>
+                        
+                        <!-- AIP Filter -->
+                        <div class="aip-filter mb-3">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="aip-filter-input" 
+                                       placeholder="Filter AIP entries...">
+                                <button class="btn btn-outline-secondary" type="button" id="aip-filter-clear">
+                                    <i class="fas fa-times"></i>
+                                </button>
                             </div>
                         </div>
                         
-                        <!-- Right Panel: AIP Data -->
-                        <div class="col-md-6">
-                            <div class="aip-data-panel">
-                                <h5><i class="fas fa-file-alt"></i> AIP Data</h5>
-                                
-                                <!-- AIP Filter -->
-                                <div class="aip-filter mb-3">
-                                    <div class="input-group">
-                                        <input type="text" class="form-control" id="aip-filter-input" 
-                                               placeholder="Filter AIP entries...">
-                                        <button class="btn btn-outline-secondary" type="button" id="aip-filter-clear">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
+                        <div class="aip-data-content" id="aip-data-content">
+                            <!-- AIP data will be populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="no-aip-data">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                        <p>Select an airport to view AIP data</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters and Legend Row -->
+        <div class="row mt-3">
+            <!-- Filters Panel (Left) -->
+            <div class="col-md-8">
+                <div class="filter-panel-horizontal">
+                    <div class="row">
+                        <!-- Search -->
+                        <div class="col-md-3">
+                            <label for="search-input" class="form-label">Search Airports</label>
+                            <input type="text" class="form-control" id="search-input" placeholder="ICAO, name, or city...">
+                        </div>
+
+                        <!-- Country Filter -->
+                        <div class="col-md-2">
+                            <label for="country-filter" class="form-label">Country</label>
+                            <select class="form-select" id="country-filter">
+                                <option value="">All Countries</option>
+                            </select>
+                        </div>
+
+                        <!-- Approach Type Filter -->
+                        <div class="col-md-2">
+                            <label for="approach-filter" class="form-label">Approach Type</label>
+                            <select class="form-select" id="approach-filter">
+                                <option value="">All Approaches</option>
+                            </select>
+                        </div>
+
+                        <!-- Maximum Airports Filter -->
+                        <div class="col-md-2">
+                            <label for="max-airports-filter" class="form-label">Max Airports</label>
+                            <select class="form-select" id="max-airports-filter">
+                                <option value="500">500</option>
+                                <option value="1000" selected>1000</option>
+                                <option value="2000">2000</option>
+                                <option value="5000">5000</option>
+                                <option value="10000">10000</option>
+                            </select>
+                        </div>
+
+                        <!-- Legend Mode Selector -->
+                        <div class="col-md-2">
+                            <label for="legend-mode-filter" class="form-label">Legend Mode</label>
+                            <select class="form-select" id="legend-mode-filter">
+                                <option value="airport-type" selected>Airport Type</option>
+                                <option value="procedure-precision">Procedure Precision</option>
+                                <option value="runway-length">Runway Length</option>
+                                <option value="country">Country</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex flex-column gap-1">
+                                <button class="btn btn-primary btn-sm" id="apply-filters" title="Apply Filters">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="reset-zoom" 
+                                        title="Reset Zoom (Ctrl+R)">
+                                    <i class="fas fa-expand-arrows-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checkboxes Row -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has-procedures">
+                                    <label class="form-check-label" for="has-procedures">
+                                        Has Procedures
+                                    </label>
                                 </div>
-                                
-                                <div class="aip-data-content" id="aip-data-content">
-                                    <!-- AIP data will be populated here -->
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has-aip-data">
+                                    <label class="form-check-label" for="has-aip-data">
+                                        Has AIP Data
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="has-hard-runway">
+                                    <label class="form-check-label" for="has-hard-runway">
+                                        Has Hard Runway
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="border-crossing-only">
+                                    <label class="form-check-label" for="border-crossing-only">
+                                        Border Crossing Only
+                                    </label>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div id="no-selection">
-                    <div class="text-center text-muted">
-                        <i class="fas fa-map-marker-alt fa-3x mb-3"></i>
-                        <p>Click on an airport marker to view details</p>
+            </div>
+
+            <!-- Legend Panel (Right) -->
+            <div class="col-md-4">
+                <div class="legend-horizontal" id="legend">
+                    <h6><i class="fas fa-info-circle"></i> Legend</h6>
+                    <div id="legend-content">
+                        <!-- Legend content will be dynamically updated -->
                     </div>
                 </div>
             </div>
