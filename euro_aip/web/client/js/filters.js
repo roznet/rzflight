@@ -219,6 +219,7 @@ class FilterManager {
     updateFilters() {
         // Get current filter values
         const countrySelect = document.getElementById('country-filter');
+        const maxAirportsSelect = document.getElementById('max-airports-filter');
         const hasProceduresCheckbox = document.getElementById('has-procedures');
         const hasAIPDataCheckbox = document.getElementById('has-aip-data');
         const hasHardRunwayCheckbox = document.getElementById('has-hard-runway');
@@ -234,6 +235,10 @@ class FilterManager {
         
         if (countrySelect.value) {
             this.currentFilters.country = countrySelect.value;
+        }
+        
+        if (maxAirportsSelect.value) {
+            this.currentFilters.max_airports = parseInt(maxAirportsSelect.value);
         }
         
         if (hasProceduresCheckbox.checked) {
