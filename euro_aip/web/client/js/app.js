@@ -160,7 +160,6 @@ class AirportExplorerApp {
             'reset-zoom',
             'search-input',
             'country-filter',
-            'approach-filter',
             'max-airports-filter',
             'legend-mode-filter',
             'has-procedures',
@@ -187,7 +186,6 @@ class AirportExplorerApp {
             'reset-zoom',
             'search-input',
             'country-filter',
-            'approach-filter',
             'max-airports-filter',
             'legend-mode-filter',
             'has-procedures',
@@ -291,9 +289,6 @@ class AirportExplorerApp {
         // Update select elements
         if (filters.country) {
             document.getElementById('country-filter').value = filters.country;
-        }
-        if (filters.approach_type) {
-            document.getElementById('approach-filter').value = filters.approach_type;
         }
         if (filters.max_airports) {
             document.getElementById('max-airports-filter').value = filters.max_airports;

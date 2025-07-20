@@ -136,8 +136,8 @@ class APIClient {
         return this.request('/api/filters/procedure-types');
     }
 
-    async getAvailableApproachTypes() {
-        return this.request('/api/filters/approach-types');
+    async getAIPFilterPresets() {
+        return this.request('/api/airports/aip-filter-presets');
     }
 
     async getAvailableAIPSections() {
@@ -160,10 +160,6 @@ class APIClient {
         return this.request('/api/filters/border-crossing');
     }
 
-    async getAIPFilterPresets() {
-        return this.request('/api/airports/aip-filter-presets');
-    }
-
     async getAllFilters() {
         return this.request('/api/filters/all');
     }
@@ -173,30 +169,13 @@ class APIClient {
         const params = new URLSearchParams();
         
         if (filters.procedure_type) params.append('procedure_type', filters.procedure_type);
-        if (filters.approach_type) params.append('approach_type', filters.approach_type);
         if (filters.runway) params.append('runway', filters.runway);
-        if (filters.authority) params.append('authority', filters.authority);
-        if (filters.source) params.append('source', filters.source);
         if (filters.airport) params.append('airport', filters.airport);
         if (filters.limit) params.append('limit', filters.limit);
         if (filters.offset) params.append('offset', filters.offset);
 
         const queryString = params.toString();
         const endpoint = `/api/procedures/${queryString ? '?' + queryString : ''}`;
-        
-        return this.request(endpoint);
-    }
-
-    async getApproaches(filters = {}) {
-        const params = new URLSearchParams();
-        
-        if (filters.approach_type) params.append('approach_type', filters.approach_type);
-        if (filters.runway) params.append('runway', filters.runway);
-        if (filters.airport) params.append('airport', filters.airport);
-        if (filters.limit) params.append('limit', filters.limit);
-
-        const queryString = params.toString();
-        const endpoint = `/api/procedures/approaches${queryString ? '?' + queryString : ''}`;
         
         return this.request(endpoint);
     }

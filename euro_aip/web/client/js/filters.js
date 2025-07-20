@@ -129,7 +129,9 @@ class FilterManager {
 
     async loadAvailableFilters() {
         try {
+            console.log('Loading available filters...');
             const filters = await api.getAllFilters();
+            console.log('Received filters from API:', filters);
             this.populateFilterOptions(filters);
         } catch (error) {
             console.error('Error loading available filters:', error);
@@ -156,17 +158,22 @@ class FilterManager {
     }
 
     populateFilterOptions(filters) {
+        console.log('populateFilterOptions called with:', filters);
+        
         // Populate country filter
         const countrySelect = document.getElementById('country-filter');
         countrySelect.innerHTML = '<option value="">All Countries</option>';
         
         if (filters.countries) {
+            console.log('Found countries:', filters.countries);
             filters.countries.forEach(country => {
                 const option = document.createElement('option');
                 option.value = country.code;
-                option.textContent = `${country.code} (${country.count})`;
+                option.textContent = `${country.name} (${country.count})`;
                 countrySelect.appendChild(option);
             });
+        } else {
+            console.log('No countries found in filters');
         }
     }
 

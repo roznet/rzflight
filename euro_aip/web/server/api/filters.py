@@ -8,7 +8,7 @@ from euro_aip.models.euro_aip_model import EuroAipModel
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["filters"])
 
 # Global model reference
 model: EuroAipModel = None
@@ -18,11 +18,42 @@ def set_model(m: EuroAipModel):
     global model
     model = m
 
+def format_country_name_for_display(country_name: str) -> str:
+    """
+    Format country name for display by capitalizing each word properly.
+    
+    Args:
+        country_name: Raw country name (e.g., "BOSNIA AND HERZEGOVINA")
+        
+    Returns:
+        Formatted country name (e.g., "Bosnia And Herzegovina")
+    """
+    if not country_name:
+        return country_name
+    
+    # Split by spaces and capitalize each word
+    words = country_name.split()
+    formatted_words = []
+    
+    for word in words:
+        # Handle special cases like "AND", "OF", "THE" - keep them lowercase
+        if word.upper() in ["AND", "OF", "THE", "OF THE"]:
+            formatted_words.append(word.lower())
+        else:
+            # Capitalize first letter, lowercase the rest
+            formatted_words.append(word.capitalize())
+    
+    return " ".join(formatted_words)
+
 @router.get("/countries")
 async def get_available_countries(request: Request):
     """Get list of available countries with airport counts."""
     if not model:
         raise HTTPException(status_code=500, detail="Model not loaded")
+    
+    # Import CountryMapper fresh to get latest mappings
+    from euro_aip.utils.country_mapper import CountryMapper
+    country_mapper = CountryMapper()
     
     countries = {}
     for airport in model.airports.values():
@@ -32,7 +63,11 @@ async def get_available_countries(request: Request):
             countries[airport.iso_country] += 1
     
     return [
-        {"code": code, "count": count}
+        {
+            "code": code, 
+            "name": format_country_name_for_display(country_mapper.get_country_name(code)) or code,
+            "count": count
+        }
         for code, count in sorted(countries.items())
     ]
 
@@ -53,26 +88,6 @@ async def get_available_procedure_types(request: Request):
     return [
         {"type": proc_type, "count": count}
         for proc_type, count in sorted(procedure_types.items())
-    ]
-
-@router.get("/approach-types")
-async def get_available_approach_types(request: Request):
-    """Get list of available approach types with counts."""
-    if not model:
-        raise HTTPException(status_code=500, detail="Model not loaded")
-    
-    approach_types = {}
-    for airport in model.airports.values():
-        for procedure in airport.procedures:
-            if procedure.is_approach() and procedure.approach_type:
-                approach_type = procedure.approach_type.upper()
-                if approach_type not in approach_types:
-                    approach_types[approach_type] = 0
-                approach_types[approach_type] += 1
-    
-    return [
-        {"type": approach_type, "count": count}
-        for approach_type, count in sorted(approach_types.items())
     ]
 
 @router.get("/aip-sections")
@@ -196,7 +211,6 @@ async def get_all_filters(request: Request):
     return {
         "countries": await get_available_countries(request),
         "procedure_types": await get_available_procedure_types(request),
-        "approach_types": await get_available_approach_types(request),
         "aip_sections": await get_available_aip_sections(request),
         "aip_fields": await get_available_aip_fields(request),
         "sources": await get_available_sources(request),

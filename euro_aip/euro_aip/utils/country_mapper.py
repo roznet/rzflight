@@ -46,6 +46,28 @@ class CountryMapper:
         'CYPRUS': 'CY',
         'UNITED KINGDOM': 'GB',
         'ICELAND': 'IS',
+        # Additional European countries
+        'MOLDOVA': 'MD',
+        'NORTH MACEDONIA': 'MK',
+        'MONTENEGRO': 'ME',
+        'SERBIA': 'RS',
+        'SAN MARINO': 'SM',
+        'TURKEY': 'TR',
+        'UKRAINE': 'UA',
+        'BELARUS': 'BY',
+        'BOSNIA AND HERZEGOVINA': 'BA',
+        # More European countries
+        'ALBANIA': 'AL',
+        'RUSSIA': 'RU',
+        'FAROE ISLANDS': 'FO',
+        'GEORGIA': 'GE',
+        'GUERNSEY': 'GG',
+        'GIBRALTAR': 'GI',
+        # Final European countries
+        'ISLE OF MAN': 'IM',
+        'JERSEY': 'JE',
+        'KAZAKHSTAN': 'KZ',
+        'KOSOVO': 'XK',
     }
     
     def __init__(self):
