@@ -38,7 +38,7 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            height: 100%;
+            /* Remove height: 100% to prevent expansion */
         }
         
         .airport-marker {
@@ -71,9 +71,10 @@
             height: 100%;
         }
         
-        #airport-details .airport-details-panel {
+        /* Remove the conflicting height rule */
+        /* #airport-details .airport-details-panel {
             height: 100%;
-        }
+        } */
         
         /* Ensure the column containers have proper height */
         .col-md-3:has(#airport-details),
@@ -493,72 +494,75 @@
                                     </label>
                                 </div>
                                 <!-- Border Crossing Filter -->
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="border-crossing-only">
-                        <label class="form-check-label" for="border-crossing-only">
-                            <i class="fas fa-passport"></i> Border Crossing Only
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Advanced AIP Filters Section -->
-                <div class="filter-section">
-                    <div class="filter-section-header" data-bs-toggle="collapse" data-bs-target="#advanced-aip-filters" aria-expanded="false">
-                        <h6 class="mb-0">
-                            <i class="fas fa-cog"></i> Advanced AIP Filters
-                            <i class="fas fa-chevron-down ms-auto"></i>
-                        </h6>
-                    </div>
-                    
-                    <div class="collapse" id="advanced-aip-filters">
-                        <div class="filter-section-content">
-                            <!-- Predefined AIP Filter Presets -->
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Quick Filters:</label>
-                                <div class="aip-preset-buttons" id="aip-preset-buttons">
-                                    <!-- Preset buttons will be loaded dynamically -->
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="border-crossing-only">
+                                    <label class="form-check-label" for="border-crossing-only">
+                                        <i class="fas fa-passport"></i> Border Crossing Only
+                                    </label>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <!-- Custom AIP Field Filter -->
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Custom Field Filter:</label>
-                                <div class="row g-2">
-                                    <div class="col-md-4">
-                                        <select class="form-select form-select-sm" id="aip-field-select">
-                                            <option value="">Select AIP Field...</option>
-                                            <!-- AIP fields will be loaded dynamically -->
-                                        </select>
+                    <!-- Advanced AIP Filters Section -->
+                    <div class="filter-section">
+                        <div class="filter-section-header" data-bs-toggle="collapse" data-bs-target="#advanced-aip-filters" aria-expanded="false">
+                            <h6 class="mb-0">
+                                <i class="fas fa-cog"></i> Advanced AIP Filters
+                                <i class="fas fa-chevron-down ms-auto"></i>
+                            </h6>
+                        </div>
+                        
+                        <div class="collapse" id="advanced-aip-filters">
+                            <div class="filter-section-content">
+                                <!-- Predefined AIP Filter Presets -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Quick Filters:</label>
+                                    <div class="aip-preset-buttons" id="aip-preset-buttons">
+                                        <!-- Preset buttons will be loaded dynamically -->
                                     </div>
-                                    <div class="col-md-3">
-                                        <select class="form-select form-select-sm" id="aip-operator-select">
-                                            <option value="contains">Contains</option>
-                                            <option value="equals">Equals</option>
-                                            <option value="not_empty">Not Empty</option>
-                                            <option value="starts_with">Starts With</option>
-                                            <option value="ends_with">Ends With</option>
-                                        </select>
+                                </div>
+
+                                <!-- Custom AIP Field Filter -->
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Custom Field Filter:</label>
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <select class="form-select form-select-sm" id="aip-field-select">
+                                                <option value="">Select AIP Field...</option>
+                                                <!-- AIP fields will be loaded dynamically -->
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <select class="form-select form-select-sm" id="aip-operator-select">
+                                                <option value="contains">Contains</option>
+                                                <option value="equals">Equals</option>
+                                                <option value="not_empty">Not Empty</option>
+                                                <option value="starts_with">Starts With</option>
+                                                <option value="ends_with">Ends With</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control form-control-sm" id="aip-value-input" placeholder="Value...">
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-aip-filter" title="Clear AIP Filter">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <input type="text" class="form-control form-control-sm" id="aip-value-input" placeholder="Value...">
-                                    </div>
-                                    <div class="col-md-1">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-aip-filter" title="Clear AIP Filter">
+                                </div>
+
+                                <!-- Active AIP Filter Display -->
+                                <div id="active-aip-filter" class="alert alert-info py-2" style="display: none;">
+                                    <small>
+                                        <i class="fas fa-filter"></i> 
+                                        <span id="active-aip-filter-text"></span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="remove-aip-filter">
                                             <i class="fas fa-times"></i>
                                         </button>
-                                    </div>
+                                    </small>
                                 </div>
-                            </div>
-
-                            <!-- Active AIP Filter Display -->
-                            <div id="active-aip-filter" class="alert alert-info py-2" style="display: none;">
-                                <small>
-                                    <i class="fas fa-filter"></i> 
-                                    <span id="active-aip-filter-text"></span>
-                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="remove-aip-filter">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </small>
                             </div>
                         </div>
                     </div>
