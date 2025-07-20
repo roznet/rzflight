@@ -58,6 +58,7 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            box-sizing: border-box;
         }
         
         .airport-info, .aip-data-content {
@@ -65,6 +66,12 @@
             overflow-y: auto;
             padding-right: 5px;
             min-height: 0; /* Important for flex child to shrink */
+        }
+        
+        /* Ensure the header doesn't take up flex space */
+        .airport-details-panel h5, .aip-data-panel h5 {
+            flex-shrink: 0;
+            margin-bottom: 15px;
         }
         
         #airport-details {
