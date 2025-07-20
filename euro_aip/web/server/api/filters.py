@@ -62,13 +62,28 @@ async def get_available_countries(request: Request):
                 countries[airport.iso_country] = 0
             countries[airport.iso_country] += 1
     
-    return [
+    # Create list with priority sorting
+    country_list = [
         {
             "code": code, 
             "name": format_country_name_for_display(country_mapper.get_country_name(code)) or code,
-            "count": count
+            "count": count,
+            "priority": country_mapper.get_country_priority(code)
         }
-        for code, count in sorted(countries.items())
+        for code, count in countries.items()
+    ]
+    
+    # Sort by priority first, then by name for countries with same priority
+    country_list.sort(key=lambda x: (x["priority"], x["name"]))
+    
+    # Remove priority from response (it was only used for sorting)
+    return [
+        {
+            "code": country["code"],
+            "name": country["name"],
+            "count": country["count"]
+        }
+        for country in country_list
     ]
 
 @router.get("/procedure-types")

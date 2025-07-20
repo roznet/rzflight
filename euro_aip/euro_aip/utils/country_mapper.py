@@ -70,6 +70,69 @@ class CountryMapper:
         'KOSOVO': 'XK',
     }
     
+    # Priority mapping for sorting (lower numbers = higher priority)
+    COUNTRY_PRIORITY = {
+        # UK and Crown Dependencies (highest priority)
+        'GB': 1,  # United Kingdom
+        'GG': 2,  # Guernsey
+        'JE': 3,  # Jersey
+        'IM': 4,  # Isle of Man
+        'GI': 5,  # Gibraltar
+        
+        # Major EU countries (high priority)
+        'DE': 10,  # Germany
+        'FR': 11,  # France
+        'IT': 12,  # Italy
+        'ES': 13,  # Spain
+        'NL': 14,  # Netherlands
+        'BE': 15,  # Belgium
+        'AT': 16,  # Austria
+        'DK': 17,  # Denmark
+        'SE': 18,  # Sweden
+        'FI': 19,  # Finland
+        'PT': 20,  # Portugal
+        'IE': 21,  # Ireland
+        'LU': 22,  # Luxembourg
+        
+        # Other EU countries
+        'PL': 30,  # Poland
+        'CZ': 31,  # Czech Republic
+        'SK': 32,  # Slovakia
+        'HU': 33,  # Hungary
+        'RO': 34,  # Romania
+        'BG': 35,  # Bulgaria
+        'GR': 36,  # Greece
+        'SI': 37,  # Slovenia
+        'HR': 38,  # Croatia
+        'LV': 39,  # Latvia
+        'LT': 40,  # Lithuania
+        'EE': 41,  # Estonia
+        'MT': 42,  # Malta
+        'CY': 43,  # Cyprus
+        
+        # Non-EU European countries
+        'CH': 50,  # Switzerland
+        'NO': 51,  # Norway
+        'IS': 52,  # Iceland
+        'TR': 53,  # Turkey
+        'UA': 54,  # Ukraine
+        'BY': 55,  # Belarus
+        'MD': 56,  # Moldova
+        'MK': 57,  # North Macedonia
+        'ME': 58,  # Montenegro
+        'RS': 59,  # Serbia
+        'BA': 60,  # Bosnia and Herzegovina
+        'AL': 61,  # Albania
+        'SM': 62,  # San Marino
+        'FO': 63,  # Faroe Islands
+        'GE': 64,  # Georgia
+        'XK': 65,  # Kosovo
+        
+        # Non-European countries (lowest priority)
+        'RU': 100,  # Russia
+        'KZ': 101,  # Kazakhstan
+    }
+    
     def __init__(self):
         """Initialize the country mapper."""
         # Create reverse mapping (ISO to name)
@@ -120,6 +183,21 @@ class CountryMapper:
             return None
         
         return self.iso_to_name.get(iso_code.upper())
+    
+    def get_country_priority(self, iso_code: str) -> int:
+        """
+        Get priority/order for a country ISO code.
+        
+        Args:
+            iso_code: ISO 3166-1 alpha-2 code
+            
+        Returns:
+            Priority number (lower = higher priority) or 999 if not found
+        """
+        if not iso_code:
+            return 999
+        
+        return self.COUNTRY_PRIORITY.get(iso_code.upper(), 999)
     
     def get_all_countries(self) -> Dict[str, str]:
         """
