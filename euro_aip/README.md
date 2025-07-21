@@ -1,60 +1,67 @@
-# Euro AIP Airport Explorer
+# Euro AIP: European Aeronautical Information Library & Explorer
 
-A comprehensive web application for exploring European airports, their procedures, and AIP (Aeronautical Information Publication) data.
+Euro AIP is a comprehensive Python library and web application for exploring, processing, and analyzing European airport and AIP (Aeronautical Information Publication) data.
 
-## Features
+---
 
-### Core Functionality
-- **Airport Database**: Comprehensive database of European airports with detailed information
-- **Interactive Map**: Visual exploration of airports using Leaflet.js
-- **Advanced Filtering**: Filter airports by country, procedure types, runway characteristics, and more
-- **AIP Data Integration**: Access to standardized AIP entries and field mappings
-- **Procedure Analysis**: Detailed procedure information including approach types and precision rankings
-- **Border Crossing Points**: Specialized data for border crossing airports
-- **Statistics and Charts**: Visual analytics of airport and procedure distributions
+## 1. euro_aip Python Library
 
-### Route-Based Airport Search
-- **Route Definition**: Enter space-separated ICAO codes to define a flight route
-- **Distance-Based Search**: Find all airports within a specified distance (default 50nm) from the route
-- **Visual Route Display**: Route is displayed on the map with special markers and a dashed line
-- **Distance Indicators**: Airport markers show their distance from the route
-- **Great Circle Calculations**: Accurate geographic distance calculations using the Haversine formula
+### Overview
+The `euro_aip` library provides:
+- **Data Models**: Rich Python classes for airports, runways, procedures, and AIP entries
+- **Parsers**: Tools to extract and standardize AIP data from various European sources
+- **Data Sources**: Integrations for WorldAirports, Autorouter, and more
+- **Utilities**: Geographic calculations, field standardization, fuzzy matching, and more
 
-#### How to Use Route Search
-1. In the search box, enter ICAO codes separated by spaces (e.g., `LFPO LFOB LFST`)
-2. Adjust the "Route Distance" field to set the search corridor width (default: 50nm)
-3. Press Enter or click the search button
-4. The map will display:
-   - The route as a blue dashed line
-   - Route airports as blue circle markers
-   - Nearby airports with distance indicators
-   - Distance information in airport popups
+### What Can You Use It For?
+- **Programmatic access** to a unified, standardized database of European airports and procedures
+- **Parsing and merging** AIP data from multiple national sources
+- **Custom data analysis**: Build your own scripts to analyze, filter, or export aviation data
+- **Integration**: Use as a backend for your own aviation tools or research
 
-## Architecture
+### Example Usage
+```python
+from euro_aip.models.airport import Airport
+from euro_aip.parsers.aip_factory import AIPParserFactory
 
-### Backend (FastAPI)
-- **Models**: Domain models for airports, procedures, runways, and AIP data
-- **API Endpoints**: RESTful API for data access and filtering
-- **Database Storage**: SQLite-based storage with efficient querying
-- **Security**: CORS, rate limiting, and input validation
+# Load and parse AIP data for a country
+aip_parser = AIPParserFactory.create('france')
+airports = aip_parser.parse_airports()
+for airport in airports:
+    print(airport.ident, airport.name, airport.iso_country)
+```
 
-### Frontend (Vanilla JavaScript)
-- **Interactive Map**: Leaflet.js-based map with custom markers and layers
-- **Real-time Filtering**: Dynamic filtering with immediate visual feedback
-- **Responsive Design**: Bootstrap-based responsive layout
-- **Chart Visualization**: Chart.js for statistical displays
+---
 
-### Core Library (`euro_aip`)
-- **Data Models**: Comprehensive data structures for aviation data
-- **Parsers**: Specialized parsers for different AIP sources
-- **Sources**: Data source integrations (WorldAirports, Autorouter, etc.)
-- **Utilities**: Geographic calculations, field standardization, and data processing
+## 2. Example Scripts
 
-## Installation and Setup
+The `example/` directory contains ready-to-use scripts for common tasks:
 
-### Prerequisites
-- Python 3.8+
-- Node.js (for development tools)
+- **aipexport.py**: Export AIP data to various formats (JSON, CSV, etc.)
+- **bordercrossingexport.py**: Export and analyze border crossing airport data
+- **foreflight.py**: Example for exporting data compatible with ForeFlight
+- **test_*.py**: Example and test scripts for validating data and demonstrating usage
+
+Each script includes usage instructions in the file or via `--help`.
+
+---
+
+## 3. Euro AIP Web App
+
+A modern web application for interactive exploration of European airports and AIP data.
+
+**Live Demo:** The web app is available at [https://maps.flyfun.aero](https://maps.flyfun.aero)
+
+**Database Download:** The underlying database generated by this library is available for download at [https://flyfun.aero/data/airports.db](https://flyfun.aero/data/airports.db)
+
+### Features
+- **Interactive Map**: Explore airports visually with Leaflet.js
+- **Advanced Filtering**: Filter by country (full names, UK/EU priority), runway, AIP fields, and more
+- **AIP Filter Presets**: Quick filters for AVGAS, Jet A, Customs, etc., plus custom field filtering
+- **Route-Based Search**: Find airports near a user-defined route
+- **Border Crossing Points**: Specialized data and filters
+- **Statistics and Charts**: Visual analytics with Chart.js
+- **Modern UI**: Responsive layout (Bootstrap 5), Font Awesome icons, scrollable panels, always-visible legend
 
 ### Quick Start
 1. Clone the repository
@@ -62,68 +69,49 @@ A comprehensive web application for exploring European airports, their procedure
 3. Run the server: `cd web/server && python main.py`
 4. Open http://localhost:8000 in your browser
 
-### Development Setup
-1. Create a virtual environment: `python -m venv venv`
-2. Activate the environment: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
-3. Install dependencies: `pip install -r requirements.txt`
-4. Run the development server: `cd web/server && python main.py`
-
-## API Documentation
-
-### Core Endpoints
-- `GET /api/airports/` - List airports with filtering
+### API Endpoints
+- `GET /api/airports/` - List airports with filtering (country, max_airports, AIP field, etc.)
 - `GET /api/airports/{icao}` - Get detailed airport information
 - `GET /api/airports/route-search` - Find airports near a route
 - `GET /api/procedures/` - List procedures with filtering
 - `GET /api/statistics/` - Get various statistics
+- `GET /api/filters/countries` - Get country list with full names and display order
 
-### Route Search API
+### Route Search API Example
 ```
 GET /api/airports/route-search?airports=LFPO,LFOB,LFST&distance_nm=50
 ```
 
-**Parameters:**
-- `airports`: Comma-separated list of ICAO airport codes
-- `distance_nm`: Distance in nautical miles from the route (default: 50)
+---
 
-**Response:**
-```json
-{
-  "route_airports": ["LFPO", "LFOB", "LFST"],
-  "distance_nm": 50,
-  "airports_found": 61,
-  "airports": [
-    {
-      "airport": { /* airport data */ },
-      "distance_nm": 3.59,
-      "closest_segment": ["LFPO", "LFOB"]
-    }
-  ]
-}
-```
-
-## Data Sources
-
+## 4. Data Sources
 - **WorldAirports**: Comprehensive airport database from OurAirports
 - **Autorouter**: European AIP data and procedures
+- **France and UK AIP**: Direct parsing of official published AIP data from France and the UK
 - **Border Crossing Data**: Specialized border crossing point information
-- **Custom Parsers**: Specialized parsers for different European aviation authorities
+- **Custom Parsers**: For different European aviation authorities
 
-## Contributing
+---
 
+## 5. Contributing
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 6. License
+MIT License - see the LICENSE file for details.
 
-## Acknowledgments
+---
 
+## 7. Acknowledgments
 - **OurAirports**: For the comprehensive airport database
 - **Autorouter**: For European AIP data
 - **OpenStreetMap**: For map tiles
-- **Leaflet.js**: For the interactive map functionality 
+- **Leaflet.js**: For the interactive map functionality
+- **Bootstrap 5**: For responsive layout and UI components
+- **Font Awesome**: For iconography
+- **Chart.js**: For statistical charting 
