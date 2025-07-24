@@ -12,6 +12,8 @@ from .procedure import Procedure
 from .border_crossing_entry import BorderCrossingEntry
 from .navpoint import NavPoint
 
+import math
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -759,62 +761,38 @@ class EuroAipModel:
         
         logger.info(f"Found {len(nearby_airports)} airports within {distance_nm}nm of route")
         return nearby_airports
-    
+
     def _distance_to_line_segment(self, point: NavPoint, line_start: NavPoint, line_end: NavPoint) -> float:
         """
-        Calculate the distance from a point to a line segment using great circle calculations.
-        
-        Args:
-            point: The point to calculate distance from
-            line_start: Start point of the line segment
-            line_end: End point of the line segment
-            
-        Returns:
-            Distance in nautical miles
+        Calculate the shortest distance from a point to a great-circle segment defined by two points.
+        Returns distance in nautical miles.
         """
-        # Calculate distances to endpoints
-        _, dist_to_start = point.haversine_distance(line_start)
-        _, dist_to_end = point.haversine_distance(line_end)
-        
-        # Calculate length of line segment
-        _, segment_length = line_start.haversine_distance(line_end)
-        
-        # If segment is very short, just return distance to start point
-        if segment_length < 0.1:  # Less than 0.1nm
-            return dist_to_start
-        
-        # Calculate bearing from start to end
-        bearing_start_to_end, _ = line_start.haversine_distance(line_end)
-        
-        # Calculate bearing from start to point
-        bearing_start_to_point, _ = line_start.haversine_distance(point)
-        
-        # Calculate the angle between the line and the point
-        angle_diff = abs(bearing_start_to_end - bearing_start_to_point)
-        if angle_diff > 180:
-            angle_diff = 360 - angle_diff
-        
-        # If angle is close to 0 or 180 degrees, point is roughly on the line
-        if angle_diff < 10 or angle_diff > 170:
-            # Calculate perpendicular distance using great circle
-            # Project point onto the line segment
-            if angle_diff < 10:  # Point is roughly in line with segment
-                # Calculate where along the segment the perpendicular point would be
-                # This is an approximation using the ratio of distances
-                ratio = dist_to_start / (dist_to_start + dist_to_end) if (dist_to_start + dist_to_end) > 0 else 0.5
-                
-                # Calculate the perpendicular point along the segment
-                perpendicular_point = line_start.point_from_bearing_distance(
-                    bearing_start_to_end, 
-                    segment_length * ratio,
-                    "perpendicular"
-                )
-                
-                # Calculate distance to this perpendicular point
-                _, perpendicular_distance = point.haversine_distance(perpendicular_point)
-                return perpendicular_distance
-            else:  # Point is roughly opposite direction
-                return min(dist_to_start, dist_to_end)
+        EARTH_RADIUS_NM = 3440.065  # nautical miles
+
+        # Distances
+        _, dist_AP = line_start.haversine_distance(point)
+        _, dist_AB = line_start.haversine_distance(line_end)
+
+        # Bearings in degrees
+        bearing_AB, _ = line_start.haversine_distance(line_end)
+        bearing_AP, _ = line_start.haversine_distance(point)
+
+        # Convert to radians
+        δ13 = dist_AP / EARTH_RADIUS_NM
+        θ13 = math.radians(bearing_AP)
+        θ12 = math.radians(bearing_AB)
+
+        # Cross-track distance
+        d_xt = math.asin(math.sin(δ13) * math.sin(θ13 - θ12)) * EARTH_RADIUS_NM
+
+        # Along-track distance
+        d_at = math.acos(math.cos(δ13) / math.cos(d_xt / EARTH_RADIUS_NM)) * EARTH_RADIUS_NM
+
+        # Check projection lies within segment
+        if d_at < 0:
+            return dist_AP  # closest to start
+        elif d_at > dist_AB:
+            _, dist_BP = line_end.haversine_distance(point)
+            return dist_BP  # closest to end
         else:
-            # Point is not roughly on the line, return minimum distance to endpoints
-            return min(dist_to_start, dist_to_end) 
+            return abs(d_xt) 
