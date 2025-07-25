@@ -17,6 +17,9 @@ class NavPoint:
     All bearing calculations use degrees (0-360, where 0/360 is North, 90 is East, etc.)
     """
     
+    # Class constants
+    EARTH_RADIUS_NM = 3440.065  # Earth's radius in nautical miles
+    
     latitude: float  # Decimal degrees, -90 to +90
     longitude: float  # Decimal degrees, -180 to +180
     name: Optional[str] = None  # Optional identifier for the point
@@ -43,8 +46,6 @@ class NavPoint:
         Note:
             Uses the great circle calculation for accurate navigation distances
         """
-        R = 3440  # Earth's radius in nautical miles
-
         # Convert to radians
         lat1 = math.radians(self.latitude)
         lon1 = math.radians(self.longitude)
@@ -52,14 +53,14 @@ class NavPoint:
 
         # Calculate new latitude
         lat2 = math.asin(
-            math.sin(lat1) * math.cos(distance / R) +
-            math.cos(lat1) * math.sin(distance / R) * math.cos(bearing_rad)
+            math.sin(lat1) * math.cos(distance / self.EARTH_RADIUS_NM) +
+            math.cos(lat1) * math.sin(distance / self.EARTH_RADIUS_NM) * math.cos(bearing_rad)
         )
 
         # Calculate new longitude
         lon2 = lon1 + math.atan2(
-            math.sin(bearing_rad) * math.sin(distance / R) * math.cos(lat1),
-            math.cos(distance / R) - math.sin(lat1) * math.sin(lat2)
+            math.sin(bearing_rad) * math.sin(distance / self.EARTH_RADIUS_NM) * math.cos(lat1),
+            math.cos(distance / self.EARTH_RADIUS_NM) - math.sin(lat1) * math.sin(lat2)
         )
 
         return NavPoint(
@@ -96,7 +97,7 @@ class NavPoint:
         # Haversine formula
         a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = 3440 * c  # Earth radius in nautical miles
+        distance = self.EARTH_RADIUS_NM * c  # Earth radius in nautical miles
         
         # Calculate bearing
         y = math.sin(dlon) * math.cos(lat2)
@@ -177,8 +178,6 @@ class NavPoint:
         Compute distance from this point to a segment defined by two NavPoints.
         Returns distance in nautical miles.
         """
-        R = 3440.065  # Earth radius in nautical miles
-
         # Compute distances
         _, dist_AP = line_start.haversine_distance(self)
         _, dist_AB = line_start.haversine_distance(line_end)
@@ -193,24 +192,24 @@ class NavPoint:
         bearing_AP, _ = line_start.haversine_distance(self)
 
         # Convert to radians
-        δ13 = dist_AP / R
+        δ13 = dist_AP / self.EARTH_RADIUS_NM
         θ13 = math.radians(bearing_AP)
         θ12 = math.radians(bearing_AB)
 
         # Compute cross-track distance
-        d_xt = math.asin(math.sin(δ13) * math.sin(θ13 - θ12)) * R
+        d_xt = math.asin(math.sin(δ13) * math.sin(θ13 - θ12)) * self.EARTH_RADIUS_NM
 
         # Handle numerical instability when point is very close to line
         if abs(d_xt) < 0.001:  # Point is very close to the great circle line
             # Calculate along-track distance more carefully
-            cos_ratio = math.cos(δ13) / max(math.cos(d_xt / R), 0.0001)
+            cos_ratio = math.cos(δ13) / max(math.cos(d_xt / self.EARTH_RADIUS_NM), 0.0001)
             cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
-            d_at_magnitude = math.acos(cos_ratio) * R
+            d_at_magnitude = math.acos(cos_ratio) * self.EARTH_RADIUS_NM
         else:
             # Standard along-track calculation
-            cos_ratio = math.cos(δ13) / math.cos(d_xt / R)
+            cos_ratio = math.cos(δ13) / math.cos(d_xt / self.EARTH_RADIUS_NM)
             cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
-            d_at_magnitude = math.acos(cos_ratio) * R
+            d_at_magnitude = math.acos(cos_ratio) * self.EARTH_RADIUS_NM
 
         # Determine the sign of along-track distance
         # If the bearing from start to point is more than 90° different from start to end,

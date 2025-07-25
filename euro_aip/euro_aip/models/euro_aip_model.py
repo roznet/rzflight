@@ -407,7 +407,8 @@ class EuroAipModel:
         icao_code = entry.icao_code or entry.matched_airport_icao
 
         # the model only stores airports
-        if not entry.is_airport:
+        # If is_airport is None but we have an ICAO code, treat it as an airport
+        if entry.is_airport is False:
             return
 
         if not icao_code:

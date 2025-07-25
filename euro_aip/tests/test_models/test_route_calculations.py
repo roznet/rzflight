@@ -12,6 +12,28 @@ def make_airport(ident, lat, lon):
         longitude_deg=lon
     )
 
+def test_navpoint_class_constants():
+    """Test that NavPoint class constants are accessible and correct."""
+    from euro_aip.models.navpoint import NavPoint
+    
+    # Test class constant is accessible
+    assert hasattr(NavPoint, 'EARTH_RADIUS_NM')
+    assert NavPoint.EARTH_RADIUS_NM == 3440.065
+    
+    # Test instance can access class constant
+    point = NavPoint(51.4706, -0.461941, 'EGLL')
+    assert point.EARTH_RADIUS_NM == 3440.065
+    
+    # Test the constant is used in calculations
+    point2 = NavPoint(48.0695, -1.73456, 'LFRN')
+    bearing, distance = point.haversine_distance(point2)
+    
+    # The distance should be calculated using the class constant
+    # We can't easily test the internal calculation, but we can verify
+    # that the method works correctly with the constant
+    assert isinstance(distance, float)
+    assert distance > 0
+
 def test_distance_to_segment_boundary_conditions():
     """Test that distance_to_segment properly handles points outside segment boundaries."""
     from euro_aip.models.navpoint import NavPoint
