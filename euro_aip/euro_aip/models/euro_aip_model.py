@@ -707,11 +707,9 @@ class EuroAipModel:
             if not airport or not airport.latitude_deg or not airport.longitude_deg:
                 logger.warning(f"Airport {icao} not found or missing coordinates, skipping")
                 continue
-            route_points.append(NavPoint(
-                latitude=airport.latitude_deg,
-                longitude=airport.longitude_deg,
-                name=icao.upper()
-            ))
+            navpoint = airport.navpoint
+            if navpoint:
+                route_points.append(navpoint)
         
         if len(route_points) < 1:
             logger.warning("No valid airports in route")
@@ -721,14 +719,12 @@ class EuroAipModel:
         nearby_airports = []
         
         for airport in self.airports.values():
-            if not airport.latitude_deg or not airport.longitude_deg:
-                continue
+            if airport.ident not in route_airports:
+                print(f'debug: {airport.ident} not in route_airports')
             
-            airport_point = NavPoint(
-                latitude=airport.latitude_deg,
-                longitude=airport.longitude_deg,
-                name=airport.ident
-            )
+            airport_point = airport.navpoint
+            if not airport_point:
+                continue  # Skip airports without coordinates
             
             # Calculate minimum distance to the route
             min_distance = float('inf')
@@ -741,8 +737,8 @@ class EuroAipModel:
             else:
                 # Multiple airports: calculate minimum distance to any segment of the route
                 for i in range(len(route_points) - 1):
-                    segment_distance = self._distance_to_line_segment(
-                        airport_point, route_points[i], route_points[i + 1]
+                    segment_distance = airport_point.distance_to_segment(
+                        route_points[i], route_points[i + 1]
                     )
                     if segment_distance < min_distance:
                         min_distance = segment_distance
@@ -761,8 +757,10 @@ class EuroAipModel:
         
         logger.info(f"Found {len(nearby_airports)} airports within {distance_nm}nm of route")
         return nearby_airports
+    
 
-    def _distance_to_line_segment(self, point: NavPoint, line_start: NavPoint, line_end: NavPoint) -> float:
+    
+    def _distance_to_line_segment2(self, point: NavPoint, line_start: NavPoint, line_end: NavPoint) -> float:
         """
         Calculate the shortest distance from a point to a great-circle segment defined by two points.
         Returns distance in nautical miles.
@@ -772,6 +770,11 @@ class EuroAipModel:
         # Distances
         _, dist_AP = line_start.haversine_distance(point)
         _, dist_AB = line_start.haversine_distance(line_end)
+        _, dist_BP = line_end.haversine_distance(point)
+
+        # If segment is very short, just return distance to closest endpoint
+        if dist_AB < 0.1:  # Less than 0.1nm
+            return min(dist_AP, dist_BP)
 
         # Bearings in degrees
         bearing_AB, _ = line_start.haversine_distance(line_end)
@@ -785,14 +788,22 @@ class EuroAipModel:
         # Cross-track distance
         d_xt = math.asin(math.sin(δ13) * math.sin(θ13 - θ12)) * EARTH_RADIUS_NM
 
-        # Along-track distance
-        d_at = math.acos(math.cos(δ13) / math.cos(d_xt / EARTH_RADIUS_NM)) * EARTH_RADIUS_NM
+        # Handle numerical instability when point is very close to line
+        if abs(d_xt) < 0.001:  # Point is very close to the great circle line
+            # Calculate along-track distance more carefully
+            cos_ratio = math.cos(δ13) / max(math.cos(d_xt / EARTH_RADIUS_NM), 0.0001)
+            cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
+            d_at = math.acos(cos_ratio) * EARTH_RADIUS_NM
+        else:
+            # Standard along-track calculation
+            cos_ratio = math.cos(δ13) / math.cos(d_xt / EARTH_RADIUS_NM)
+            cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
+            d_at = math.acos(cos_ratio) * EARTH_RADIUS_NM
 
-        # Check projection lies within segment
+        # Check if projection falls within the segment
         if d_at < 0:
             return dist_AP  # closest to start
         elif d_at > dist_AB:
-            _, dist_BP = line_end.haversine_distance(point)
             return dist_BP  # closest to end
         else:
             return abs(d_xt) 

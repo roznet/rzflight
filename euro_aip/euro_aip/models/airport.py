@@ -54,6 +54,28 @@ class Airport:
     aip_entries: List['AIPEntry'] = field(default_factory=list)
     procedures: List['Procedure'] = field(default_factory=list)
 
+    @property
+    def navpoint(self) -> Optional[NavPoint]:
+        """Get NavPoint representation of this airport."""
+        if not hasattr(self, '_navpoint') or self._navpoint is None:
+            if self.latitude_deg is not None and self.longitude_deg is not None:
+                self._navpoint = NavPoint(
+                    latitude=self.latitude_deg,
+                    longitude=self.longitude_deg,
+                    name=self.ident
+                )
+            else:
+                self._navpoint = None
+        return self._navpoint
+    
+    @navpoint.setter
+    def navpoint(self, value: NavPoint):
+        """Set NavPoint and update coordinates."""
+        self._navpoint = value
+        if value:
+            self.latitude_deg = value.latitude
+            self.longitude_deg = value.longitude
+    
     def get_authority(self) -> str:
         """Get the authority for the airport."""
         # get the authority from the ICAO code first 2 letters

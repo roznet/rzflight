@@ -10,6 +10,16 @@ from euro_aip.models.euro_aip_model import EuroAipModel
 from euro_aip.models.airport import Airport
 from euro_aip.models.border_crossing_entry import BorderCrossingEntry
 
+import math
+from euro_aip.models.navpoint import NavPoint
+
+def make_airport(ident, lat, lon):
+    return Airport(
+        ident=ident,
+        name=ident,
+        latitude_deg=lat,
+        longitude_deg=lon
+    )
 
 class TestEuroAipModelBorderCrossing:
     """Test cases for EuroAipModel border crossing integration."""

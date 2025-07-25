@@ -170,3 +170,64 @@ class NavPoint:
     def __repr__(self) -> str:
         """Detailed string representation of the NavPoint."""
         return f"NavPoint(name={self.name!r}, latitude={self.latitude}, longitude={self.longitude})" 
+    
+
+    def distance_to_segment(self, line_start: 'NavPoint', line_end: 'NavPoint') -> float:
+        """
+        Compute distance from this point to a segment defined by two NavPoints.
+        Returns distance in nautical miles.
+        """
+        R = 3440.065  # Earth radius in nautical miles
+
+        # Compute distances
+        _, dist_AP = line_start.haversine_distance(self)
+        _, dist_AB = line_start.haversine_distance(line_end)
+        _, dist_BP = line_end.haversine_distance(self)
+
+        # If segment is very short, just return distance to closest endpoint
+        if dist_AB < 0.1:  # Less than 0.1nm
+            return min(dist_AP, dist_BP)
+
+        # Compute bearings
+        bearing_AB, _ = line_start.haversine_distance(line_end)
+        bearing_AP, _ = line_start.haversine_distance(self)
+
+        # Convert to radians
+        δ13 = dist_AP / R
+        θ13 = math.radians(bearing_AP)
+        θ12 = math.radians(bearing_AB)
+
+        # Compute cross-track distance
+        d_xt = math.asin(math.sin(δ13) * math.sin(θ13 - θ12)) * R
+
+        # Handle numerical instability when point is very close to line
+        if abs(d_xt) < 0.001:  # Point is very close to the great circle line
+            # Calculate along-track distance more carefully
+            cos_ratio = math.cos(δ13) / max(math.cos(d_xt / R), 0.0001)
+            cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
+            d_at_magnitude = math.acos(cos_ratio) * R
+        else:
+            # Standard along-track calculation
+            cos_ratio = math.cos(δ13) / math.cos(d_xt / R)
+            cos_ratio = max(min(cos_ratio, 1.0), -1.0)  # Clamp to valid range
+            d_at_magnitude = math.acos(cos_ratio) * R
+
+        # Determine the sign of along-track distance
+        # If the bearing from start to point is more than 90° different from start to end,
+        # then the projection is "behind" the start point
+        bearing_diff = abs(bearing_AP - bearing_AB)
+        if bearing_diff > 180:
+            bearing_diff = 360 - bearing_diff
+        
+        if bearing_diff > 90:
+            d_at = -d_at_magnitude  # Projection is behind start point
+        else:
+            d_at = d_at_magnitude   # Projection is in front of start point
+
+        # Check if projection falls within the segment
+        if d_at < 0:
+            return dist_AP  # closest to start
+        elif d_at > dist_AB:
+            return dist_BP  # closest to end
+        else:
+            return abs(d_xt)
