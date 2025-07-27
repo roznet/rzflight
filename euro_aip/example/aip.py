@@ -3,11 +3,15 @@
 import sys
 import argparse
 import logging
+import json
+import csv
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pprint import pprint
-from euro_aip.sources import AutorouterSource, FranceEAIPSource, UKEAIPSource, WorldAirportsSource, PointDePassageJournalOfficiel, DatabaseSource
+from euro_aip.sources import AutorouterSource, FranceEAIPSource, UKEAIPSource, WorldAirportsSource, PointDePassageJournalOfficielSource, DatabaseSource
 from euro_aip.parsers import AIPParserFactory
+from euro_aip.storage.database_storage import DatabaseStorage
+from euro_aip.interp import InterpreterFactory
 
 # Configure logging
 logging.basicConfig(
@@ -235,7 +239,7 @@ class Command:
         )
         
         # Initialize Point de Passage source
-        source = PointDePassageJournalOfficiel(
+        source = PointDePassageJournalOfficielSource(
             pdf_path=self.args.journal_path,
             database_source=database_source
         )
@@ -289,13 +293,223 @@ class Command:
                 import traceback
                 traceback.print_exc()
 
+    def run_analyze(self):
+        """Analyze structured information from the database using interpreters."""
+        if not self.args.interpreters:
+            logger.error("--interpreters is required for analyze command")
+            return
+        
+        logger.info(f'Loading model from database: {self.args.database}')
+        
+        try:
+            # Load model from database
+            storage = DatabaseStorage(self.args.database)
+            model = storage.load_model()
+            
+            logger.info(f'Loaded model with {len(model.airports)} airports')
+            
+            # Parse interpreter types
+            interpreter_types = [t.strip() for t in self.args.interpreters.split(',')]
+            
+            # Create interpreters
+            interpreters = []
+            for interpreter_type in interpreter_types:
+                interpreter = InterpreterFactory.create_interpreter(interpreter_type, model)
+                interpreters.append(interpreter)
+            
+            # Run analysis using model method
+            results = model.analyze_fields_with_interpreters(
+                interpreters=interpreters,
+                country_filter=self.args.country,
+                airport_filter=self.args.airports if self.args.airports else None
+            )
+            
+            # Prepare results for output
+            all_results = {}
+            all_failed = []
+            all_missing = []
+            
+            for interpreter_name, result in results.items():
+                all_results[interpreter_name] = result.successful
+                all_failed.extend(result.failed)
+                all_missing.extend(result.missing)
+            
+            # Output results
+            self._output_results(all_results, all_failed, all_missing)
+            
+            # Save failed interpretations to separate file if requested
+            if self.args.failed_output and all_failed:
+                self._save_failed_interpretations(all_failed, self.args.failed_output)
+                
+        except Exception as e:
+            logger.error(f'Error during analysis: {e}')
+            if self.args.verbose:
+                import traceback
+                traceback.print_exc()
+
+    def _output_results(self, results: Dict[str, Dict], failed: List[Dict], missing: List[str]):
+        """Output analysis results in the specified format."""
+        output_file = self.args.output
+        
+        if self.args.format == 'json':
+            self._output_json(results, failed, missing, output_file)
+        elif self.args.format == 'csv':
+            self._output_csv(results, failed, missing, output_file, include_raw_values=self.args.include_raw_values)
+        else:
+            self._output_human_readable(results, failed, missing, output_file)
+    
+    def _output_json(self, results: Dict[str, Dict], failed: List[Dict], missing: List[str], output_file: Optional[str]):
+        """Output results in JSON format."""
+        output_data = {
+            'results': results,
+            'failed': failed,
+            'missing': missing,
+            'summary': {
+                'total_successful': sum(len(r) for r in results.values()),
+                'total_failed': len(failed),
+                'total_missing': len(missing)
+            }
+        }
+        
+        if output_file:
+            with open(output_file, 'w') as f:
+                json.dump(output_data, f, indent=2)
+            logger.info(f'Results saved to {output_file}')
+        else:
+            print(json.dumps(output_data, indent=2))
+    
+    def _output_csv(self, results: Dict[str, Dict], failed: List[Dict], missing: List[str], output_file: Optional[str], include_raw_values: bool = False):
+        """Output results in CSV format."""
+        # For CSV, we'll output successful results in a flattened format
+        if not results:
+            logger.warning('No successful results to output')
+            return
+        
+        # Determine all possible fields across all interpreters
+        all_fields = set()
+        for interpreter_results in results.values():
+            for airport_data in interpreter_results.values():
+                all_fields.update(airport_data.keys())
+        
+        # Handle raw_value field based on include_raw_values option
+        if include_raw_values:
+            # Keep raw_value but rename it per interpreter
+            all_fields.discard('raw_value')  # Remove generic raw_value
+        else:
+            # Remove raw_value from fields for CSV output
+            all_fields.discard('raw_value')
+        
+        # Prepare CSV data
+        csv_rows = []
+        all_raw_value_columns = set()  # Track all raw value columns we might need
+        
+        for interpreter_type, interpreter_results in results.items():
+            for airport_icao, airport_data in interpreter_results.items():
+                row = {
+                    'interpreter': interpreter_type,
+                    'airport_icao': airport_icao
+                }
+                
+                # Add structured fields
+                for field in all_fields:
+                    value = airport_data.get(field)
+                    if isinstance(value, list):
+                        value = ';'.join(str(v) for v in value)
+                    row[field] = value
+                
+                # Add raw value if requested
+                if include_raw_values and 'raw_value' in airport_data:
+                    raw_value_column = f"{interpreter_type}_raw_value"
+                    row[raw_value_column] = airport_data['raw_value']
+                    all_raw_value_columns.add(raw_value_column)
+                
+                csv_rows.append(row)
+        
+        # Ensure all rows have the same columns by adding missing raw value columns
+        if include_raw_values and all_raw_value_columns:
+            for row in csv_rows:
+                for raw_value_column in all_raw_value_columns:
+                    if raw_value_column not in row:
+                        row[raw_value_column] = ''  # Empty string for missing raw values
+        
+        if output_file:
+            with open(output_file, 'w', newline='') as f:
+                if csv_rows:
+                    writer = csv.DictWriter(f, fieldnames=csv_rows[0].keys())
+                    writer.writeheader()
+                    writer.writerows(csv_rows)
+            logger.info(f'Results saved to {output_file}')
+        else:
+            # Output to stdout
+            if csv_rows:
+                writer = csv.DictWriter(sys.stdout, fieldnames=csv_rows[0].keys())
+                writer.writeheader()
+                writer.writerows(csv_rows)
+    
+    def _output_human_readable(self, results: Dict[str, Dict], failed: List[Dict], missing: List[str], output_file: Optional[str]):
+        """Output results in human-readable format."""
+        output_lines = []
+        
+        # Summary
+        output_lines.append("=== ANALYSIS RESULTS ===")
+        output_lines.append(f"Total successful interpretations: {sum(len(r) for r in results.values())}")
+        output_lines.append(f"Total failed interpretations: {len(failed)}")
+        output_lines.append(f"Total missing data: {len(missing)}")
+        output_lines.append("")
+        
+        # Results by interpreter
+        for interpreter_type, interpreter_results in results.items():
+            output_lines.append(f"=== {interpreter_type.upper()} INTERPRETER ===")
+            output_lines.append(f"Successful: {len(interpreter_results)}")
+            if interpreter_results:
+                for airport_icao, data in list(interpreter_results.items())[:5]:  # Show first 5
+                    output_lines.append(f"  {airport_icao}: {data}")
+                if len(interpreter_results) > 5:
+                    output_lines.append(f"  ... and {len(interpreter_results) - 5} more")
+            output_lines.append("")
+        
+        # Failed interpretations (first 10)
+        if failed:
+            output_lines.append("=== FAILED INTERPRETATIONS ===")
+            for failure in failed[:10]:
+                output_lines.append(f"  {failure['airport_icao']}: {failure['reason']}")
+            if len(failed) > 10:
+                output_lines.append(f"  ... and {len(failed) - 10} more")
+            output_lines.append("")
+        
+        # Missing data (first 10)
+        if missing:
+            output_lines.append("=== MISSING DATA ===")
+            for airport_icao in missing[:10]:
+                output_lines.append(f"  {airport_icao}")
+            if len(missing) > 10:
+                output_lines.append(f"  ... and {len(missing) - 10} more")
+        
+        output_text = '\n'.join(output_lines)
+        
+        if output_file:
+            with open(output_file, 'w') as f:
+                f.write(output_text)
+            logger.info(f'Results saved to {output_file}')
+        else:
+            print(output_text)
+
+    def _save_failed_interpretations(self, failed: List[Dict], output_file: str):
+        """Save failed interpretations to a separate file for review."""
+        try:
+            with open(output_file, 'w') as f:
+                json.dump(failed, f, indent=2)
+            logger.info(f'Failed interpretations saved to {output_file}')
+        except Exception as e:
+            logger.error(f'Error saving failed interpretations: {e}')
+
     def run(self):
         """Run the specified command."""
         getattr(self, f'run_{self.args.command}')()
 
 def main():
     parser = argparse.ArgumentParser(description='European AIP data management tool')
-    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'uk_eaip', 'worldairports', 'pointdepassage', 'querydb'])
+    parser.add_argument('command', help='Command to execute', choices=['autorouter', 'france_eaip', 'uk_eaip', 'worldairports', 'pointdepassage', 'querydb', 'analyze'])
     parser.add_argument('airports', help='List of ICAO airport codes', nargs='*')
     parser.add_argument('-c', '--cache-dir', help='Directory to cache files', default='cache')
     parser.add_argument('-u', '--username', help='Autorouter username')
@@ -307,6 +521,14 @@ def main():
     parser.add_argument('-n', '--never-refresh', help='Never refresh cached data if it exists', action='store_true')
     parser.add_argument('-j', '--journal-path', help='Path to Point de Passage journal PDF file')
     parser.add_argument('-w', '--where', help='SQL WHERE clause for database query')
+    
+    # Analysis-specific arguments
+    parser.add_argument('-i', '--interpreters', help='Comma-separated list of interpreters to run (custom,maintenance)', type=str)
+    parser.add_argument('--format', help='Output format (json,csv,human)', choices=['json', 'csv', 'human'], default='human')
+    parser.add_argument('-o', '--output', help='Output file path')
+    parser.add_argument('--country', help='Filter by country code (e.g., GB, FR)')
+    parser.add_argument('--failed-output', help='Output file for failed interpretations')
+    parser.add_argument('--include-raw-values', help='Include raw field values in CSV output', action='store_true')
     
     args = parser.parse_args()
     

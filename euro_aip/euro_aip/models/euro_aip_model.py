@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Any
+from typing import Dict, List, Optional, Set, Any, Callable
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -807,4 +807,118 @@ class EuroAipModel:
         elif d_at > dist_AB:
             return dist_BP  # closest to end
         else:
-            return abs(d_xt) 
+            return abs(d_xt)
+    
+    def analyze_fields_with_interpreters(
+        self, 
+        interpreters: List['BaseInterpreter'], 
+        country_filter: Optional[str] = None,
+        airport_filter: Optional[List[str]] = None,
+        custom_filter: Optional[Callable[['Airport'], bool]] = None
+    ) -> Dict[str, 'InterpretationResult']:
+        """
+        Analyze multiple field types across airports using interpreters.
+        
+        Args:
+            interpreters: List of interpreters to use for field analysis
+            country_filter: Optional ISO country code to filter airports
+            airport_filter: Optional list of specific airport ICAO codes
+            custom_filter: Optional custom filter function taking Airport and returning bool
+            
+        Returns:
+            Dictionary mapping interpreter names to InterpretationResult
+        """
+        from ..interp.base import InterpretationResult
+        
+        # Start with all airports
+        candidate_airports = list(self.airports.keys())
+        
+        # Apply filters in intersection (all must pass)
+        if country_filter:
+            country_airports = [
+                icao for icao, airport in self.airports.items()
+                if airport.iso_country == country_filter
+            ]
+            candidate_airports = list(set(candidate_airports) & set(country_airports))
+            logger.info(f"Country filter '{country_filter}': {len(candidate_airports)} airports")
+        
+        if airport_filter:
+            airport_airports = [
+                icao for icao in candidate_airports
+                if icao in airport_filter
+            ]
+            candidate_airports = airport_airports
+            logger.info(f"Airport filter: {len(candidate_airports)} airports")
+        
+        if custom_filter:
+            custom_airports = [
+                icao for icao in candidate_airports
+                if custom_filter(self.airports[icao])
+            ]
+            candidate_airports = custom_airports
+            logger.info(f"Custom filter: {len(candidate_airports)} airports")
+        
+        logger.info(f"Final candidate airports: {len(candidate_airports)}")
+        
+        # Process each interpreter
+        results = {}
+        
+        for interpreter in interpreters:
+            interpreter_name = interpreter.get_interpreter_name()
+            field_id = interpreter.get_standard_field_id()
+            
+            logger.info(f"Processing {interpreter_name} interpreter for field {field_id}")
+            
+            successful = {}
+            failed = []
+            missing = []
+            
+            # Find airports with this field
+            airports_with_field = []
+            for icao in candidate_airports:
+                airport = self.airports[icao]
+                entry = airport.get_aip_entry_for_field(field_id)
+                if entry and entry.value:
+                    airports_with_field.append(icao)
+            
+            logger.info(f"Found {len(airports_with_field)} airports with field {field_id}")
+            
+            # Process each airport with the field
+            for icao in airports_with_field:
+                airport = self.airports[icao]
+                entry = airport.get_aip_entry_for_field(field_id)
+                
+                if not entry or not entry.value:
+                    missing.append(icao)
+                    continue
+                
+                # Try to interpret the field value
+                try:
+                    interpreted_data = interpreter.interpret_field_value(entry.value, airport)
+                    if interpreted_data:
+                        successful[icao] = interpreted_data
+                    else:
+                        failed.append({
+                            'airport_icao': icao,
+                            'field_value': entry.value,
+                            'reason': 'No structured data extracted',
+                            'interpreter': interpreter_name
+                        })
+                except Exception as e:
+                    failed.append({
+                        'airport_icao': icao,
+                        'field_value': entry.value,
+                        'reason': f'Exception: {str(e)}',
+                        'interpreter': interpreter_name
+                    })
+            
+            # Create result for this interpreter
+            results[interpreter_name] = InterpretationResult(
+                successful=successful,
+                failed=failed,
+                missing=missing
+            )
+            
+            logger.info(f"{interpreter_name}: {len(successful)} successful, {len(failed)} failed, {len(missing)} missing")
+        
+        return results

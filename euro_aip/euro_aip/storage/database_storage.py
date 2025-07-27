@@ -1200,12 +1200,16 @@ class DatabaseStorage:
         
         entries = []
         with self._get_connection() as conn:
-            cursor = conn.execute('SELECT * FROM border_crossing_points')
-            for row in cursor.fetchall():
-                entry = BorderCrossingEntry.from_dict(dict(row))
-                entries.append(entry)
+            try:
+                cursor = conn.execute('SELECT * FROM border_crossing_points')
+                for row in cursor.fetchall():
+                    entry = BorderCrossingEntry.from_dict(dict(row))
+                    entries.append(entry)
+                logger.info(f"Loaded {len(entries)} border crossing entries")
+            except Exception as e:
+                logger.warning(f"Could not load border crossing data: {e}")
+                logger.info("Loaded 0 border crossing entries")
         
-        logger.info(f"Loaded {len(entries)} border crossing entries")
         return entries
     
     def get_border_crossing_points_changes(self, days: int = 30) -> List[BorderCrossingChange]:

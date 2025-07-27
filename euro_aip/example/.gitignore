@@ -11,3 +11,7 @@ changes.csv
 changes.json
 changes.xlsx
 t.*
+test*csv
+test*json
+test*db
+test*xlsx

@@ -73,7 +73,7 @@
             "args": "--worldairports --worldairports-filter required --autorouter --database-storage airports.db --never-refresh"
         },
         {
-            "name": "Python Debugger: Query Database",
+            "name": "Python Debugger: Analyze",
             "type": "debugpy",
             "request": "launch",
             "program": "aip.py",
@@ -83,12 +83,7 @@
             },
             "cwd": "${workspaceFolder}/example",
             "python": "${workspaceFolder}/venv/bin/python",
-            "args": [
-                "querydb",
-                "-w",
-                "ident = 'LFAT' or ident = 'EGKB'",
-                "-v"
-            ]
+            "args": "analyze --database airports.db --interpreters custom --format csv --country FR --include-raw-values --output test_results.csv --failed-output test_failed.csv"
         },
         {
             "name": "Python Debugger: Interactive AIP",
