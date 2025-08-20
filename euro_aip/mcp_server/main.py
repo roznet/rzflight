@@ -35,6 +35,153 @@ from euro_aip.models.airport import Airport
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Generic Filter System
+class AirportFilter:
+    """Generic airport filter system that provides consistent filtering across all tools.
+    
+    This class handles:
+    - Filter definitions and metadata
+    - Filter application logic
+    - Dynamic filter schema generation for tools
+    
+    Tool requirements are defined directly in the tool definitions.
+    """
+    
+    # Define all available filter types
+    FILTER_TYPES = {
+        # Basic filters
+        'country': {
+            'type': 'string',
+            'description': 'ISO country code filter',
+            'field_type': 'basic',
+            'applies_to': ['search', 'route', 'closest', 'border_crossing']
+        },
+        'has_customs': {
+            'type': 'boolean',
+            'description': 'Filter for customs facilities',
+            'field_type': 'boolean',
+            'applies_to': ['search', 'route', 'closest', 'border_crossing']
+        },
+        'has_avgas': {
+            'type': 'boolean',
+            'description': 'Filter for AVGAS fuel',
+            'field_type': 'boolean',
+            'applies_to': ['search', 'route', 'closest']
+        },
+        'has_jet_a': {
+            'type': 'boolean',
+            'description': 'Filter for Jet A fuel',
+            'field_type': 'boolean',
+            'applies_to': ['search', 'route', 'closest']
+        },
+        'has_restaurant': {
+            'type': 'boolean',
+            'description': 'Filter for restaurant facilities',
+            'field_type': 'standardized_field',
+            'field_id': 502,
+            'applies_to': ['search', 'route', 'closest']
+        },
+        'has_hotel': {
+            'type': 'boolean',
+            'description': 'Filter for hotel facilities',
+            'field_type': 'standardized_field',
+            'field_id': 501,
+            'applies_to': ['search', 'route', 'closest']
+        },
+        'has_hard_runway': {
+            'type': 'boolean',
+            'description': 'Filter for hard surface runways',
+            'field_type': 'boolean',
+            'applies_to': ['search', 'closest']
+        },
+        'max_results': {
+            'type': 'integer',
+            'description': 'Maximum number of results',
+            'field_type': 'limit',
+            'applies_to': ['search', 'route'],
+            'default': 20
+        },
+        'distance_nm': {
+            'type': 'number',
+            'description': 'Distance in nautical miles',
+            'field_type': 'distance',
+            'applies_to': ['route'],
+            'default': 50.0
+        },
+        'max_distance_nm': {
+            'type': 'number',
+            'description': 'Maximum distance in nautical miles',
+            'field_type': 'distance',
+            'applies_to': ['closest'],
+            'default': 100.0
+        }
+    }
+    
+    @classmethod
+    def get_filter_schema(cls, tool_type: str) -> dict:
+        """Get the input schema for a specific tool type."""
+        properties = {}
+        
+        for filter_name, filter_config in cls.FILTER_TYPES.items():
+            if tool_type in filter_config['applies_to']:
+                properties[filter_name] = {
+                    "type": filter_config['type'],
+                    "description": filter_config['description']
+                }
+                if 'default' in filter_config:
+                    properties[filter_name]['default'] = filter_config['default']
+        
+        return properties
+    
+    # Tool requirements are now defined directly in tool definitions
+    
+    @classmethod
+    def create_filter_dict(cls, arguments: dict, tool_type: str) -> dict:
+        """Create a filter dictionary from tool arguments."""
+        filters = {}
+        
+        for filter_name, filter_config in cls.FILTER_TYPES.items():
+            if tool_type in filter_config['applies_to']:
+                if filter_name in arguments:
+                    filters[filter_name] = arguments[filter_name]
+        
+        return filters
+    
+    @classmethod
+    def apply_filters(cls, airport: Airport, filters: dict) -> bool:
+        """Apply all filters to an airport and return True if it passes all filters."""
+        
+        for filter_name, filter_value in filters.items():
+            if filter_value is None:
+                continue
+                
+            if filter_name == 'country':
+                if airport.iso_country != filter_value:
+                    return False
+                    
+            elif filter_name == 'has_customs':
+                if airport.point_of_entry != filter_value:
+                    return False
+                    
+            elif filter_name == 'has_avgas':
+                if airport.avgas != filter_value:
+                    return False
+                    
+            elif filter_name == 'has_jet_a':
+                if airport.jet_a != filter_value:
+                    return False
+                    
+            elif filter_name == 'has_hard_runway':
+                if airport.has_hard_runway != filter_value:
+                    return False
+                    
+            elif filter_name in ['has_restaurant', 'has_hotel']:
+                filter_config = cls.FILTER_TYPES[filter_name]
+                if airport.has_standardized_field(filter_config['field_id']) != filter_value:
+                    return False
+        
+        return True
+
 # Configuration
 @dataclass(frozen=True)
 class ServerConfig:
@@ -56,6 +203,15 @@ class FacilityType(str, Enum):
     JET_A = "jet_a"
     RESTAURANT = "restaurant"
 
+# Standardized field IDs for common facilities
+class StandardizedFields:
+    CUSTOMS_IMMIGRATION = 302
+    FUEL_OIL_TYPES = 402
+    RESTAURANTS = 502
+    HOTELS = 501
+    TRANSPORTATION = 503
+    MEDICAL_FACILITIES = 504
+
 # Input validation models with Pydantic V2
 class SearchAirportsRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=50)
@@ -64,6 +220,7 @@ class SearchAirportsRequest(BaseModel):
     has_avgas: Optional[bool] = None
     has_jet_a: Optional[bool] = None
     has_restaurant: Optional[bool] = None
+    has_hotel: Optional[bool] = None
     has_hard_runway: Optional[bool] = None
     max_results: int = Field(20, ge=1, le=100)
 
@@ -87,22 +244,7 @@ class GetAirportDetailsRequest(BaseModel):
     def validate_icao(cls, v):
         return v.upper().strip()
 
-class GetBorderCrossingAirportsRequest(BaseModel):
-    country: Optional[str] = Field(None, max_length=3)
-    has_customs: Optional[bool] = None
-
-    @field_validator('country')
-    @classmethod
-    def validate_country(cls, v):
-        return v.upper() if v else v
-
-class GetAirportStatisticsRequest(BaseModel):
-    country: Optional[str] = Field(None, max_length=3)
-
-    @field_validator('country')
-    @classmethod
-    def validate_country(cls, v):
-        return v.upper() if v else v
+# Removed unused request models - now using generic filter system
 
 # Service class
 class AirportService:
@@ -110,81 +252,43 @@ class AirportService:
     
     def __init__(self, model: EuroAipModel):
         self.model = model
-        self._facility_cache: Dict[str, Set[str]] = {}
-        self._build_facility_cache()
     
-    def _build_facility_cache(self):
-        """Build index of airports by facilities for efficient filtering."""
-        # Use boolean fields for customs, avgas, and jet_a (more reliable)
-        # Use AIP entries for restaurants and hotels (simpler logic)
-        
-        for facility_type in [FacilityType.CUSTOMS, FacilityType.AVGAS, FacilityType.JET_A, FacilityType.RESTAURANT]:
-            self._facility_cache[facility_type.value] = set()
-        
-        for airport in self.model.airports.values():
-            # Customs: use point_of_entry boolean field (most reliable)
-            if airport.point_of_entry:
-                self._facility_cache[FacilityType.CUSTOMS.value].add(airport.ident)
-            
-            # AVGAS: fall back to AIP entries since boolean field isn't populated
-            fuel_entry = airport.get_aip_entry_for_field(402)  # Fuel and oil types
-            if fuel_entry and fuel_entry.value:
-                fuel_value = fuel_entry.value.lower()
-                if 'avgas' in fuel_value or '100ll' in fuel_value:
-                    self._facility_cache[FacilityType.AVGAS.value].add(airport.ident)
-                if 'jet' in fuel_value or 'a1' in fuel_value:
-                    self._facility_cache[FacilityType.JET_A.value].add(airport.ident)
-            
-            # Restaurants: use AIP entries (simpler logic)
-            restaurant_entry = airport.get_aip_entry_for_field(502)  # Restaurants
-            if restaurant_entry and restaurant_entry.value:
-                self._facility_cache[FacilityType.RESTAURANT.value].add(airport.ident)
+    # Use the generic filter system instead of hardcoded filters
+    
+    def _matches_search_query(self, airport: Airport, query: str) -> bool:
+        """Check if airport matches search query."""
+        query_upper = query.upper()
+        return (
+            query_upper in airport.ident or 
+            (airport.name and query_upper in airport.name.upper()) or
+            (airport.iata_code and query_upper in airport.iata_code) or
+            (airport.municipality and query_upper in airport.municipality.upper())
+        )
+    
+    # Old helper methods removed - now using AirportFilter.apply_filters()
     
     def search_airports(self, request: SearchAirportsRequest) -> List[Airport]:
-        """Search airports with efficient filtering."""
+        """Search airports using the generic filter system."""
         results = []
-        query_upper = request.query.upper()
+        
+        # Convert request to filter dictionary
+        filters = {
+            'country': request.country,
+            'has_customs': request.has_customs,
+            'has_avgas': request.has_avgas,
+            'has_jet_a': request.has_jet_a,
+            'has_restaurant': request.has_restaurant,
+            'has_hotel': request.has_hotel,
+            'has_hard_runway': request.has_hard_runway,
+        }
         
         for airport in self.model.airports.values():
             # Basic search
-            if not (
-                query_upper in airport.ident or 
-                (airport.name and query_upper in airport.name.upper()) or
-                (airport.iata_code and query_upper in airport.iata_code) or
-                (airport.municipality and query_upper in airport.municipality.upper())
-            ):
+            if not self._matches_search_query(airport, request.query):
                 continue
             
-            # Apply filters
-            if request.country and airport.iso_country != request.country:
-                continue
-            
-            # Facility filters using cache (only if cache has data)
-            facility_filters = [
-                (request.has_customs, FacilityType.CUSTOMS),
-                (request.has_avgas, FacilityType.AVGAS),
-                (request.has_jet_a, FacilityType.JET_A),
-                (request.has_restaurant, FacilityType.RESTAURANT),
-            ]
-            
-            skip_airport = False
-            for filter_value, facility_type in facility_filters:
-                if filter_value is not None:
-                    # Only apply filter if we have facility data in cache
-                    cache_key = facility_type.value
-                    if len(self._facility_cache[cache_key]) > 0:
-                        has_facility = airport.ident in self._facility_cache[cache_key]
-                        if has_facility != filter_value:
-                            skip_airport = True
-                            break
-                    else:
-                        # No facility data available, skip this filter
-                        continue
-            
-            if skip_airport:
-                continue
-            
-            if request.has_hard_runway is not None and airport.has_hard_runway != request.has_hard_runway:
+            # Apply all filters using the generic system
+            if not AirportFilter.apply_filters(airport, filters):
                 continue
             
             results.append(airport)
@@ -193,18 +297,142 @@ class AirportService:
                 break
         
         # Sort by relevance
-        def relevance_score(airport: Airport) -> Tuple[bool, bool, bool, int]:
-            customs = airport.ident in self._facility_cache[FacilityType.CUSTOMS.value]
-            avgas = airport.ident in self._facility_cache[FacilityType.AVGAS.value]  
-            restaurant = airport.ident in self._facility_cache[FacilityType.RESTAURANT.value]
+        def relevance_score(airport: Airport) -> Tuple[bool, bool, bool, bool, int]:
+            customs = airport.point_of_entry is True
+            avgas = airport.avgas is True
+            restaurant = bool(airport.has_standardized_field(StandardizedFields.RESTAURANTS))
+            hotel = bool(airport.has_standardized_field(StandardizedFields.HOTELS))
             runway_length = airport.longest_runway_length_ft or 0
-            return (customs, avgas, restaurant, runway_length)
+            return (customs, avgas, restaurant, hotel, runway_length)
         
         return sorted(results, key=relevance_score, reverse=True)
     
-    def find_airports_near_route(self, route_airports: List[str], distance_nm: float) -> List[Dict]:
-        """Find airports within a specified distance from a flight route using the model's method."""
-        return self.model.find_airports_near_route(route_airports, distance_nm)
+    def find_airports_near_route(self, route_airports: List[str], distance_nm: float, 
+                                filters: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        """Find airports near route with optional filtering."""
+        # Get nearby airports from model
+        nearby_airports = self.model.find_airports_near_route(route_airports, distance_nm)
+        
+        if not filters:
+            return nearby_airports
+        
+        # Apply filters using the generic system
+        filtered_airports = []
+        route_set = set(route_airports)
+        
+        for item in nearby_airports:
+            airport = item['airport']
+            
+            # Skip airports that are part of the route
+            if airport.ident in route_set:
+                continue
+            
+            # Apply all filters using the generic system
+            if not AirportFilter.apply_filters(airport, filters):
+                continue
+            
+            filtered_airports.append(item)
+        
+        return filtered_airports
+    
+    def find_closest_airports(self, location: str, filters: Optional[Dict[str, Any]] = None, 
+                             max_distance_nm: float = 100.0) -> List[Airport]:
+        """Find closest airports to a location with optional filtering."""
+        results = []
+        location_upper = location.upper()
+        
+        for airport in self.model.airports.values():
+            # Check if location matches airport name or city
+            if not (
+                (airport.name and location_upper in airport.name.upper()) or
+                (airport.municipality and location_upper in airport.municipality.upper())
+            ):
+                continue
+            
+            # Apply all filters using the generic system
+            if not AirportFilter.apply_filters(airport, filters or {}):
+                continue
+            
+            results.append(airport)
+        
+        # Sort by runway length (prefer larger airports)
+        results.sort(key=lambda x: x.longest_runway_length_ft or 0, reverse=True)
+        return results
+    
+    def get_border_crossing_airports(self, filters: Optional[Dict[str, Any]] = None) -> List[Airport]:
+        """Get border crossing airports with optional filtering."""
+        border_airports = self.model.get_border_crossing_airports()
+        
+        if not filters:
+            return border_airports
+        
+        filtered_airports = []
+        for airport in border_airports:
+            # Apply all filters using the generic system
+            if not AirportFilter.apply_filters(airport, filters):
+                continue
+            
+            filtered_airports.append(airport)
+        
+        return filtered_airports
+    
+    def get_airport_statistics(self, country: Optional[str] = None) -> Dict[str, Any]:
+        """Get airport statistics with optional country filtering."""
+        if country:
+            airports = self.get_airports_by_country(country)
+        else:
+            airports = list(self.model.airports.values())
+        
+        total = len(airports)
+        if total == 0:
+            return {"total_airports": 0}
+        
+        # Count facilities directly from airport objects
+        stats = {
+            "total_airports": total,
+            "with_customs": sum(1 for a in airports if a.point_of_entry),
+            "with_avgas": sum(1 for a in airports if a.avgas),
+            "with_jet_a": sum(1 for a in airports if a.jet_a),
+            "with_restaurant": sum(1 for a in airports if a.has_standardized_field(StandardizedFields.RESTAURANTS)),
+            "with_hotel": sum(1 for a in airports if a.has_standardized_field(StandardizedFields.HOTELS)),
+            "with_hard_runway": sum(1 for a in airports if a.has_hard_runway),
+            "with_procedures": sum(1 for a in airports if a.procedures),
+            "border_crossing_points": sum(1 for a in airports if a.point_of_entry),
+        }
+        
+        # Add percentages
+        for key in list(stats.keys()):
+            if key != "total_airports":
+                percentage = (stats[key] / total * 100) if total > 0 else 0
+                stats[f"{key}_percentage"] = round(percentage, 1)
+        
+        return stats
+    
+    def get_airport_procedures(self, icao_code: str, procedure_type: Optional[str] = None, 
+                              runway: Optional[str] = None) -> List:
+        """Get airport procedures with optional filtering."""
+        airport = self.model.get_airport(icao_code)
+        if not airport:
+            return []
+        
+        procedures = airport.procedures
+        
+        # Apply filters
+        if procedure_type:
+            procedures = [p for p in procedures if p.procedure_type == procedure_type]
+        
+        if runway:
+            procedures = airport.get_procedures_by_runway(runway)
+        
+        return procedures
+    
+    def get_airport(self, icao_code: str) -> Optional[Airport]:
+        """Get a single airport by ICAO code."""
+        return self.model.get_airport(icao_code)
+    
+    def get_airports_by_country(self, country_code: str) -> List[Airport]:
+        """Get all airports in a specific country."""
+        return self.model.get_airports_by_country(country_code)
 
 # Response formatter
 class ResponseFormatter:
@@ -336,6 +564,7 @@ class ResponseFormatter:
             result += f"With AVGAS: {stats['with_avgas']} ({stats['with_avgas_percentage']}%)\n"
             result += f"With Jet A: {stats['with_jet_a']} ({stats['with_jet_a_percentage']}%)\n"
             result += f"With restaurant: {stats['with_restaurant']} ({stats['with_restaurant_percentage']}%)\n"
+            result += f"With hotel: {stats['with_hotel']} ({stats['with_hotel_percentage']}%)\n"
             result += f"With hard runway: {stats['with_hard_runway']} ({stats['with_hard_runway_percentage']}%)\n"
             result += f"With procedures: {stats['with_procedures']} ({stats['with_procedures_percentage']}%)\n"
             result += f"Border crossing points: {stats['border_crossing_points']} ({stats['border_crossing_points_percentage']}%)\n"
@@ -352,22 +581,12 @@ class ResponseFormatter:
         
         for item in airports:
             airport = item['airport']
-            restaurant_entry = airport.get_aip_entry_for_field(502)  # Restaurants
             
             result += f"**{airport.ident} - {airport.name}** (Distance: {item['distance_nm']:.1f}nm)\n"
             result += f"Location: {airport.municipality}, {airport.iso_country}\n"
             
-            # Build facilities list using boolean fields (more reliable)
-            facilities = []
-            if airport.point_of_entry:
-                facilities.append("Customs")
-            if airport.avgas:
-                facilities.append("AVGAS")
-            if airport.jet_a:
-                facilities.append("Jet A")
-            if restaurant_entry and restaurant_entry.value:
-                facilities.append("Restaurant")
-            
+            # Get facilities list using the helper method
+            facilities = ResponseFormatter._get_facility_list(airport)
             result += f"Facilities: {', '.join(facilities) if facilities else 'None'}\n"
             result += f"Runway: {airport.longest_runway_length_ft}ft {'(hard surface)' if airport.has_hard_runway else ''}\n\n"
         
@@ -425,23 +644,21 @@ class ResponseFormatter:
         """Get list of available facilities for an airport."""
         facilities = []
         
-        # Customs: use point_of_entry boolean field (most reliable)
+        # Use boolean fields directly where available
         if airport.point_of_entry:
             facilities.append("Customs")
         
-        # AVGAS and Jet A: fall back to AIP entries since boolean fields aren't populated
-        fuel_entry = airport.get_aip_entry_for_field(402)  # Fuel and oil types
-        if fuel_entry and fuel_entry.value:
-            fuel_value = fuel_entry.value.lower()
-            if 'avgas' in fuel_value or '100ll' in fuel_value:
-                facilities.append("AVGAS")
-            if 'jet' in fuel_value or 'a1' in fuel_value:
-                facilities.append("Jet A")
+        if airport.avgas:
+            facilities.append("AVGAS")
         
-        # Restaurants: use AIP entries (simpler logic)
-        restaurant_entry = airport.get_aip_entry_for_field(502)  # Restaurants
-        if restaurant_entry and restaurant_entry.value:
+        if airport.jet_a:
+            facilities.append("Jet A")
+        
+        if airport.has_standardized_field(StandardizedFields.RESTAURANTS):
             facilities.append("Restaurant")
+        
+        if airport.has_standardized_field(StandardizedFields.HOTELS):
+            facilities.append("Hotel")
         
         return facilities
 
@@ -476,13 +693,7 @@ async def handle_list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
-                    "country": {"type": "string", "description": "ISO country code"},
-                    "has_customs": {"type": "boolean", "description": "Filter for customs"},
-                    "has_avgas": {"type": "boolean", "description": "Filter for AVGAS"},
-                    "has_jet_a": {"type": "boolean", "description": "Filter for Jet A"},
-                    "has_restaurant": {"type": "boolean", "description": "Filter for restaurant"},
-                    "has_hard_runway": {"type": "boolean", "description": "Filter for hard runway"},
-                    "max_results": {"type": "integer", "description": "Max results", "default": 20}
+                    **AirportFilter.get_filter_schema('search')
                 },
                 "required": ["query"]
             }
@@ -503,10 +714,8 @@ async def handle_list_tools() -> list[Tool]:
             description="Get all airports that serve as border crossing points",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "country": {"type": "string", "description": "Filter by country code"},
-                    "has_customs": {"type": "boolean", "description": "Filter for customs"}
-                }
+                "properties": AirportFilter.get_filter_schema('border_crossing'),
+                "required": []
             }
         ),
         Tool(
@@ -520,15 +729,7 @@ async def handle_list_tools() -> list[Tool]:
                         "items": {"type": "string"},
                         "description": "List of ICAO airport codes defining the route"
                     },
-                    "distance_nm": {
-                        "type": "number",
-                        "description": "Distance in nautical miles from the route",
-                        "default": 50.0
-                    },
-                    "has_customs": {"type": "boolean", "description": "Filter for customs"},
-                    "has_avgas": {"type": "boolean", "description": "Filter for AVGAS"},
-                    "has_restaurant": {"type": "boolean", "description": "Filter for restaurant"},
-                    "max_results": {"type": "integer", "description": "Max results", "default": 20}
+                    **AirportFilter.get_filter_schema('route')
                 },
                 "required": ["route_airports"]
             }
@@ -540,10 +741,7 @@ async def handle_list_tools() -> list[Tool]:
                 "type": "object",
                 "properties": {
                     "location": {"type": "string", "description": "City name or location description"},
-                    "country": {"type": "string", "description": "Country code to limit search"},
-                    "has_customs": {"type": "boolean", "description": "Filter for customs"},
-                    "has_hard_runway": {"type": "boolean", "description": "Filter for hard runway"},
-                    "max_distance_nm": {"type": "number", "description": "Max distance in nautical miles", "default": 100.0}
+                    **AirportFilter.get_filter_schema('closest')
                 },
                 "required": ["location"]
             }
@@ -570,9 +768,7 @@ async def handle_list_tools() -> list[Tool]:
             description="Get statistics about the airport database",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "country": {"type": "string", "description": "Filter by country"}
-                }
+                "properties": AirportFilter.get_filter_schema('border_crossing')
             }
         ),
     ]
@@ -611,7 +807,7 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
         elif name == "get_airport_details":
             try:
                 request = GetAirportDetailsRequest(**arguments)
-                airport = airport_service.model.get_airport(request.icao_code)
+                airport = airport_service.get_airport(request.icao_code)
                 if not airport:
                     raise AirportNotFoundError(f"Airport {request.icao_code} not found.")
                 response = ResponseFormatter.format_airport_details(airport)
@@ -625,20 +821,9 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
         
         elif name == "get_border_crossing_airports":
             try:
-                request = GetBorderCrossingAirportsRequest(**arguments)
-                border_airports = airport_service.model.get_border_crossing_airports()
-                
-                # Apply filters
-                if request.country:
-                    border_airports = [a for a in border_airports if a.iso_country == request.country]
-                
-                if request.has_customs is not None:
-                    filtered_airports = []
-                    for airport in border_airports:
-                        has_customs = airport.ident in airport_service._facility_cache[FacilityType.CUSTOMS.value]
-                        if has_customs == request.has_customs:
-                            filtered_airports.append(airport)
-                    border_airports = filtered_airports
+                # Create filters using the generic system
+                filters = AirportFilter.create_filter_dict(arguments, 'border_crossing')
+                border_airports = airport_service.get_border_crossing_airports(filters)
                 
                 response = ResponseFormatter.format_border_crossing_airports(border_airports)
                 return {"content": [{"type": "text", "text": response}]}
@@ -655,55 +840,14 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
                 # Normalize ICAO codes
                 route_airports = [code.upper().strip() for code in route_airports]
                 distance_nm = arguments.get("distance_nm", 50.0)
-                has_customs = arguments.get("has_customs")
-                has_avgas = arguments.get("has_avgas")
-                has_restaurant = arguments.get("has_restaurant")
-                max_results = arguments.get("max_results", 20)
                 
-                # Find airports near the route
-                nearby_airports = airport_service.model.find_airports_near_route(route_airports, distance_nm)
+                # Create filters using the generic system
+                filters = AirportFilter.create_filter_dict(arguments, 'route')
                 
-                # Apply additional filters
-                filtered_airports = []
-                route_set = set(route_airports)
+                # Find airports near the route with filtering
+                nearby_airports = airport_service.find_airports_near_route(route_airports, distance_nm, filters)
                 
-                for item in nearby_airports:
-                    airport = item['airport']
-                    
-                    # Skip airports that are part of the route
-                    if airport.ident in route_set:
-                        continue
-                    
-                    # Apply facility filters using cache (only if cache has data)
-                    facility_filters = [
-                        (has_customs, FacilityType.CUSTOMS),
-                        (has_avgas, FacilityType.AVGAS),
-                        (has_restaurant, FacilityType.RESTAURANT),
-                    ]
-                    
-                    skip_airport = False
-                    for filter_value, facility_type in facility_filters:
-                        if filter_value is not None:
-                            # Only apply filter if we have facility data in cache
-                            cache_key = facility_type.value
-                            if len(airport_service._facility_cache[cache_key]) > 0:
-                                has_facility = airport.ident in airport_service._facility_cache[cache_key]
-                                if has_facility != filter_value:
-                                    skip_airport = True
-                                    break
-                            else:
-                                # No facility data available, skip this filter
-                                print(f"Warning: No {cache_key} data available, skipping filter")
-                    
-                    if skip_airport:
-                        continue
-                    
-                    filtered_airports.append(item)
-                    
-                    if len(filtered_airports) >= max_results:
-                        break
-                
-                response = ResponseFormatter.format_route_search(filtered_airports, route_airports, distance_nm)
+                response = ResponseFormatter.format_route_search(nearby_airports, route_airports, distance_nm)
                 return {"content": [{"type": "text", "text": response}]}
             except Exception as e:
                 raise ValidationError(f"Invalid parameters: {e}")
@@ -714,39 +858,11 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
                 if not location:
                     raise ValidationError("location is required")
                 
-                country = arguments.get("country")
-                has_customs = arguments.get("has_customs")
-                has_hard_runway = arguments.get("has_hard_runway")
-                max_distance_nm = arguments.get("max_distance_nm", 100.0)
+                # Create filters using the generic system
+                filters = AirportFilter.create_filter_dict(arguments, 'closest')
                 
-                # Simple location search (match against name and city)
-                results = []
-                location_upper = location.upper()
-                
-                for airport in airport_service.model.airports.values():
-                    # Check if location matches airport name or city
-                    if not (
-                        (airport.name and location_upper in airport.name.upper()) or
-                        (airport.municipality and location_upper in airport.municipality.upper())
-                    ):
-                        continue
-                    
-                    # Apply filters
-                    if country and airport.iso_country != country.upper():
-                        continue
-                    
-                    if has_customs is not None:
-                        has_customs_facility = airport.ident in airport_service._facility_cache[FacilityType.CUSTOMS.value]
-                        if has_customs_facility != has_customs:
-                            continue
-                    
-                    if has_hard_runway is not None and airport.has_hard_runway != has_hard_runway:
-                        continue
-                    
-                    results.append(airport)
-                
-                # Sort by runway length (prefer larger airports)
-                results.sort(key=lambda x: x.longest_runway_length_ft or 0, reverse=True)
+                # Find closest airports with filtering
+                results = airport_service.find_closest_airports(location, filters)
                 
                 response = ResponseFormatter.format_closest_airport(results, location)
                 return {"content": [{"type": "text", "text": response}]}
@@ -762,26 +878,14 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
                 procedure_type = arguments.get("procedure_type")
                 runway = arguments.get("runway")
                 
-                airport = airport_service.model.get_airport(icao_code)
-                if not airport:
-                    raise AirportNotFoundError(f"Airport {icao_code} not found in the database.")
-                
-                procedures = airport.procedures
-                
-                # Apply filters
-                if procedure_type:
-                    procedures = [p for p in procedures if p.procedure_type == procedure_type]
-                
-                if runway:
-                    procedures = [
-                        p for p in procedures 
-                        if (hasattr(p, 'runway_ident') and p.runway_ident == runway) or 
-                           (hasattr(p, 'runway_number') and p.runway_number == runway)
-                    ]
+                # Get procedures using service method
+                procedures = airport_service.get_airport_procedures(icao_code, procedure_type, runway)
                 
                 if not procedures:
                     return {"content": [{"type": "text", "text": f"No procedures found for {icao_code} with the specified criteria."}]}
                 
+                # Get airport for formatting
+                airport = airport_service.get_airport(icao_code)
                 response = ResponseFormatter.format_procedures(airport, procedures)
                 return {"content": [{"type": "text", "text": response}]}
             except ValidationError:
@@ -793,38 +897,12 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]):
         
         elif name == "get_airport_statistics":
             try:
-                request = GetAirportStatisticsRequest(**arguments)
+                # Create filters using the generic system
+                filters = AirportFilter.create_filter_dict(arguments, 'border_crossing')
+                country = filters.get('country')
                 
-                if request.country:
-                    airports = airport_service.model.get_airports_by_country(request.country)
-                else:
-                    airports = list(airport_service.model.airports.values())
-                
-                total = len(airports)
-                if total == 0:
-                    stats = {"total_airports": 0}
-                else:
-                    # Count facilities efficiently using our cache
-                    airport_ids = {a.ident for a in airports}
-                    
-                    stats = {
-                        "total_airports": total,
-                        "with_customs": len(airport_service._facility_cache[FacilityType.CUSTOMS.value] & airport_ids),
-                        "with_avgas": len(airport_service._facility_cache[FacilityType.AVGAS.value] & airport_ids),
-                        "with_jet_a": len(airport_service._facility_cache[FacilityType.JET_A.value] & airport_ids),
-                        "with_restaurant": len(airport_service._facility_cache[FacilityType.RESTAURANT.value] & airport_ids),
-                        "with_hard_runway": sum(1 for a in airports if a.has_hard_runway),
-                        "with_procedures": sum(1 for a in airports if a.procedures),
-                        "border_crossing_points": sum(1 for a in airports if a.point_of_entry),
-                    }
-                    
-                    # Add percentages
-                    for key in list(stats.keys()):
-                        if key != "total_airports":
-                            percentage = (stats[key] / total * 100) if total > 0 else 0
-                            stats[f"{key}_percentage"] = round(percentage, 1)
-                
-                response = ResponseFormatter.format_statistics(stats, request.country)
+                stats = airport_service.get_airport_statistics(country)
+                response = ResponseFormatter.format_statistics(stats, country)
                 return {"content": [{"type": "text", "text": response}]}
             except Exception as e:
                 raise ValidationError(f"Invalid parameters: {e}")

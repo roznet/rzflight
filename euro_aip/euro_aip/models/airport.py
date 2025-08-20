@@ -84,6 +84,13 @@ class Airport:
             authority = 'ED'
         return authority + 'C'
     
+    def has_standardized_field(self, field_id: int) -> bool:
+        """Check if airport has a standardized field with a non-empty value."""
+        entry = self.get_aip_entry_for_field(field_id)
+        return entry and entry.value
+    
+
+    
     def add_source(self, source_name: str):
         """Add a source to the tracking set."""
         self.sources.add(source_name)
