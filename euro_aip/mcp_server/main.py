@@ -279,6 +279,14 @@ class ResponseFormatter:
         if hasattr(airport, 'sources') and airport.sources:
             details += f"- Sources: {', '.join(airport.sources)}\n"
         
+        # Add all standardized AIP entries
+        standardized_entries = airport.get_standardized_entries()
+        if standardized_entries:
+            details += "\n**Standardized AIP Information:**\n"
+            for entry in standardized_entries:
+                if entry.std_field and entry.value:
+                    details += f"- {entry.std_field}: {entry.value}\n"
+        
         return details
     
     @staticmethod
