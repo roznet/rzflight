@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "euro_aip": {
+      "command": "/Users/brice/Developer/public/rzflight/euro_aip/mcp_server/venv/bin/python3",
+      "args": ["/Users/brice/Developer/public/rzflight/euro_aip/mcp_server/main.py"],
+      "env": {
+        "AIRPORTS_DB": "/Users/brice/Developer/public/rzflight/euro_aip/web/server/airports.db"
+      }
+    }
+  }
+}

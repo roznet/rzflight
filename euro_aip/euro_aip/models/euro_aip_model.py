@@ -720,8 +720,6 @@ class EuroAipModel:
         nearby_airports = []
         
         for airport in self.airports.values():
-            if airport.ident not in route_airports:
-                print(f'debug: {airport.ident} not in route_airports')
             
             airport_point = airport.navpoint
             if not airport_point:
