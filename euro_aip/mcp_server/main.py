@@ -6,11 +6,13 @@ This server provides tools for querying airport data, route planning, and flight
 to LLM clients like ChatGPT and Claude.
 """
 
+import argparse
 import asyncio
 import logging
 import os
 import sys
 import math
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -20,9 +22,17 @@ from functools import lru_cache
 # Add the euro_aip package to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+try:
+    import websockets
+    WEBSOCKETS_AVAILABLE = True
+except ImportError:
+    WEBSOCKETS_AVAILABLE = False
+    websockets = None
+
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
+from mcp.server.websocket import websocket_server
 from mcp.server.lowlevel.server import NotificationOptions
 from mcp.types import Tool, Resource
 
@@ -935,6 +945,17 @@ async def main():
     """Main function to run the MCP server."""
     global model, airport_service
     
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="MCP Server for Euro AIP Airport Database")
+    parser.add_argument("--transport", choices=["stdio", "websocket"], default="stdio",
+                       help="Transport method (default: stdio)")
+    parser.add_argument("--host", default="127.0.0.1", 
+                       help="Host for WebSocket server (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8001, 
+                       help="Port for WebSocket server (default: 8001)")
+    
+    args = parser.parse_args()
+    
     # Load the airport database
     config = ServerConfig()
     db_path = config.db_path
@@ -949,24 +970,63 @@ async def main():
         logger.error(f"Failed to load database: {e}")
         sys.exit(1)
     
-    # Run the MCP server
-    async with stdio_server() as streams:
-        await server.run(
-            streams[0],  # read stream
-            streams[1],  # write stream
-            InitializationOptions(
-                server_name=config.name,
-                server_version=config.version,
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(
-                        prompts_changed=False,
-                        resources_changed=False,
-                        tools_changed=False,
+    # Choose transport method and run server
+    if args.transport == "stdio":
+        logger.info("Starting MCP server with stdio transport")
+        async with stdio_server() as streams:
+            await server.run(
+                streams[0],  # read stream
+                streams[1],  # write stream
+                InitializationOptions(
+                    server_name=config.name,
+                    server_version=config.version,
+                    capabilities=server.get_capabilities(
+                        notification_options=NotificationOptions(
+                            prompts_changed=False,
+                            resources_changed=False,
+                            tools_changed=False,
+                        ),
+                        experimental_capabilities={},
                     ),
-                    experimental_capabilities={},
                 ),
-            ),
-        )
+            )
+    elif args.transport == "websocket":
+        if not WEBSOCKETS_AVAILABLE:
+            logger.error("Websocket transport requires the 'websockets' library. Please install it with 'pip install websockets'.")
+            sys.exit(1)
+        
+        logger.info(f"Starting MCP server with WebSocket transport on {args.host}:{args.port}")
+        
+        # Create a simple WebSocket server
+        async def handle_websocket(websocket):
+            logger.info(f"New WebSocket connection from {websocket.remote_address}")
+            try:
+                async for message in websocket:
+                    try:
+                        data = json.loads(message)
+                        logger.info(f"Received message: {data}")
+                        
+                        # Echo back for now - in a real implementation, you'd route this to the MCP server
+                        response = {"status": "received", "message": data}
+                        await websocket.send(json.dumps(response))
+                        
+                    except json.JSONDecodeError:
+                        await websocket.send(json.dumps({"error": "Invalid JSON"}))
+                        
+            except websockets.exceptions.ConnectionClosed:
+                logger.info("WebSocket connection closed")
+            except Exception as e:
+                logger.error(f"WebSocket error: {e}")
+        
+        # Start the WebSocket server
+        ws_server = await websockets.serve(handle_websocket, args.host, args.port)
+        logger.info(f"WebSocket server started on ws://{args.host}:{args.port}")
+        
+        # Keep the server running
+        await asyncio.Future()  # Run forever
+    else:
+        logger.error(f"Unknown transport method: {args.transport}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())
