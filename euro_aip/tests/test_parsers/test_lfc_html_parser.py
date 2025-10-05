@@ -35,3 +35,20 @@ def test_lfc_html_parser_basic_extraction():
     assert len(admin_rows) > 0
 
 
+def test_lfc_html_extract_procedures():
+    icao = 'LFAQ'
+    html_bytes = load_asset_bytes('FR-AD-2.LFAQ-fr-FR.html')
+
+    parser = AIPParserFactory.get_parser('LFC', 'html')
+    procs = parser.extract_procedures(html_bytes, icao)
+
+    # Expect at least one approach-related chart parsed
+    assert isinstance(procs, list)
+    assert len(procs) > 0
+
+    # Expect specific basenames present in sample
+    names = [p.get('name', '') for p in procs]
+    expected_any = ['RWY08 RNP', 'RWY26 FNA RNP']
+    assert any(exp in names for exp in expected_any), f"Expected one of {expected_any} in parsed names, got: {names}"
+
+

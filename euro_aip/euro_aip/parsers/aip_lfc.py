@@ -4,6 +4,7 @@ import logging
 from bs4 import BeautifulSoup
 from .aip_default import DefaultAIPParser
 from .aip_base import AIPParser
+from .procedure_factory import ProcedureParserFactory
 
 class LFCAIPParser(DefaultAIPParser):
     """Parser for France (LFC) AIP documents."""
@@ -138,3 +139,44 @@ class LFCHTMLParser(AIPParser):
         text = element.get_text(separator=' ', strip=True)
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
+
+    def extract_procedures(self, html_data: bytes, icao: str) -> List[Dict[str, Any]]:
+        """
+        Extract procedures from France AIP HTML document data.
+
+        Strategy: find links to procedure PDFs in the Cartes section for the ICAO
+        and parse their link text via the LFC procedure parser.
+        """
+        html_content = html_data.decode('utf-8', errors='ignore')
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        parser = ProcedureParserFactory.get_parser('LFC')
+        results: List[Dict[str, Any]] = []
+
+        # Find chart links referencing this ICAO (relative paths like "Cartes/LFAQ/..." )
+        candidates = []
+        for a in soup.find_all('a'):
+            href = a.get('href')
+            if not href:
+                continue
+            if f"Cartes/{icao}" in href:
+                candidates.append(a)
+
+        logger.debug(f"[LFC HTML] Found {len(candidates)} candidate chart links for {icao}")
+
+        for a in candidates:
+            heading = self._extract_text(a)
+            if not heading:
+                # fallback to filename stem without extension
+                href = a.get('href') or ''
+                heading = href.split('/')[-1].rsplit('.', 1)[0]
+            if not heading:
+                continue
+            # Focus on instrument approach charts (IAC) or approach chart identifiers
+            if 'IAC' not in heading and 'APPROACH' not in heading:
+                continue
+            parsed = parser.parse(heading, icao)
+            if parsed:
+                results.append(parsed)
+
+        return results
