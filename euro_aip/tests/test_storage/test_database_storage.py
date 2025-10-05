@@ -512,10 +512,11 @@ class TestDatabaseStorageEdgeCases:
         storage = DatabaseStorage(temp_db_path)
         model = EuroAipModel()
         
-        # Create 100 test airports
+        # Create 100 test airports (use 4-char ICAO-like codes so loader includes them)
         for i in range(100):
+            icao = f'T{i:03d}'
             airport = Airport(
-                ident=f'TEST{i:03d}',
+                ident=icao,
                 name=f'Test Airport {i}',
                 type='small_airport',
                 latitude_deg=50.0 + (i * 0.01),
@@ -532,7 +533,7 @@ class TestDatabaseStorageEdgeCases:
             
             # Add a runway
             runway = Runway(
-                airport_ident=f'TEST{i:03d}',
+                airport_ident=icao,
                 le_ident='09',
                 he_ident='27',
                 length_ft=3000 + i,
@@ -543,7 +544,7 @@ class TestDatabaseStorageEdgeCases:
             )
             airport.add_runway(runway)
             
-            model.airports[f'TEST{i:03d}'] = airport
+            model.airports[icao] = airport
         
         model.sources_used.add("test_source")
         
@@ -552,4 +553,4 @@ class TestDatabaseStorageEdgeCases:
         loaded_model = storage.load_model()
         
         assert len(loaded_model.airports) == 100
-        assert all(f'TEST{i:03d}' in loaded_model.airports for i in range(100)) 
+        assert all(f'T{i:03d}' in loaded_model.airports for i in range(100)) 
