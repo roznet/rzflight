@@ -1,5 +1,9 @@
 from typing import List, Dict, Any, Optional
+import re
+import logging
+from bs4 import BeautifulSoup
 from .aip_default import DefaultAIPParser
+from .aip_base import AIPParser
 
 class LFCAIPParser(DefaultAIPParser):
     """Parser for France (LFC) AIP documents."""
@@ -39,3 +43,98 @@ class LFCAIPParser(DefaultAIPParser):
         """
         # Use the default parser's implementation
         return super().parse(pdf_data, icao) 
+
+
+logger = logging.getLogger(__name__)
+
+
+class LFCHTMLParser(AIPParser):
+    """HTML parser for France (LFC) eAIP documents."""
+
+    def get_supported_authorities(self) -> List[str]:
+        return ['LFC']
+
+    def parse(self, html_data: bytes, icao: str) -> List[Dict[str, Any]]:
+        """
+        Parse France AIP HTML document data into standardized field rows.
+
+        Focuses on AD 2 sections 2..5 mapped to admin/operational/handling/passenger.
+        """
+        html_content = html_data.decode('utf-8', errors='ignore')
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        section_mapping = {
+            '2': 'admin',
+            '3': 'operational',
+            '4': 'handling',
+            '5': 'passenger',
+        }
+
+        tables = self._extract_tables_from_sections(soup, icao, section_mapping)
+
+        results: List[Dict[str, Any]] = []
+        for item in tables:
+            table = item['table']
+            section = item['section']
+            results.extend(self._parse_table(table, section, icao))
+
+        return results
+
+    def _extract_tables_from_sections(self, soup: BeautifulSoup, icao: str, section_mapping: Dict[str, str]) -> List[Dict[str, Any]]:
+        tables = []
+        # France HTML commonly uses div ids like "LFAQ-AD-2.2", "LFAQ-AD-2.3", etc.
+        for section_num in section_mapping.keys():
+            pattern = f"{icao}-AD-2\\.{section_num}"
+            div_elements = soup.find_all('div', id=re.compile(pattern))
+            logger.debug(f"[LFC HTML] Found {len(div_elements)} divs for {icao} section {section_num}")
+            for div in div_elements:
+                div_tables = div.find_all('table')
+                for table in div_tables:
+                    tables.append({'table': table, 'section': section_mapping[section_num]})
+        return tables
+
+    def _parse_table(self, table, section: str, icao: str) -> List[Dict[str, Any]]:
+        rows = table.find_all('tr')
+        out: List[Dict[str, Any]] = []
+        for row in rows:
+            cells = row.find_all(['td', 'th'])
+            if len(cells) < 2:
+                continue
+
+            # France tables often:
+            # - col0: numeric index
+            # - col1: field (FR/EN label)
+            # - col2+: value(s) (FR and/or EN)
+            field_cell = cells[1] if len(cells) > 1 else None
+            value_cell = cells[2] if len(cells) > 2 else None
+            alt_value_cell = cells[3] if len(cells) > 3 else None
+
+            field = self._extract_text(field_cell)
+            value = self._extract_text(value_cell)
+            alt_value = self._extract_text(alt_value_cell) if alt_value_cell else None
+
+            if not field or (not value and not alt_value):
+                continue
+
+            # Skip generic header-like rows
+            lowered = field.lower()
+            if lowered in ['field', 'item', 'description']:
+                continue
+
+            out.append({
+                'ident': icao,
+                'section': section,
+                'field': field.strip(),
+                'value': value.strip() if value else None,
+                'alt_field': None,
+                'alt_value': alt_value.strip() if alt_value else None,
+            })
+
+        return out
+
+    def _extract_text(self, element) -> str:
+        if element is None:
+            return ""
+        text = element.get_text(separator=' ', strip=True)
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()

@@ -3,7 +3,7 @@ from .aip_lec import LECAIPParser
 from .aip_default import DefaultAIPParser
 from .aip_ebc import EBCAIPParser
 from .aip_esc import ESCAIPParser
-from .aip_lfc import LFCAIPParser
+from .aip_lfc import LFCAIPParser, LFCHTMLParser
 from .aip_lic import LICAIPParser
 from .aip_lkc import LKCAIPParser
 from .aip_ekc import EKCAIPParser
@@ -20,6 +20,7 @@ AIPParserFactory.register_pdf_parser('LEC', LECAIPParser)
 AIPParserFactory.register_pdf_parser('EBC', EBCAIPParser)
 AIPParserFactory.register_pdf_parser('ESC', ESCAIPParser)
 AIPParserFactory.register_pdf_parser('LFC', LFCAIPParser)
+AIPParserFactory.register_html_parser('LFC', LFCHTMLParser)
 AIPParserFactory.register_pdf_parser('LIC', LICAIPParser)
 AIPParserFactory.register_pdf_parser('LKC', LKCAIPParser)
 AIPParserFactory.register_pdf_parser('EKC', EKCAIPParser)
