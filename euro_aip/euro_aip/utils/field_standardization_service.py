@@ -33,6 +33,16 @@ class FieldStandardizationService:
             List of AIPEntry objects with standardized field information added
         """
         for entry in entries:
+            # If std_field_id is already set and valid, use it directly
+            if entry.std_field_id is not None:
+                field_info = self.field_mapper.get_field_for_id(entry.std_field_id)
+                if field_info:
+                    entry.std_field = field_info['field_name']
+                    entry.mapping_score = 1.0  # Perfect match since we have the exact field ID
+                    logger.debug(f"Used existing std_field_id {entry.std_field_id} -> '{entry.std_field}' (exact match)")
+                    continue
+            
+            # Otherwise, use fuzzy matching
             mapping = self.field_mapper.map_field(entry.field, entry.section)
             if mapping['mapped']:
                 entry.std_field = mapping['mapped_field_name']
@@ -96,6 +106,12 @@ class FieldStandardizationService:
                     alt_field=item.get('alt_field', ''),
                     alt_value=item.get('alt_value', '')
                 )
+                if item.get('std_field_id'):
+                    try:
+                        entry.std_field_id = int(item.get('std_field_id'))
+                    except (ValueError, TypeError):
+                        # Skip invalid std_field_id values
+                        pass
                 entries.append(entry)
         
         # Standardize the entries

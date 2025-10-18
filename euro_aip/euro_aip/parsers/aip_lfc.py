@@ -154,14 +154,30 @@ class LFCHTMLParser(AIPParser):
             if lowered in ['field', 'item', 'description']:
                 continue
 
+            # Swap field/alt_field and value/alt_value for consistency
+            # Main fields should be in English, alt fields in local language (French)
+            if alt_field:
+                final_field = alt_field.strip()
+                final_alt_field = field.strip()
+            else:
+                final_field = field.strip()
+                final_alt_field = None
+                
+            if alt_value:
+                final_value = alt_value.strip()
+                final_alt_value = value.strip() if value else None
+            else:
+                final_value = value.strip() if value else None
+                final_alt_value = None
+
             out.append({
                 'ident': icao,
                 'section': section,
                 'std_field_id': std_field_id,
-                'field': field.strip(),
-                'value': value.strip() if value else None,
-                'alt_field': alt_field.strip() if alt_field else None,
-                'alt_value': alt_value.strip() if alt_value else None,
+                'field': final_field,
+                'value': final_value,
+                'alt_field': final_alt_field,
+                'alt_value': final_alt_value,
             })
 
         return out
