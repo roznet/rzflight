@@ -2,3 +2,4 @@ playground
 cache
 t.*
 airports.db
+output.json

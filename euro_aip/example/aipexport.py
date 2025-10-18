@@ -13,6 +13,7 @@ from euro_aip.sources import (
     AutorouterSource, FranceEAIPSource, UKEAIPSource, WorldAirportsSource, 
     DatabaseSource, BorderCrossingSource
 )
+from euro_aip.sources.france_eaip_web import FranceEAIPWebSource
 from euro_aip.models import EuroAipModel, Airport
 from euro_aip.sources.base import SourceInterface
 from euro_aip.utils.field_standardization_service import FieldStandardizationService
@@ -56,6 +57,12 @@ class ModelBuilder:
                 root_dir=self.args.france_eaip
             )
         
+        if getattr(self.args, 'france_web', False):
+            self.sources['france_eaip_web'] = FranceEAIPWebSource(
+                cache_dir=str(self.cache_dir),
+                airac_date=self.args.france_web_date
+            )
+        
         if self.args.uk_eaip:
             self.sources['uk_eaip'] = UKEAIPSource(
                 cache_dir=str(self.cache_dir),
@@ -89,7 +96,7 @@ class ModelBuilder:
                 source.set_never_refresh()
         
         logger.info(f"Initialized {len(self.sources)} sources: {list(self.sources.keys())}")
-    
+
     def build_model(self, airports: Optional[List[str]] = None) -> EuroAipModel:
         """Build EuroAipModel from all configured sources."""
         model = EuroAipModel()
@@ -283,6 +290,8 @@ def main():
                        help='WorldAirports filtering mode: required=only airports from other sources, europe=EU continent only, all=all airports')
     
     parser.add_argument('--france-eaip', help='France eAIP root directory')
+    parser.add_argument('--france-web', help='Enable France eAIP web source (HTML index)', action='store_true')
+    parser.add_argument('--france-web-date', help='AIRAC effective date (YYYY-MM-DD) for France web index')
     parser.add_argument('--uk-eaip', help='UK eAIP root directory')
     
     parser.add_argument('--autorouter', help='Enable Autorouter source', action='store_true')
@@ -310,7 +319,7 @@ def main():
     
     # Validate that at least one source and one output format are specified
     sources_enabled = any([
-        args.worldairports, args.france_eaip, args.uk_eaip, 
+        args.worldairports, args.france_eaip, getattr(args, 'france_web', False), args.uk_eaip, 
         args.autorouter, args.pointdepassage
     ])
     
