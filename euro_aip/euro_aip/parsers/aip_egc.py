@@ -139,6 +139,15 @@ class EGCAIPParser(AIPParser):
         """
         rv = []
         
+        # Map section names to numbers for std_field_id construction
+        section_number_map = {
+            'admin': '2',
+            'operational': '3', 
+            'handling': '4',
+            'passenger': '5'
+        }
+        section_num = section_number_map.get(section, '2')
+        
         # Find all rows in the table
         rows = table.find_all('tr')
         
@@ -146,26 +155,39 @@ class EGCAIPParser(AIPParser):
             # Find all cells in the row
             cells = row.find_all(['td', 'th'])
             
-            if len(cells) < 3:
+            if len(cells) < 2:
+                continue
+
+            # UK tables structure:
+            # - col0: field number (for std_field_id construction)
+            # - col1: field (EN label)
+            # - col2+: value(s)
+            field_number_cell = cells[0] if len(cells) > 0 else None
+            field_cell = cells[1] if len(cells) > 1 else None
+            value_cell = cells[2] if len(cells) > 2 else None
+            alt_value_cell = cells[3] if len(cells) > 3 else None
+
+            # Extract field number for std_field_id construction
+            field_number = self._extract_text(field_number_cell)
+            if not field_number or not field_number.isdigit():
                 continue
                 
-            # Extract text from cells, handling potential None values
-            field_cell = cells[1] if len(cells) > 0 else None
-            value_cell = cells[2] if len(cells) > 1 else None
-            alt_value_cell = cells[3] if len(cells) > 3 else None
-            
-            # Extract text content
+            # Construct std_field_id: section number + field number (e.g., "203" for section 2, field 3)
+            # Format field number as 2-digit string (e.g., "02" for field 2)
+            std_field_id = f"{section_num}{field_number.zfill(2)}"
+
+            # Extract field text
             field = self._extract_text(field_cell)
             value = self._extract_text(value_cell)
             alt_value = self._extract_text(alt_value_cell) if alt_value_cell else None
             
             # Skip empty rows
-            if not field or not value:
+            if not field or (not value and not alt_value):
                 continue
                 
             # Clean up the field and value
             field = field.strip()
-            value = value.strip()
+            value = value.strip() if value else None
             
             # Skip header rows or empty content
             if not field or field.lower() in ['field', 'item', 'description']:
@@ -175,10 +197,11 @@ class EGCAIPParser(AIPParser):
             data = {
                 'ident': icao,
                 'section': section,
+                'std_field_id': std_field_id,
                 'field': field,
                 'value': value,
                 'alt_field': None,
-                'alt_value': alt_value if alt_value else None
+                'alt_value': alt_value.strip() if alt_value else None
             }
             
             rv.append(data)

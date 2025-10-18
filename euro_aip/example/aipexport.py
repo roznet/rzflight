@@ -14,6 +14,7 @@ from euro_aip.sources import (
     DatabaseSource, BorderCrossingSource
 )
 from euro_aip.sources.france_eaip_web import FranceEAIPWebSource
+from euro_aip.sources.uk_eaip_web import UKEAIPWebSource
 from euro_aip.models import EuroAipModel, Airport
 from euro_aip.sources.base import SourceInterface
 from euro_aip.utils.field_standardization_service import FieldStandardizationService
@@ -60,7 +61,13 @@ class ModelBuilder:
         if getattr(self.args, 'france_web', False):
             self.sources['france_eaip_web'] = FranceEAIPWebSource(
                 cache_dir=str(self.cache_dir),
-                airac_date=self.args.france_web_date
+                airac_date=self.args.airac_date
+            )
+        
+        if getattr(self.args, 'uk_web', False):
+            self.sources['uk_eaip_web'] = UKEAIPWebSource(
+                cache_dir=str(self.cache_dir),
+                airac_date=self.args.airac_date
             )
         
         if self.args.uk_eaip:
@@ -291,8 +298,9 @@ def main():
     
     parser.add_argument('--france-eaip', help='France eAIP root directory')
     parser.add_argument('--france-web', help='Enable France eAIP web source (HTML index)', action='store_true')
-    parser.add_argument('--france-web-date', help='AIRAC effective date (YYYY-MM-DD) for France web index')
     parser.add_argument('--uk-eaip', help='UK eAIP root directory')
+    parser.add_argument('--uk-web', help='Enable UK eAIP web source (HTML index)', action='store_true')
+    parser.add_argument('--airac-date', help='AIRAC effective date (YYYY-MM-DD) for web sources', required=False)
     
     parser.add_argument('--autorouter', help='Enable Autorouter source', action='store_true')
     parser.add_argument('--autorouter-username', help='Autorouter username')
@@ -319,8 +327,8 @@ def main():
     
     # Validate that at least one source and one output format are specified
     sources_enabled = any([
-        args.worldairports, args.france_eaip, getattr(args, 'france_web', False), args.uk_eaip, 
-        args.autorouter, args.pointdepassage
+        args.worldairports, args.france_eaip, getattr(args, 'france_web', False), 
+        args.uk_eaip, getattr(args, 'uk_web', False), args.autorouter, args.pointdepassage
     ])
     
     outputs_enabled = any([
@@ -333,6 +341,12 @@ def main():
     
     if not outputs_enabled:
         logger.error("At least one output format must be specified")
+        return
+    
+    # Validate AIRAC date for web sources
+    web_sources_enabled = getattr(args, 'france_web', False) or getattr(args, 'uk_web', False)
+    if web_sources_enabled and not args.airac_date:
+        logger.error("AIRAC date (--airac-date) is required when using web sources (--france-web or --uk-web)")
         return
     
     exporter = AIPExporter(args)
