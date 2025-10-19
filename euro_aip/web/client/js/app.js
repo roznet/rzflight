@@ -96,10 +96,14 @@ class AirportExplorerApp {
             // Load filter options
             await filterManager.loadAvailableFilters();
             
-            // Set default border crossing filter and load airports
-            filterManager.setDefaultBorderCrossingFilter();
+            // Parse and apply URL parameters
+            await this.applyURLParameters();
             
-            console.log('Loaded border crossing airports by default');
+            // If no URL parameters were applied, set default border crossing filter
+            if (!this.hasURLParameters()) {
+                filterManager.setDefaultBorderCrossingFilter();
+                console.log('Loaded border crossing airports by default');
+            }
             
         } catch (error) {
             console.error('Error loading initial data:', error);
@@ -140,6 +144,9 @@ class AirportExplorerApp {
 
         // Add some helpful tooltips
         this.addTooltips();
+        
+        // Set up share button
+        this.setupShareButton();
     }
 
     addTooltips() {
@@ -242,6 +249,193 @@ class AirportExplorerApp {
                 </div>
             </div>
         `;
+    }
+
+    // URL Parameter functionality
+    hasURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.toString().length > 0;
+    }
+
+    async applyURLParameters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        console.log('Applying URL parameters:', urlParams.toString());
+        
+        let hasAppliedParams = false;
+        let appliedParams = [];
+        
+        try {
+            // Apply country filter
+            if (urlParams.has('country')) {
+                const country = urlParams.get('country');
+                const countryElement = document.getElementById('country-filter');
+                if (countryElement) {
+                    countryElement.value = country;
+                    hasAppliedParams = true;
+                    appliedParams.push(`country=${country}`);
+                }
+            }
+            
+            // Apply boolean filters
+            const booleanFilters = [
+                { param: 'has_procedures', id: 'has-procedures' },
+                { param: 'has_aip_data', id: 'has-aip-data' },
+                { param: 'has_hard_runway', id: 'has-hard-runway' },
+                { param: 'border_crossing_only', id: 'border-crossing-only' }
+            ];
+            
+            for (const filter of booleanFilters) {
+                if (urlParams.has(filter.param)) {
+                    const value = urlParams.get(filter.param).toLowerCase();
+                    const isChecked = value === 'true' || value === '1' || value === 'yes';
+                    const element = document.getElementById(filter.id);
+                    if (element) {
+                        element.checked = isChecked;
+                        hasAppliedParams = true;
+                        appliedParams.push(`${filter.param}=${isChecked}`);
+                    }
+                }
+            }
+            
+            // Apply search/route
+            if (urlParams.has('search')) {
+                const search = decodeURIComponent(urlParams.get('search'));
+                const searchElement = document.getElementById('search-input');
+                if (searchElement) {
+                    searchElement.value = search;
+                    hasAppliedParams = true;
+                }
+            }
+            
+            // Apply route distance
+            if (urlParams.has('route_distance')) {
+                const distance = urlParams.get('route_distance');
+                const distanceElement = document.getElementById('route-distance');
+                if (distanceElement) {
+                    distanceElement.value = distance;
+                    hasAppliedParams = true;
+                }
+            }
+            
+            // Apply max airports
+            if (urlParams.has('max_airports')) {
+                const maxAirports = urlParams.get('max_airports');
+                const maxAirportsElement = document.getElementById('max-airports-filter');
+                if (maxAirportsElement) {
+                    maxAirportsElement.value = maxAirports;
+                    hasAppliedParams = true;
+                }
+            }
+            
+            // Apply legend mode
+            if (urlParams.has('legend')) {
+                const legendMode = urlParams.get('legend');
+                const legendElement = document.getElementById('legend-mode-filter');
+                if (legendElement) {
+                    legendElement.value = legendMode;
+                    if (airportMap) {
+                        airportMap.legendMode = legendMode;
+                        airportMap.updateLegend();
+                    }
+                    hasAppliedParams = true;
+                }
+            }
+            
+            // Apply map settings
+            if (urlParams.has('center') && urlParams.has('zoom')) {
+                const centerParts = urlParams.get('center').split(',');
+                if (centerParts.length === 2) {
+                    const lat = parseFloat(centerParts[0]);
+                    const lng = parseFloat(centerParts[1]);
+                    const zoom = parseInt(urlParams.get('zoom'));
+                    
+                    if (!isNaN(lat) && !isNaN(lng) && !isNaN(zoom)) {
+                        if (airportMap && airportMap.map) {
+                            airportMap.map.setView([lat, lng], zoom);
+                        }
+                        hasAppliedParams = true;
+                    }
+                }
+            }
+            
+            // If we applied parameters, trigger filter application
+            if (hasAppliedParams && filterManager) {
+                // Apply filters with URL parameters
+                await filterManager.applyFiltersFromURL();
+                
+                // Apply search if present
+                const searchValue = document.getElementById('search-input').value;
+                if (searchValue) {
+                    await filterManager.handleSearch(searchValue);
+                }
+                
+                console.log('Applied URL parameters successfully');
+                console.log('Applied parameters:', appliedParams.join(', '));
+            }
+            
+        } catch (error) {
+            console.error('Error applying URL parameters:', error);
+            this.showError('Error applying URL configuration: ' + error.message);
+        }
+    }
+
+    setupShareButton() {
+        const shareButton = document.getElementById('share-button');
+        if (shareButton) {
+            shareButton.addEventListener('click', async () => {
+                await this.copyCurrentURL();
+            });
+        }
+    }
+
+    async copyCurrentURL() {
+        try {
+            const currentURL = window.location.href;
+            await navigator.clipboard.writeText(currentURL);
+            this.showNotification('URL copied to clipboard!', 'success');
+        } catch (err) {
+            // Fallback for older browsers
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = window.location.href;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                this.showNotification('URL copied to clipboard!', 'success');
+            } catch (fallbackErr) {
+                console.error('Failed to copy URL:', fallbackErr);
+                this.showNotification('Failed to copy URL', 'error');
+            }
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show`;
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.right = '20px';
+        notification.style.zIndex = '9999';
+        notification.style.minWidth = '300px';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
     }
 
     // Utility methods

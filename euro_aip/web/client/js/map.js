@@ -52,6 +52,19 @@ class AirportMap {
             // Add scale control
             L.control.scale().addTo(this.map);
             
+            // Add map event listeners for URL updates
+            this.map.on('moveend zoomend', () => {
+                // Debounce URL updates to prevent too frequent updates
+                if (this.urlUpdateTimeout) {
+                    clearTimeout(this.urlUpdateTimeout);
+                }
+                this.urlUpdateTimeout = setTimeout(() => {
+                    if (filterManager && typeof filterManager.updateURL === 'function') {
+                        filterManager.updateURL();
+                    }
+                }, 1000); // 1 second delay
+            });
+            
             console.log('Map initialized successfully');
         } catch (error) {
             console.error('Error initializing map:', error);

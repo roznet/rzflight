@@ -110,6 +110,8 @@ class FilterManager {
         // Debounce the auto-apply to prevent rapid successive API calls
         this.autoApplyTimeout = setTimeout(() => {
             this.applyFilters();
+            // Update URL after applying filters
+            this.updateURL();
         }, 500); // 500ms delay
         
         // Show immediate feedback that filters are being applied
@@ -459,6 +461,9 @@ class FilterManager {
                 this.resetApplyButton();
             }
         }
+        
+        // Update URL after search
+        this.updateURL();
     }
 
     parseRouteFromQuery(query) {
@@ -703,6 +708,109 @@ class FilterManager {
         
         // Apply the filter with initial fit bounds
         this.applyFiltersInitial();
+    }
+
+    // Apply filters from URL parameters (without updating URL)
+    async applyFiltersFromURL() {
+        console.log('Applying filters from URL parameters');
+        
+        // Build current filters from form elements
+        this.currentFilters = {};
+        
+        // Country filter
+        const country = document.getElementById('country-filter').value;
+        if (country) {
+            this.currentFilters.country = country;
+        }
+        
+        // Boolean filters
+        const booleanFilters = [
+            { id: 'has-procedures', key: 'has_procedures' },
+            { id: 'has-aip-data', key: 'has_aip_data' },
+            { id: 'has-hard-runway', key: 'has_hard_runway' },
+            { id: 'border-crossing-only', key: 'point_of_entry' }
+        ];
+        
+        for (const filter of booleanFilters) {
+            const element = document.getElementById(filter.id);
+            if (element && element.checked) {
+                this.currentFilters[filter.key] = true;
+            }
+        }
+        
+        // Max airports
+        const maxAirports = document.getElementById('max-airports-filter').value;
+        if (maxAirports) {
+            this.currentFilters.limit = parseInt(maxAirports);
+        }
+        
+        // Apply the filters
+        await this.applyFilters();
+    }
+
+    // Update URL with current configuration
+    updateURL() {
+        const params = new URLSearchParams();
+        
+        // Add country filter
+        const country = document.getElementById('country-filter').value;
+        if (country) {
+            params.set('country', country);
+        }
+        
+        // Add boolean filters
+        const booleanFilters = [
+            { id: 'has-procedures', param: 'has_procedures' },
+            { id: 'has-aip-data', param: 'has_aip_data' },
+            { id: 'has-hard-runway', param: 'has_hard_runway' },
+            { id: 'border-crossing-only', param: 'border_crossing_only' }
+        ];
+        
+        for (const filter of booleanFilters) {
+            const element = document.getElementById(filter.id);
+            if (element && element.checked) {
+                params.set(filter.param, 'true');
+            }
+        }
+        
+        // Add search/route
+        const search = document.getElementById('search-input').value;
+        if (search) {
+            params.set('search', encodeURIComponent(search));
+        }
+        
+        // Add route distance
+        const routeDistance = document.getElementById('route-distance').value;
+        if (routeDistance && routeDistance !== '50') {
+            params.set('route_distance', routeDistance);
+        }
+        
+        // Add max airports
+        const maxAirports = document.getElementById('max-airports-filter').value;
+        if (maxAirports && maxAirports !== '1000') {
+            params.set('max_airports', maxAirports);
+        }
+        
+        // Add legend mode
+        const legendMode = document.getElementById('legend-mode-filter').value;
+        if (legendMode && legendMode !== 'airport-type') {
+            params.set('legend', legendMode);
+        }
+        
+        // Add map settings if available
+        if (airportMap && airportMap.map) {
+            const center = airportMap.map.getCenter();
+            const zoom = airportMap.map.getZoom();
+            params.set('center', `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`);
+            params.set('zoom', zoom.toString());
+        }
+        
+        // Update URL without page reload
+        const newURL = window.location.origin + window.location.pathname + 
+                      (params.toString() ? '?' + params.toString() : '');
+        window.history.replaceState({}, '', newURL);
+        
+        console.log('Updated URL:', newURL);
     }
 
     async applyFiltersInitial() {
