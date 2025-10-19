@@ -65,7 +65,7 @@ class UKEAIPWebSource(CachedSource, SourceInterface):
 
     def _get_index_url(self) -> str:
         """Get the main index URL."""
-        return self._build_url("html/index-en-GB.html")
+        return self._build_url("html/eAIP/EG-menu-en-GB.html")
 
     def _get_airport_url(self, icao: str) -> str:
         """Get URL for a specific airport page."""
