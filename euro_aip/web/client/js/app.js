@@ -337,6 +337,10 @@ class AirportExplorerApp {
                         airportMap.legendMode = legendMode;
                         airportMap.updateLegend();
                     }
+                    // Trigger full legend mode update to properly handle procedure lines and markers
+                    if (filterManager && filterManager.updateLegendMode) {
+                        filterManager.updateLegendMode();
+                    }
                     hasAppliedParams = true;
                 }
             }

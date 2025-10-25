@@ -27,7 +27,9 @@ class FilterManager {
             'has-procedures',
             'has-aip-data', 
             'has-hard-runway',
-            'border-crossing-only'
+            'border-crossing-only',
+            'route-distance',
+            'max-airports-filter'
         ];
 
         filterControls.forEach(id => {
@@ -951,6 +953,9 @@ class FilterManager {
                 }
             }
         }
+        
+        // Update URL after legend mode change
+        this.updateURL();
     }
 
     // Export current filter state
