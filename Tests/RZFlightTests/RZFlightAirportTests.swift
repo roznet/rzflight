@@ -17,7 +17,7 @@ final class RZFlightAirportTests: XCTestCase {
     func findAirportDb() -> FMDatabase? {
         let thisSourceFile = URL(fileURLWithPath: #file)
         let rootDirectory = thisSourceFile.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let resourceURL = rootDirectory.appendingPathComponent("python").appendingPathComponent("airports.db")
+        let resourceURL = rootDirectory.appendingPathComponent("euro_aip/example").appendingPathComponent("airports.db")
         if FileManager.default.fileExists(atPath: resourceURL.path) {
             let db = FMDatabase(url: resourceURL)
             db.open()
@@ -36,8 +36,8 @@ final class RZFlightAirportTests: XCTestCase {
 
     func testExample() throws {
         if let db = self.findAirportDb() {
-            let known = KnownAirports(db: db, where: "type LIKE \"%_airport\"")
-            XCTAssertEqual(known.airport(icao: "KJFK")?.name, "John F Kennedy International Airport")
+            let known = KnownAirports(db: db)
+            XCTAssertEqual(known.airport(icao: "LFPG")?.name, "Charles de Gaulle International Airport")
  
             let uk = known.matching(needle: "fairo")
             XCTAssertEqual(uk.count, 1)
@@ -57,6 +57,12 @@ final class RZFlightAirportTests: XCTestCase {
                     // because of needle match, should not contain heathrow
                     XCTAssertFalse(one.icao.hasPrefix("EGL"))
                 }
+            }
+            
+            if let lfat = known.airportWithExtendedData(icao: "LFAT") {
+                XCTAssert(lfat.approaches.count > 0)
+                XCTAssert(lfat.runways.count > 0)
+                XCTAssert(lfat.aipEntries.count > 0)
             }
             
             

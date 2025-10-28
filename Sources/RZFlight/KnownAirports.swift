@@ -79,8 +79,37 @@ public class KnownAirports {
     public func airport(icao : String, ensureRunway: Bool = true) -> Airport? {
         var found = known[icao]
         if ensureRunway {
-            found?.addRunways(db: self.db)
+            _ = found?.addRunways(db: self.db)
         }
+        return found
+    }
+    
+    /// Enhanced airport loading with selective data loading
+    public func airport(icao: String, 
+                       ensureRunway: Bool = true, 
+                       ensureProcedures: Bool = false, 
+                       ensureAIP: Bool = false) -> Airport? {
+        var found = known[icao]
+        
+        if ensureRunway {
+            _ = found?.addRunways(db: self.db)
+        }
+        
+        if ensureProcedures {
+            _ = found?.addProcedures(db: self.db)
+        }
+        
+        if ensureAIP {
+            _ = found?.addAIPEntries(db: self.db)
+        }
+        
+        return found
+    }
+    
+    /// Load airport with all extended data (runways, procedures, AIP)
+    public func airportWithExtendedData(icao: String) -> Airport? {
+        var found = known[icao]
+        _ = found?.addExtendedData(db: self.db)
         return found
     }
     
@@ -124,7 +153,70 @@ public class KnownAirports {
             ppf.append(one.addRunways(db: self.db))
         }
         return ppf
-
+    }
+    
+    // MARK: - Enhanced Query Methods
+    
+    /// Find airports with specific approach types within distance
+    public func airportsWithApproach(_ approachType: Procedure.ApproachType, 
+                                   near coord: CLLocationCoordinate2D, 
+                                   within distanceKm: Double, 
+                                   limit: Int = 10) -> [Airport] {
+        let nearbyAirports = tree.nearestK(limit * 3, to: Airport.at(location: coord))
         
+        var results: [Airport] = []
+        for var airport in nearbyAirports {
+            let distance = airport.distance(to: coord) / 1000 // Convert to km
+            if distance <= distanceKm {
+                // Load procedures to check
+                _ = airport.addProcedures(db: self.db)
+                if airport.approaches.contains(where: { $0.approachType == approachType }) {
+                    results.append(airport)
+                }
+            }
+            if results.count >= limit {
+                break
+            }
+        }
+        
+        return results
+    }
+    
+    /// Find airports with precision approaches within distance
+    public func airportsWithPrecisionApproaches(near coord: CLLocationCoordinate2D, 
+                                               within distanceKm: Double, 
+                                               limit: Int = 10) -> [Airport] {
+        let nearbyAirports = tree.nearestK(limit * 3, to: Airport.at(location: coord))
+        
+        var results: [Airport] = []
+        for var airport in nearbyAirports {
+            let distance = airport.distance(to: coord) / 1000 // Convert to km
+            if distance <= distanceKm {
+                // Load procedures to check
+                _ = airport.addProcedures(db: self.db)
+                if airport.approaches.contains(where: { $0.precisionCategory == .precision }) {
+                    results.append(airport)
+                }
+            }
+            if results.count >= limit {
+                break
+            }
+        }
+        
+        return results
+    }
+    
+    /// Get airports with AIP data for a specific field
+    public func airportsWithAIPField(_ fieldName: String, useStandardized: Bool = true) -> [Airport] {
+        var results: [Airport] = []
+        
+        for (_, var airport) in known {
+            _ = airport.addAIPEntries(db: self.db)
+            if airport.aipEntry(for: fieldName, useStandardized: useStandardized) != nil {
+                results.append(airport)
+            }
+        }
+        
+        return results
     }
 }
