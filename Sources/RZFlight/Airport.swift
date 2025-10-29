@@ -144,24 +144,32 @@ public struct Airport : Codable {
     }
     
     public mutating func addRunways(db : FMDatabase) -> Airport {
-        self.runways = Self.runways(for: self.icao, db: db)
+        if self.runways.isEmpty {
+            self.runways = Self.runways(for: self.icao, db: db)
+        }
         return self
     }
     
     public mutating func addProcedures(db: FMDatabase) -> Airport {
-        self.procedures = Self.procedures(for: self.icao, db: db)
+        if self.procedures.isEmpty {
+            self.procedures = Self.procedures(for: self.icao, db: db)
+        }
         return self
     }
     
     public mutating func addAIPEntries(db: FMDatabase) -> Airport {
-        self.aipEntries = Self.aipEntries(for: self.icao, db: db)
+        if self.aipEntries.isEmpty {
+            self.aipEntries = Self.aipEntries(for: self.icao, db: db)
+        }
         return self
     }
     
     public mutating func addExtendedData(db: FMDatabase) -> Airport {
-        self.runways = Self.runways(for: self.icao, db: db)
-        self.procedures = Self.procedures(for: self.icao, db: db)
-        self.aipEntries = Self.aipEntries(for: self.icao, db: db)
+        if self.runways.isEmpty || self.procedures.isEmpty || self.aipEntries.isEmpty {
+            self.runways = Self.runways(for: self.icao, db: db)
+            self.procedures = Self.procedures(for: self.icao, db: db)
+            self.aipEntries = Self.aipEntries(for: self.icao, db: db)
+        }
         return self
     }
     static func at(location: CLLocationCoordinate2D) -> Airport {
