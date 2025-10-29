@@ -127,7 +127,7 @@ public struct Procedure: Codable {
     }
     
     /// Check if this procedure matches a specific runway
-    public func matches(runway: Airport.Runway) -> Bool {
+    public func matches(runway: Runway) -> Bool {
         guard let fullIdent = fullRunwayIdent else { return false }
         return runway.ident1 == fullIdent || runway.ident2 == fullIdent
     }

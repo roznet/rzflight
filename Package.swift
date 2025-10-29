@@ -31,7 +31,11 @@ let package = Package(
                 .product(name: "Geomagnetism", package: "Geomagnetism"),
                 .product(name: "KDTree", package: "KDTree"),
                 .product(name: "FMDB", package: "FMDB")
-            ] ),
+            ],
+            resources: [
+                .process("Resources/aip_fields.csv")
+            ]
+        ),
         .testTarget(
             name: "RZFlightTests",
             dependencies: ["RZFlight"],
