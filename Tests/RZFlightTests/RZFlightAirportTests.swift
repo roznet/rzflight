@@ -14,17 +14,6 @@ import CoreLocation
 //  EGTF (no proc) EGMD (proc)
 //  LFAT (ppf) LFQA (not ppf)
 final class RZFlightAirportTests: XCTestCase {
-    func findAirportDb() -> FMDatabase? {
-        let thisSourceFile = URL(fileURLWithPath: #file)
-        let rootDirectory = thisSourceFile.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let resourceURL = rootDirectory.appendingPathComponent("euro_aip/example").appendingPathComponent("airports.db")
-        if FileManager.default.fileExists(atPath: resourceURL.path) {
-            let db = FMDatabase(url: resourceURL)
-            db.open()
-            return db
-        }
-       return nil
-    }
     
     override func setUpWithError() throws {
         // Point the AIPFieldCatalog to the repo CSV so standardized fields resolve in tests
@@ -45,8 +34,10 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testExample() throws {
-        if let db = self.findAirportDb() {
-            let known = KnownAirports(db: db)
+        guard let known = TestSupport.shared.known else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
             XCTAssertEqual(known.airport(icao: "LFPG")?.name, "Charles de Gaulle International Airport")
  
             let uk = known.matching(needle: "fairo")
@@ -75,18 +66,14 @@ final class RZFlightAirportTests: XCTestCase {
                 XCTAssert(lfat.aipEntries.count > 0)
             }
             
-            
-        }else{
-            XCTAssertTrue(false, "No db found, make sure you run airports.py")
-        }
     }
 
     func testLazyLoadingBehavior() throws {
-        guard let db = self.findAirportDb() else {
+        guard let db = TestSupport.shared.db, let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
 
         // EGTF: ensure runways only
         if var egtf = known.airport(icao: "EGTF", ensureRunway: true) {
@@ -110,11 +97,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testRunwayEndFields() throws {
-        guard let db = self.findAirportDb() else {
+        guard let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         if let egll = known.airport(icao: "EGLL", ensureRunway: true) {
             guard let rw = egll.runways.first else { return }
             XCTAssertFalse(rw.le.ident.isEmpty)
@@ -127,11 +114,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testProceduresAndPrecision() throws {
-        guard let db = self.findAirportDb() else {
+        guard let db = TestSupport.shared.db, let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         if var egkb = known.airport(icao: "EGKB", ensureRunway: true) {
             _ = egkb.addProcedures(db: db)
             // Partition checks
@@ -146,11 +133,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testAIPEntryStandardization() throws {
-        guard let db = self.findAirportDb() else {
+        guard let db = TestSupport.shared.db, let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         // LFAQ expected to have AIP custom field
         if var lfaq = known.airport(icao: "LFAQ", ensureRunway: true) {
             _ = lfaq.addAIPEntries(db: db)
@@ -170,11 +157,10 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testHelperQueries() throws {
-        guard let db = self.findAirportDb() else {
+        guard let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
         let london = CLLocationCoordinate2D(latitude: 51.5074, longitude: -0.1278)
         let withILS = known.airportsWithApproach(.ils, near: london, within: 100.0)
         // Should typically include EGLL if present in DB data set
@@ -187,11 +173,10 @@ final class RZFlightAirportTests: XCTestCase {
     }
 
     func testAirportsNearRoute() throws {
-        guard let db = self.findAirportDb() else {
+        guard let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
         
         // Test single point route - airports near EGTF
         let singlePointRoute = ["EGTF"]
@@ -243,11 +228,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
     
     func testRouteFiltering() throws {
-        guard let db = self.findAirportDb() else {
+        guard let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         
         // Get airports near EGTF to LOWS route
         let route = ["EGTF", "LOWS"]
@@ -319,11 +304,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
     
     func testFilterChaining() throws {
-        guard let db = self.findAirportDb() else {
+        guard let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         
         let route = ["EGTF", "LFPG"]
         let nearRoute = known.airportsNearRoute(route, within: 100.0)
@@ -350,11 +335,11 @@ final class RZFlightAirportTests: XCTestCase {
     }
     
     func testBorderCrossingFiltering() throws {
-        guard let db = self.findAirportDb() else {
+        guard let db = TestSupport.shared.db, let known = TestSupport.shared.known else {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-        let known = KnownAirports(db: db)
+        
         
         // Get all border crossing airports
         let borderCrossing = known.airportsWithBorderCrossing()

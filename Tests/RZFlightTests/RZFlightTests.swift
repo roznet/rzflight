@@ -9,17 +9,7 @@ final class RZFlightTests: XCTestCase {
         return ProcessInfo.processInfo.environment["RZFLIGHT_REGENERATE_SAMPLES"] == "1"
     }
     
-    func findAirportDb() -> FMDatabase? {
-        let thisSourceFile = URL(fileURLWithPath: #file)
-        let rootDirectory = thisSourceFile.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let resourceURL = rootDirectory.appendingPathComponent("euro_aip/example").appendingPathComponent("airports.db")
-        if FileManager.default.fileExists(atPath: resourceURL.path) {
-            let db = FMDatabase(url: resourceURL)
-            db.open()
-            return db
-        }
-        return nil
-    }
+    // No separate DB finder; tests rely on TestSupport.shared
     
     func findResource( name : String) -> URL{
         let thisSourceFile = URL(fileURLWithPath: #file)
@@ -45,20 +35,17 @@ final class RZFlightTests: XCTestCase {
             return airport
         }
         // 2) If missing or incompatible, try to load from DB and (optionally) regenerate fixture
-        if shouldRegenerateSamples {
-            if let db = self.findAirportDb() {
-                let known = KnownAirports(db: db)
-                if let airport = known.airport(icao: icao.uppercased(), ensureRunway: true) {
-                    XCTAssertEqual(airport.icao.uppercased(), icao.uppercased())
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                    if let encoded = try? encoder.encode(airport) {
-                        // Ensure directory exists then write
-                        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                        try? encoded.write(to: url)
-                    }
-                    return airport
+        if shouldRegenerateSamples, let known = TestSupport.shared.known {
+            if let airport = known.airport(icao: icao.uppercased(), ensureRunway: true) {
+                XCTAssertEqual(airport.icao.uppercased(), icao.uppercased())
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                if let encoded = try? encoder.encode(airport) {
+                    // Ensure directory exists then write
+                    try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                    try? encoded.write(to: url)
                 }
+                return airport
             }
         }
         // 3) Give a helpful failure
