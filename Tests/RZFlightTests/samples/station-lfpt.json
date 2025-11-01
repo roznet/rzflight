@@ -1,0 +1,74 @@
+{
+  "aipEntries" : [
+
+  ],
+  "city" : "Cormeilles-en-Vexin, Val-d'Oise",
+  "continent" : "EU",
+  "country" : "FR",
+  "elevation_ft" : 325,
+  "gpsCode" : "LFPT",
+  "iataCode" : "POX",
+  "icao" : "LFPT",
+  "isoRegion" : "FR-IDF",
+  "keywords" : "Aérodrome de Pontoise-Cormeilles en Vexin, Cergy Pontoise",
+  "latitude" : 49.096064,
+  "longitude" : 2.035543,
+  "name" : "Pontoise-Cormeilles Aerodrome",
+  "procedures" : [
+
+  ],
+  "runways" : [
+    {
+      "closed" : false,
+      "he" : {
+        "displacedThresholdFt" : 558,
+        "elevationFt" : 312,
+        "headingTrue" : 225,
+        "ident" : "23",
+        "latitude" : 49.09859848022461,
+        "longitude" : 2.043649911880493
+      },
+      "le" : {
+        "elevationFt" : 274,
+        "headingTrue" : 45,
+        "ident" : "05",
+        "latitude" : 49.087799072265625,
+        "longitude" : 2.027400016784668
+      },
+      "length_ft" : 5541,
+      "lighted" : true,
+      "surface" : "ASP",
+      "width_ft" : 164
+    },
+    {
+      "closed" : false,
+      "he" : {
+        "displacedThresholdFt" : 584,
+        "elevationFt" : 317,
+        "headingTrue" : 298,
+        "ident" : "30",
+        "latitude" : 49.09489822387695,
+        "longitude" : 2.045609951019287
+      },
+      "le" : {
+        "displacedThresholdFt" : 197,
+        "elevationFt" : 323,
+        "headingTrue" : 118,
+        "ident" : "12",
+        "latitude" : 49.101898193359375,
+        "longitude" : 2.0256800651550293
+      },
+      "length_ft" : 5413,
+      "lighted" : false,
+      "surface" : "ASP",
+      "width_ft" : 164
+    }
+  ],
+  "scheduledService" : "no",
+  "sources" : [
+    "worldairports",
+    "france_eaip_html"
+  ],
+  "type" : "medium_airport",
+  "wikipediaLink" : "https:\/\/en.wikipedia.org\/wiki\/Pontoise_%E2%80%93_Cormeilles_Aerodrome"
+}

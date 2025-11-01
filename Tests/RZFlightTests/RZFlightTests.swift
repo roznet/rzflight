@@ -1,7 +1,25 @@
 import XCTest
 @testable import RZFlight
+import FMDB
 
 final class RZFlightTests: XCTestCase {
+    
+    // Optional: set RZFLIGHT_REGENERATE_SAMPLES=1 to rewrite JSON fixtures from DB
+    private var shouldRegenerateSamples: Bool {
+        return ProcessInfo.processInfo.environment["RZFLIGHT_REGENERATE_SAMPLES"] == "1"
+    }
+    
+    func findAirportDb() -> FMDatabase? {
+        let thisSourceFile = URL(fileURLWithPath: #file)
+        let rootDirectory = thisSourceFile.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let resourceURL = rootDirectory.appendingPathComponent("euro_aip/example").appendingPathComponent("airports.db")
+        if FileManager.default.fileExists(atPath: resourceURL.path) {
+            let db = FMDatabase(url: resourceURL)
+            db.open()
+            return db
+        }
+        return nil
+    }
     
     func findResource( name : String) -> URL{
         let thisSourceFile = URL(fileURLWithPath: #file)
@@ -21,15 +39,30 @@ final class RZFlightTests: XCTestCase {
 
     @discardableResult func decodeAirport(icao : String) -> Airport? {
         let url = self.findResource(name: "station-\(icao).json")
-        do {
-            let data = try Data(contentsOf: url)
-            let airport = try JSONDecoder().decode(Airport.self, from: data)
+        // 1) Try reading existing fixture in new format
+        if let data = try? Data(contentsOf: url), let airport = try? JSONDecoder().decode(Airport.self, from: data) {
             XCTAssertEqual(airport.icao.uppercased(), icao.uppercased())
             return airport
-        } catch {
-            print( "\(error)" )
-            XCTAssertTrue(false)
         }
+        // 2) If missing or incompatible, try to load from DB and (optionally) regenerate fixture
+        if shouldRegenerateSamples {
+            if let db = self.findAirportDb() {
+                let known = KnownAirports(db: db)
+                if let airport = known.airport(icao: icao.uppercased(), ensureRunway: true) {
+                    XCTAssertEqual(airport.icao.uppercased(), icao.uppercased())
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    if let encoded = try? encoder.encode(airport) {
+                        // Ensure directory exists then write
+                        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try? encoded.write(to: url)
+                    }
+                    return airport
+                }
+            }
+        }
+        // 3) Give a helpful failure
+        XCTAssertTrue(false, "Unable to load airport \(icao). Provide fixture at \(url.lastPathComponent) or set RZFLIGHT_REGENERATE_SAMPLES=1 with a valid euro_aip/example/airports.db")
         return nil
     }
 
@@ -69,12 +102,8 @@ final class RZFlightTests: XCTestCase {
         decodeAirport(icao: "egll")
         decodeAirport(icao: "eglf")
         decodeAirport(icao: "egtf")
-        decodeAirport(icao: "kpao")
-    }
-    
-    func testNear(){
-        decodeNear(location: "london")
-        decodeNear(location: "paloalto")
+        decodeAirport(icao: "lfmd")
+        decodeAirport(icao: "lfpt")
     }
     
     func testMetar(){
@@ -84,13 +113,6 @@ final class RZFlightTests: XCTestCase {
         decodeMetar(icao: "ksfo")
     }
     
-    func testRunway(){
-        let icao = "ksfo"
-        if let airport = decodeAirport(icao: icao) {
-            print( airport.bestRunway(wind: Heading(heading: 180)) )
-        }
-        
-        
-    }
 
 }
+

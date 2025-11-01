@@ -1,1 +1,51 @@
-{"city":"Woking","country":"GB","elevation_ft":80,"elevation_m":24,"iata":null,"icao":"EGTF","latitude":51.3480987549,"longitude":-0.558888971806,"name":"Fairoaks Airport","note":null,"reporting":false,"runways":[{"length_ft":2667,"width_ft":88,"surface":"asphalt","lights":true,"ident1":"06","ident2":"24","bearing1":59.0,"bearing2":239.0}],"state":"ENG","type":"small_airport","website":"http://www.alanmann.co.uk/default.asp","wiki":"https://en.wikipedia.org/wiki/Fairoaks_Airport"}
+{
+  "aipEntries" : [
+
+  ],
+  "city" : "Woking, Surrey",
+  "continent" : "EU",
+  "country" : "GB",
+  "elevation_ft" : 80,
+  "gpsCode" : "EGTF",
+  "homeLink" : "https:\/\/fairoaksairport.uk",
+  "icao" : "EGTF",
+  "isoRegion" : "GB-ENG",
+  "latitude" : 51.348099,
+  "longitude" : -0.558889,
+  "name" : "Fairoaks Airport",
+  "procedures" : [
+
+  ],
+  "runways" : [
+    {
+      "closed" : false,
+      "he" : {
+        "displacedThresholdFt" : 43,
+        "elevationFt" : 76,
+        "headingTrue" : 239,
+        "ident" : "24",
+        "latitude" : 51.34996,
+        "longitude" : -0.5538
+      },
+      "le" : {
+        "displacedThresholdFt" : 174,
+        "elevationFt" : 78,
+        "headingTrue" : 59,
+        "ident" : "06",
+        "latitude" : 51.346092,
+        "longitude" : -0.563647
+      },
+      "length_ft" : 2667,
+      "lighted" : true,
+      "surface" : "asphalt",
+      "width_ft" : 89
+    }
+  ],
+  "scheduledService" : "no",
+  "sources" : [
+    "uk_eaip",
+    "worldairports"
+  ],
+  "type" : "small_airport",
+  "wikipediaLink" : "https:\/\/en.wikipedia.org\/wiki\/Fairoaks_Airport"
+}

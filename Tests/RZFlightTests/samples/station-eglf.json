@@ -1,1 +1,53 @@
-{"city":"Farnborough","country":"GB","elevation_ft":238,"elevation_m":73,"iata":"FAB","icao":"EGLF","latitude":51.2757987976,"longitude":-0.776332974434,"name":"Farnborough Airport","note":"TAG London Farnborough Airport, RAE Farnborough, EGUF","reporting":true,"runways":[{"length_ft":8005,"width_ft":148,"surface":"asphalt","lights":true,"ident1":"06","ident2":"24","bearing1":62.0,"bearing2":242.0}],"state":"ENG","type":"medium_airport","website":"http://www.tagaviation.com","wiki":"https://en.wikipedia.org/wiki/Farnborough_Airfield"}
+{
+  "aipEntries" : [
+
+  ],
+  "city" : "Farnborough, Hampshire",
+  "continent" : "EU",
+  "country" : "GB",
+  "elevation_ft" : 238,
+  "gpsCode" : "EGLF",
+  "homeLink" : "https:\/\/www.farnboroughairport.com\/",
+  "iataCode" : "FAB",
+  "icao" : "EGLF",
+  "isoRegion" : "GB-ENG",
+  "keywords" : "TAG London Farnborough Airport, RAE Farnborough, EGUF",
+  "latitude" : 51.275799,
+  "longitude" : -0.776333,
+  "name" : "Farnborough Airport",
+  "procedures" : [
+
+  ],
+  "runways" : [
+    {
+      "closed" : false,
+      "he" : {
+        "displacedThresholdFt" : 2090,
+        "elevationFt" : 219,
+        "headingTrue" : 242,
+        "ident" : "24",
+        "latitude" : 51.280799865722656,
+        "longitude" : -0.7611619830131531
+      },
+      "le" : {
+        "displacedThresholdFt" : 1772,
+        "elevationFt" : 225,
+        "headingTrue" : 62,
+        "ident" : "06",
+        "latitude" : 51.270599365234375,
+        "longitude" : -0.7920439839363098
+      },
+      "length_ft" : 8005,
+      "lighted" : true,
+      "surface" : "ASP",
+      "width_ft" : 148
+    }
+  ],
+  "scheduledService" : "no",
+  "sources" : [
+    "uk_eaip",
+    "worldairports"
+  ],
+  "type" : "medium_airport",
+  "wikipediaLink" : "https:\/\/en.wikipedia.org\/wiki\/Farnborough_Airfield"
+}

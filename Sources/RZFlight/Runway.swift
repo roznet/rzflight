@@ -63,6 +63,12 @@ public struct Runway : Codable{
     public var leCoordinate: CLLocationCoordinate2D? { return le.coordinate }
     public var heCoordinate: CLLocationCoordinate2D? { return he.coordinate }
     
+    /// Check if runway has hard surface (asphalt, concrete, etc.)
+    public var isHardSurface: Bool {
+        let hardSurfaces = ["asphalt", "concrete", "paved", "hard"]
+        return hardSurfaces.contains { surface.lowercased().contains($0) }
+    }
+    
     func bestTrueHeading(for wind : Heading) -> Heading {
         return trueHeading1.directDirection(to: wind) == .ahead ? trueHeading1 : trueHeading2
     }

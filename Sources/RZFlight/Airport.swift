@@ -47,6 +47,17 @@ public struct Airport : Codable {
     public let name : String
     public let city : String
     public let country : String
+    public let isoRegion : String?
+    public let scheduledService : String?
+    public let gpsCode : String?
+    public let iataCode : String?
+    public let localCode : String?
+    public let homeLink : String?
+    public let wikipediaLink : String?
+    public let keywords : String?
+    public let sources : [String]
+    public let createdAt : Date?
+    public let updatedAt : Date?
     public let elevation_ft : Int
     public let icao : String
     public let type : AirportType
@@ -96,8 +107,24 @@ public struct Airport : Codable {
         self.continent = Continent(rawValue: res.string(forColumn: "continent") ?? "") ?? .none
         self.type = AirportType(rawValue: res.string(forColumn:"type") ?? "") ?? .none
         self.country = res.string(forColumn: "iso_country") ?? ""
-        //iso_region TEXT,
+        self.isoRegion = res.string(forColumn: "iso_region")
         self.city = res.string(forColumn: "municipality") ?? ""
+        self.scheduledService = res.string(forColumn: "scheduled_service")
+        self.gpsCode = res.string(forColumn: "gps_code")
+        self.iataCode = res.string(forColumn: "iata_code")
+        self.localCode = res.string(forColumn: "local_code")
+        self.homeLink = res.string(forColumn: "home_link")
+        self.wikipediaLink = res.string(forColumn: "wikipedia_link")
+        self.keywords = res.string(forColumn: "keywords")
+        let sourcesStr = res.string(forColumn: "sources") ?? ""
+        self.sources = sourcesStr.isEmpty ? [] : sourcesStr.split(separator: ",").map { String($0) }
+        
+        if let createdRaw = res.string(forColumn: "created_at") {
+            self.createdAt = ISO8601DateFormatter().date(from: createdRaw)
+        } else { self.createdAt = nil }
+        if let updatedRaw = res.string(forColumn: "updated_at") {
+            self.updatedAt = ISO8601DateFormatter().date(from: updatedRaw)
+        } else { self.updatedAt = nil }
         
         if let db = db {
             self.runways = Self.runways(for: self.icao, db: db)
@@ -182,6 +209,17 @@ public struct Airport : Codable {
         self.name = ""
         self.city = ""
         self.country = ""
+        self.isoRegion = nil
+        self.scheduledService = nil
+        self.gpsCode = nil
+        self.iataCode = nil
+        self.localCode = nil
+        self.homeLink = nil
+        self.wikipediaLink = nil
+        self.keywords = nil
+        self.sources = []
+        self.createdAt = nil
+        self.updatedAt = nil
         self.elevation_ft = 0
         self.runways = []
         self.procedures = []
@@ -201,15 +239,28 @@ public struct Airport : Codable {
             self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
             self.continent = Continent(rawValue: res.string(forColumn: "continent") ?? "") ?? .none
             self.country = res.string(forColumn: "iso_country") ?? ""
-            //iso_region TEXT,
+            self.isoRegion = res.string(forColumn: "iso_region")
             self.city = res.string(forColumn: "municipality") ?? ""
-            //scheduled_service TEXT,
-            //gps_code TEXT,
-            //iata_code TEXT,
-            //local_code TEXT,
-            //home_link TEXT,
-            //wikipedia_link TEXT,
-            //keywords TEXT
+            self.scheduledService = res.string(forColumn: "scheduled_service")
+            self.gpsCode = res.string(forColumn: "gps_code")
+            self.iataCode = res.string(forColumn: "iata_code")
+            self.localCode = res.string(forColumn: "local_code")
+            self.homeLink = res.string(forColumn: "home_link")
+            self.wikipediaLink = res.string(forColumn: "wikipedia_link")
+            self.keywords = res.string(forColumn: "keywords")
+            
+            // Parse sources
+            let sourcesStr = res.string(forColumn: "sources") ?? ""
+            self.sources = sourcesStr.isEmpty ? [] : sourcesStr.split(separator: ",").map { String($0) }
+            
+            // Parse dates
+            if let createdRaw = res.string(forColumn: "created_at") {
+                self.createdAt = ISO8601DateFormatter().date(from: createdRaw)
+            } else { self.createdAt = nil }
+            
+            if let updatedRaw = res.string(forColumn: "updated_at") {
+                self.updatedAt = ISO8601DateFormatter().date(from: updatedRaw)
+            } else { self.updatedAt = nil }
         }else{
             throw AirportError.unknownIdentifier
         }
@@ -223,6 +274,77 @@ public struct Airport : Codable {
         self.runways = runways
         self.procedures = []
         self.aipEntries = []
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case name
+        case city
+        case country
+        case isoRegion = "isoRegion"
+        case scheduledService = "scheduledService"
+        case gpsCode = "gpsCode"
+        case iataCode = "iataCode"
+        case localCode = "localCode"
+        case homeLink = "homeLink"
+        case wikipediaLink = "wikipediaLink"
+        case keywords
+        case sources
+        case createdAt
+        case updatedAt
+        case elevation_ft
+        case icao
+        case type
+        case continent
+        case latitude
+        case longitude
+        case runways
+        case procedures
+        case aipEntries
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Basic strings with defaults
+        self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        self.city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
+        self.country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+
+        // Optional strings
+        self.isoRegion = try container.decodeIfPresent(String.self, forKey: .isoRegion)
+        self.scheduledService = try container.decodeIfPresent(String.self, forKey: .scheduledService)
+        self.gpsCode = try container.decodeIfPresent(String.self, forKey: .gpsCode)
+        self.iataCode = try container.decodeIfPresent(String.self, forKey: .iataCode)
+        self.localCode = try container.decodeIfPresent(String.self, forKey: .localCode)
+        self.homeLink = try container.decodeIfPresent(String.self, forKey: .homeLink)
+        self.wikipediaLink = try container.decodeIfPresent(String.self, forKey: .wikipediaLink)
+        self.keywords = try container.decodeIfPresent(String.self, forKey: .keywords)
+
+        // Arrays with defaults
+        self.sources = try container.decodeIfPresent([String].self, forKey: .sources) ?? []
+
+        // Dates (decode directly if encoded as Date, otherwise nil)
+        self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        self.updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
+
+        // Numerics with defaults
+        self.elevation_ft = try container.decodeIfPresent(Int.self, forKey: .elevation_ft) ?? 0
+
+        // Identifiers
+        self.icao = try container.decodeIfPresent(String.self, forKey: .icao) ?? ""
+
+        // Enums with defaults
+        self.type = try container.decodeIfPresent(AirportType.self, forKey: .type) ?? .none
+        self.continent = try container.decodeIfPresent(Continent.self, forKey: .continent) ?? .none
+
+        // Coordinates
+        self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0.0
+        self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0.0
+
+        // Collections with defaults
+        self.runways = try container.decodeIfPresent([Runway].self, forKey: .runways) ?? []
+        self.procedures = try container.decodeIfPresent([Procedure].self, forKey: .procedures) ?? []
+        self.aipEntries = try container.decodeIfPresent([AIPEntry].self, forKey: .aipEntries) ?? []
     }
     
     public func bestRunway(wind : Heading) -> Heading {
@@ -302,6 +424,24 @@ public struct Airport : Codable {
             }
         }
         return aipEntries.first { $0.field == fieldName }
+    }
+    
+    // MARK: - Border Crossing / Point of Entry
+    
+    /// Check if this airport is a border crossing point (requires database context)
+    public func isBorderCrossing(db: FMDatabase) -> Bool {
+        let query = "SELECT COUNT(*) as count FROM border_crossing_points WHERE matched_airport_icao = ? OR icao_code = ?"
+        if let result = db.executeQuery(query, withArgumentsIn: [self.icao, self.icao]) {
+            if result.next() {
+                return result.int(forColumn: "count") > 0
+            }
+        }
+        return false
+    }
+    
+    /// Check if this airport can be used for customs/border crossing (requires database context)
+    public func hasCustoms(db: FMDatabase) -> Bool {
+        return isBorderCrossing(db: db)
     }
 }
 

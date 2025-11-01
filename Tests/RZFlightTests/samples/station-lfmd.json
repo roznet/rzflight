@@ -1,0 +1,88 @@
+{
+  "aipEntries" : [
+
+  ],
+  "city" : "Cannes, Alpes-Maritimes",
+  "continent" : "EU",
+  "country" : "FR",
+  "elevation_ft" : 13,
+  "gpsCode" : "LFMD",
+  "homeLink" : "https:\/\/www.cannes.aeroport.fr\/",
+  "iataCode" : "CEQ",
+  "icao" : "LFMD",
+  "isoRegion" : "FR-PAC",
+  "latitude" : 43.547998,
+  "longitude" : 6.955176,
+  "name" : "Cannes-Mandelieu Airport",
+  "procedures" : [
+
+  ],
+  "runways" : [
+    {
+      "closed" : false,
+      "he" : {
+        "elevationFt" : 10,
+        "headingTrue" : 224,
+        "ident" : "22",
+        "latitude" : 43.54850006103515,
+        "longitude" : 6.960830211639404
+      },
+      "le" : {
+        "elevationFt" : 7,
+        "headingTrue" : 44,
+        "ident" : "04",
+        "latitude" : 43.54389953613281,
+        "longitude" : 6.954110145568848
+      },
+      "length_ft" : 2493,
+      "lighted" : false,
+      "surface" : "ASP",
+      "width_ft" : 59
+    },
+    {
+      "closed" : false,
+      "he" : {
+        "elevationFt" : 7,
+        "headingTrue" : 353,
+        "ident" : "35",
+        "latitude" : 43.54029846191406,
+        "longitude" : 6.952939987182617
+      },
+      "le" : {
+        "elevationFt" : 14,
+        "headingTrue" : 173,
+        "ident" : "17",
+        "latitude" : 43.554500579833984,
+        "longitude" : 6.950419902801514
+      },
+      "length_ft" : 5052,
+      "lighted" : true,
+      "surface" : "ASP",
+      "width_ft" : 148
+    },
+    {
+      "closed" : false,
+      "he" : {
+        "elevationFt" : 8,
+        "headingTrue" : 353,
+        "ident" : "35R"
+      },
+      "le" : {
+        "elevationFt" : 11,
+        "headingTrue" : 173,
+        "ident" : "17L"
+      },
+      "length_ft" : 1804,
+      "lighted" : false,
+      "surface" : "grass",
+      "width_ft" : 164
+    }
+  ],
+  "scheduledService" : "no",
+  "sources" : [
+    "worldairports",
+    "france_eaip_html"
+  ],
+  "type" : "medium_airport",
+  "wikipediaLink" : "https:\/\/en.wikipedia.org\/wiki\/Cannes_%E2%80%93_Mandelieu_Airport"
+}

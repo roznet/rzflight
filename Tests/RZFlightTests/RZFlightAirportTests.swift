@@ -186,6 +186,198 @@ final class RZFlightAirportTests: XCTestCase {
         }
     }
 
+    func testAirportsNearRoute() throws {
+        guard let db = self.findAirportDb() else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
+        let known = KnownAirports(db: db)
+        
+        // Test single point route - airports near EGTF
+        let singlePointRoute = ["EGTF"]
+        let nearSinglePoint = known.airportsNearRoute(singlePointRoute, within: 10.0)
+        XCTAssertGreaterThan(nearSinglePoint.count, 0, "Should find airports near EGTF")
+        
+        // Verify EGTF is in the results (distance should be 0)
+        if let egtf = known.airport(icao: "EGTF", ensureRunway: false) {
+            XCTAssertTrue(nearSinglePoint.contains(egtf), "EGTF should be in results for single point route")
+            // First result should be EGTF itself (distance = 0)
+            XCTAssertEqual(nearSinglePoint.first?.icao, "EGTF", "Closest airport should be EGTF itself")
+        }
+        
+        // Test two-point route: EGTF to LFMD
+        let twoPointRoute = ["EGTF", "LFMD"]
+        let nearTwoPoint = known.airportsNearRoute(twoPointRoute, within: 50.0)
+        XCTAssertGreaterThan(nearTwoPoint.count, 0, "Should find airports near the EGTF-LFMD route")
+        
+        // Both endpoint airports should be in results
+        if let egtf = known.airport(icao: "EGTF", ensureRunway: false),
+           let lfmd = known.airport(icao: "LFMD", ensureRunway: false) {
+            XCTAssertTrue(nearTwoPoint.contains(egtf), "EGTF should be in route results")
+            XCTAssertTrue(nearTwoPoint.contains(lfmd), "LFMD should be in route results")
+        }
+        
+        // Test three-point route: EGTF -> LFLX -> LFMD
+        let threePointRoute = ["EGTF", "LFLX", "LFMD"]
+        let nearThreePoint = known.airportsNearRoute(threePointRoute, within: 50.0)
+        XCTAssertGreaterThan(nearThreePoint.count, 0, "Should find airports near the three-point route")
+        
+        // All three airports should be in results
+        if let egtf = known.airport(icao: "EGTF", ensureRunway: false),
+           let lflx = known.airport(icao: "LFLX", ensureRunway: false),
+           let lfmd = known.airport(icao: "LFMD", ensureRunway: false) {
+            XCTAssertTrue(nearThreePoint.contains(egtf), "EGTF should be in three-point route results")
+            XCTAssertTrue(nearThreePoint.contains(lflx), "LFLX should be in three-point route results")
+            XCTAssertTrue(nearThreePoint.contains(lfmd), "LFMD should be in three-point route results")
+        }
+        
+        // Test with invalid ICAO codes
+        let invalidRoute = ["XXXX"]
+        let nearInvalid = known.airportsNearRoute(invalidRoute, within: 10.0)
+        XCTAssertEqual(nearInvalid.count, 0, "Should return empty array for invalid route")
+        
+        // Test empty route
+        let emptyRoute: [String] = []
+        let nearEmpty = known.airportsNearRoute(emptyRoute, within: 10.0)
+        XCTAssertEqual(nearEmpty.count, 0, "Should return empty array for empty route")
+    }
+    
+    func testRouteFiltering() throws {
+        guard let db = self.findAirportDb() else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
+        let known = KnownAirports(db: db)
+        
+        // Get airports near EGTF to LOWS route
+        let route = ["EGTF", "LOWS"]
+        let nearRoute = known.airportsNearRoute(route, within: 100.0)
+        
+        // Test runway length filtering
+        let withLongRunways = nearRoute.withRunwayLength(minimumFeet: 3000)
+        for airport in withLongRunways {
+            XCTAssertFalse(airport.runways.isEmpty, "Should have runways")
+            let maxLength = airport.runways.map { $0.length_ft }.max() ?? 0
+            XCTAssertGreaterThanOrEqual(maxLength, 3000, "Should have at least one runway >= 3000ft")
+        }
+        
+        // Test runway length range filtering
+        let withMediumRunways = nearRoute.withRunwayLength(minimumFeet: 2000, maximumFeet: 5000)
+        for airport in withMediumRunways {
+            let runways = airport.runways
+            XCTAssertFalse(runways.isEmpty, "Should have runways")
+            let hasMediumRunway = runways.contains { $0.length_ft >= 2000 && $0.length_ft <= 5000 }
+            XCTAssertTrue(hasMediumRunway, "Should have at least one runway between 2000-5000ft")
+        }
+        
+        // Test hard runway filtering (if any airports have hard runways)
+        let withHardRunways = nearRoute.withHardRunways()
+        for airport in withHardRunways {
+            let hasHardRunway = airport.runways.contains { $0.isHardSurface }
+            XCTAssertTrue(hasHardRunway, "Should have at least one hard surface runway")
+        }
+        
+        // Test lighted runway filtering
+        let withLightedRunways = nearRoute.withLightedRunways()
+        for airport in withLightedRunways {
+            let hasLightedRunway = airport.runways.contains { $0.lighted == true }
+            XCTAssertTrue(hasLightedRunway, "Should have at least one lighted runway")
+        }
+        
+        // Test filtering for airports with procedures
+        let airports = nearRoute.withProcedures()
+        for airport in airports {
+            XCTAssertFalse(airport.procedures.isEmpty, "Should have procedures")
+        }
+        
+        // Test filtering for airports with approaches
+        let withApproaches = nearRoute.withApproaches()
+        for airport in withApproaches {
+            XCTAssertFalse(airport.approaches.isEmpty, "Should have approach procedures")
+        }
+        
+        // Test precision approach filtering
+        let withPrecisionApproaches = nearRoute.withPrecisionApproaches()
+        for airport in withPrecisionApproaches {
+            let hasPrecision = airport.approaches.contains { $0.precisionCategory == .precision }
+            XCTAssertTrue(hasPrecision, "Should have at least one precision approach")
+        }
+        
+        // Test country filtering (filter for French airports)
+        let frenchAirports = nearRoute.inCountry("FR")
+        for airport in frenchAirports {
+            XCTAssertEqual(airport.country, "FR", "Should be in France")
+        }
+        
+        // Test search filtering
+        let matchingEgtf = nearRoute.matching("EGTF")
+        XCTAssertGreaterThan(matchingEgtf.count, 0, "Should find airports matching 'EGTF'")
+        for airport in matchingEgtf {
+            let matches = airport.name.lowercased().contains("egtf") || airport.icao.contains("EGTF")
+            XCTAssertTrue(matches, "Should match search term")
+        }
+    }
+    
+    func testFilterChaining() throws {
+        guard let db = self.findAirportDb() else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
+        let known = KnownAirports(db: db)
+        
+        let route = ["EGTF", "LFPG"]
+        let nearRoute = known.airportsNearRoute(route, within: 100.0)
+        
+        // Chain multiple filters
+        let filtered = nearRoute
+            .withRunwayLength(minimumFeet: 2000)
+            .withHardRunways()
+            .withApproaches()
+        
+        // Verify each airport in the filtered result meets all criteria
+        for airport in filtered {
+            // Has long runway
+            let hasLongRunway = airport.runways.contains { $0.length_ft >= 2000 }
+            XCTAssertTrue(hasLongRunway, "Should have runway >= 2000ft")
+            
+            // Has hard surface
+            let hasHardRunway = airport.runways.contains { $0.isHardSurface }
+            XCTAssertTrue(hasHardRunway, "Should have hard surface runway")
+            
+            // Has approaches
+            XCTAssertFalse(airport.approaches.isEmpty, "Should have approach procedures")
+        }
+    }
+    
+    func testBorderCrossingFiltering() throws {
+        guard let db = self.findAirportDb() else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
+        let known = KnownAirports(db: db)
+        
+        // Get all border crossing airports
+        let borderCrossing = known.airportsWithBorderCrossing()
+        
+        // Note: This test depends on the database having border crossing data
+        // We just verify the function works without crashing
+        for airport in borderCrossing {
+            XCTAssertTrue(airport.isBorderCrossing(db: db), "Should be a border crossing point")
+        }
+        
+        // Test border crossing filter on a route
+        let route = ["EGTF", "LFPG"]
+        let nearRoute = known.airportsNearRoute(route, within: 200.0)
+        
+        // Filter for border crossing airports
+        let borderOnly = nearRoute.borderCrossingOnly(db: db)
+        
+        // Verify all results are border crossing points
+        for airport in borderOnly {
+            XCTAssertTrue(airport.isBorderCrossing(db: db), "Should be a border crossing point")
+        }
+    }
+
     func testPerformanceExample() throws {
         // This is an example of a performance test case.
         self.measure {
