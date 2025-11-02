@@ -176,10 +176,11 @@ class EGCAIPParser(AIPParser):
             # Format field number as 2-digit string (e.g., "02" for field 2)
             std_field_id = f"{section_num}{field_number.zfill(2)}"
 
-            # Extract field text
+            # Extract field text (simple extraction)
             field = self._extract_text(field_cell)
-            value = self._extract_text(value_cell)
-            alt_value = self._extract_text(alt_value_cell) if alt_value_cell else None
+            # Extract value with span filtering (handles SD/sdParams metadata)
+            value = self._extract_text(value_cell, filter_spans=True)
+            alt_value = self._extract_text(alt_value_cell, filter_spans=True) if alt_value_cell else None
             
             # Skip empty rows
             if not field or (not value and not alt_value):
@@ -252,23 +253,77 @@ class EGCAIPParser(AIPParser):
             
         return rv
     
-    def _extract_text(self, element) -> str:
+    def _extract_text(self, element, filter_spans: bool = False) -> str:
         """
         Extract text content from a BeautifulSoup element.
         
         Args:
             element: BeautifulSoup element
+            filter_spans: If True, applies span class filtering (for value fields with SD metadata)
             
         Returns:
             Extracted text string
         """
         if element is None:
             return ""
-            
-        # Get text content and clean it up
-        text = element.get_text(separator=' ', strip=True)
         
-        # Remove extra whitespace
+        # Handle plain text nodes (NavigableString)
+        # BeautifulSoup NavigableString has .name but it returns None
+        if not hasattr(element, 'name') or element.name is None:
+            return element.strip() if hasattr(element, 'strip') else str(element)
+        
+        # Simple extraction for non-value fields (field_number, field)
+        if not filter_spans:
+            return element.get_text(separator=' ', strip=True)
+        
+        # Advanced extraction for value fields with SD/sdParams annotations
+        IGNORED_CLASSES = {'sdParams', 'sdTooltip'}
+        text_parts = []
+        unexpected_classes = set()
+        
+        # Check if this element itself should be ignored
+        if element.name == 'span':
+            classes = element.get('class', [])
+            if classes:
+                class_names = set(classes)
+                if class_names & IGNORED_CLASSES:
+                    return ""  # Don't process ignored spans
+        
+        # Recursively process children if element has children
+        if hasattr(element, 'children'):
+            for child in element.children:
+                if hasattr(child, 'name'):  # It's a tag element
+                    if child.name == 'span':
+                        classes = child.get('class', [])
+                        if classes:
+                            class_names = set(classes)
+                            if class_names & IGNORED_CLASSES:
+                                continue  # Skip ignored spans
+                            elif 'SD' in class_names:
+                                # SD spans: extract their text directly
+                                text_parts.append(child.get_text(strip=True))
+                            else:
+                                # Unexpected span class - log and process normally
+                                unexpected_classes.update(class_names)
+                                child_text = self._extract_text(child, filter_spans=False)
+                                if child_text:
+                                    text_parts.append(child_text)
+                    else:
+                        # For non-span elements, recursively process with span filtering
+                        child_text = self._extract_text(child, filter_spans=True)
+                        if child_text:
+                            text_parts.append(child_text)
+                elif hasattr(child, 'strip'):  # It's a text node
+                    text = child.strip()
+                    if text:
+                        text_parts.append(text)
+        
+        # Log unexpected classes (only once per call to avoid spam)
+        if unexpected_classes and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Found unexpected span classes: {unexpected_classes}")
+        
+        # Join parts and clean up
+        text = ' '.join(text_parts)
         text = re.sub(r'\s+', ' ', text)
         
         return text.strip() 

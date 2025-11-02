@@ -18,6 +18,7 @@ from euro_aip.sources.uk_eaip_web import UKEAIPWebSource
 from euro_aip.models import EuroAipModel, Airport
 from euro_aip.sources.base import SourceInterface
 from euro_aip.utils.field_standardization_service import FieldStandardizationService
+from euro_aip.utils.airac_date_calculator import AIRACDateCalculator
 from euro_aip.storage import DatabaseStorage
 from euro_aip.parsers import ProcedureParserFactory
 
@@ -343,11 +344,13 @@ def main():
         logger.error("At least one output format must be specified")
         return
     
-    # Validate AIRAC date for web sources
+    # Handle AIRAC date for web sources
     web_sources_enabled = getattr(args, 'france_web', False) or getattr(args, 'uk_web', False)
     if web_sources_enabled and not args.airac_date:
-        logger.error("AIRAC date (--airac-date) is required when using web sources (--france-web or --uk-web)")
-        return
+        # Calculate the current effective AIRAC date
+        calculator = AIRACDateCalculator()
+        args.airac_date = calculator.get_current_airac_date()
+        logger.info(f"No AIRAC date provided, using current effective AIRAC: {args.airac_date}")
     
     exporter = AIPExporter(args)
     exporter.run()
