@@ -414,7 +414,10 @@ class EuroAipModel:
         if not icao_code:
             logger.warning(f"Border crossing entry for {entry.airport_name} has no ICAO code, skipping")
             return
-        
+
+        # Only add border crossing entries for airports that are in the model
+        if icao_code not in self.airports:
+            return
         if country_iso not in self.border_crossing_points:
             self.border_crossing_points[country_iso] = {}
 

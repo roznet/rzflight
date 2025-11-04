@@ -32,17 +32,20 @@ class FranceEAIPWebSource(CachedSource, SourceInterface):
     BASE_URL = "https://www.sia.aviation-civile.gouv.fr/media/dvd"
     FRANCE_PATH = "FRANCE"
 
-    def __init__(self, cache_dir: str, airac_date: str):
+    def __init__(self, cache_dir: str, airac_date: str, eaip_date: str = None):
         """
         Initialize France eAIP web source.
         
         Args:
             cache_dir: Directory for caching files
             airac_date: AIRAC effective date in YYYY-MM-DD format
+            eaip_date: eAIP date in YYYY-MM-DD format (defaults to airac_date if not provided)
         """
         super().__init__(cache_dir)
         self.airac_date = airac_date
+        self.eaip_date = eaip_date if eaip_date is not None else airac_date
         self._validate_airac_date()
+        self._validate_eaip_date()
 
     def _validate_airac_date(self):
         """Validate AIRAC date format."""
@@ -51,11 +54,26 @@ class FranceEAIPWebSource(CachedSource, SourceInterface):
         except ValueError:
             raise ValueError(f"Invalid AIRAC date format: {self.airac_date}. Expected YYYY-MM-DD")
 
-    def _get_date_components(self) -> tuple[str, str, str]:
-        """Get date components for URL construction."""
-        dt = datetime.strptime(self.airac_date, '%Y-%m-%d')
+    def _validate_eaip_date(self):
+        """Validate eAIP date format."""
+        try:
+            datetime.strptime(self.eaip_date, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError(f"Invalid eAIP date format: {self.eaip_date}. Expected YYYY-MM-DD")
+
+    def _get_eaip_date_components(self) -> tuple[str, str, str]:
+        """Get eAIP date components for URL construction (eAIP_dd_mm_yy part)."""
+        dt = datetime.strptime(self.eaip_date, '%Y-%m-%d')
         day = dt.strftime('%d')
         mon = dt.strftime('%b').upper()
+        year = dt.strftime('%Y')
+        return day, mon, year
+
+    def _get_airac_date_components(self) -> tuple[str, str, str]:
+        """Get AIRAC date components for URL construction (AIRAC part)."""
+        dt = datetime.strptime(self.airac_date, '%Y-%m-%d')
+        day = dt.strftime('%d')
+        mon = dt.strftime('%m')
         year = dt.strftime('%Y')
         return day, mon, year
 
@@ -69,8 +87,11 @@ class FranceEAIPWebSource(CachedSource, SourceInterface):
         Returns:
             Complete URL
         """
-        day, mon, year = self._get_date_components()
-        airac_root = f"eAIP_{day}_{mon}_{year}/{self.FRANCE_PATH}/AIRAC-{year}-{datetime.strptime(self.airac_date, '%Y-%m-%d').strftime('%m')}-{day}"
+        # Use eAIP date for the eAIP_dd_mm_yy part
+        e_day, e_mon, e_year = self._get_eaip_date_components()
+        # Use AIRAC date for the AIRAC-{year}-{mm}-{dd} part
+        a_day, a_mon, a_year = self._get_airac_date_components()
+        airac_root = f"eAIP_{e_day}_{e_mon}_{e_year}/{self.FRANCE_PATH}/AIRAC-{a_year}-{a_mon}-{a_day}"
         return f"{self.BASE_URL}/{airac_root}/{path}"
 
     def _get_index_url(self) -> str:

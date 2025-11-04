@@ -62,7 +62,8 @@ class ModelBuilder:
         if getattr(self.args, 'france_web', False):
             self.sources['france_eaip_web'] = FranceEAIPWebSource(
                 cache_dir=str(self.cache_dir),
-                airac_date=self.args.airac_date
+                airac_date=self.args.airac_date,
+                eaip_date=getattr(self.args, 'eaip_date', None)
             )
         
         if getattr(self.args, 'uk_web', False):
@@ -299,6 +300,7 @@ def main():
     
     parser.add_argument('--france-eaip', help='France eAIP root directory')
     parser.add_argument('--france-web', help='Enable France eAIP web source (HTML index)', action='store_true')
+    parser.add_argument('--eaip-date', help='eAIP date (YYYY-MM-DD) for France web source (defaults to AIRAC date if not provided)', required=False)
     parser.add_argument('--uk-eaip', help='UK eAIP root directory')
     parser.add_argument('--uk-web', help='Enable UK eAIP web source (HTML index)', action='store_true')
     parser.add_argument('--airac-date', help='AIRAC effective date (YYYY-MM-DD) for web sources', required=False)
