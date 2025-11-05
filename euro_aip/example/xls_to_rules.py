@@ -53,10 +53,12 @@ def slugify(s: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
     return re.sub(r"-{2,}", "-", s)
 
-def qid_for(question_text: str) -> str:
-    base = slugify(question_text)[:80]
-    h = hashlib.blake2b(question_text.encode("utf-8"), digest_size=6).hexdigest()
-    return f"{base}-{h}"
+def qid_for(question_raw: str, question_prefix: str) -> str:
+    return f"{question_prefix}-{question_raw}" if question_prefix else question_raw
+    
+    #base = slugify(question_text)[:80]
+    #h = hashlib.blake2b(question_text.encode("utf-8"), digest_size=6).hexdigest()
+    #return f"{base}-{h}"
 
 def infer_topic(question_text: str) -> Optional[str]:
     for pat, topic in TOPIC_RULES:
@@ -87,108 +89,209 @@ def find_col(df, candidates: List[str]) -> Optional[str]:
             return orig
     return None
 
-def load_excel(country_code: str, xlsx_path: Path) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def parse_tags(tags_str: Optional[str]) -> List[str]:
+    if not tags_str:
+        return []
+    parts = [t.strip() for t in str(tags_str).split(",")]
+    return [t for t in parts if t]
+
+def load_definitions(defs_xlsx: Path) -> Dict[str, Dict[str, Any]]:
     """
-    Returns (questions, answers) partial lists extracted from the file.
-    Handles both files with headers and files without headers (data starts at first row).
+    Load question definitions from an Excel with headers:
+    Raw Question, Question, Category, Tags.
+    Returns mapping question_id -> { question_id, question_text, question_prefix, category, tags }.
+    """
+    xl = pd.read_excel(defs_xlsx, sheet_name=None)
+    defs: Dict[str, Dict[str, Any]] = {}
+    q_prefix = ""
+    valid_prefixes = set()
+    for _, df in xl.items():
+        if df is None or df.empty:
+            continue
+        df.columns = [str(c).strip() for c in df.columns]
+        raw_col = find_col(df, ["Raw Question", "Raw", "Source Question"])
+        q_col = find_col(df, ["Question", "Normalized Question", "Final Question"])
+        cat_col = find_col(df, ["Category", "Categories"])
+        tags_col = find_col(df, ["Tags", "Tag"])
+        if not raw_col or not q_col:
+            continue
+        for _, row in df.iterrows():
+            q_raw = str(row[raw_col]).strip() if pd.notna(row[raw_col]) else ""
+            q_text = str(row[q_col]).strip() if pd.notna(row[q_col]) else ""
+            if not q_raw and not q_text:
+                q_prefix = ""
+                continue
+            if q_raw and not q_text:
+                q_prefix = q_raw
+                valid_prefixes.add(q_prefix)
+                continue
+            category = str(row[cat_col]).strip() if cat_col and pd.notna(row[cat_col]) else ""
+            tags = parse_tags(str(row[tags_col]).strip()) if tags_col and pd.notna(row[tags_col]) else []
+            qid = qid_for(q_raw, q_prefix)
+            defs[qid] = {
+                "question_id": qid,
+                "question_raw": q_raw,
+                "question_text": q_text,
+                "question_prefix": q_prefix,
+                "category": category,
+                "tags": tags,
+            }
+    return {"definitions": defs, "valid_prefixes": list(valid_prefixes)}
+
+def load_rules_for_country(country_code: str, xlsx_path: Path, definitions: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Parse a country's rule spreadsheet; returns list of { question_id, question_raw, question_prefix, answer_html, links }.
+    Supports both header and headerless formats; handles prefix rows.
     """
     country_code = country_code.upper()
-    xl = pd.read_excel(xlsx_path, sheet_name=None)  # all sheets
-    questions: Dict[str, Dict[str, Any]] = {}
-    answers: List[Dict[str, Any]] = []
+    xl = pd.read_excel(xlsx_path, sheet_name=None)
+    out: List[Dict[str, Any]] = []
+    defs = definitions["definitions"]
+    valid_prefixes = definitions["valid_prefixes"]
+    inconsistent_qids = set()
 
     for sheet_name, df in xl.items():
         if df is None or df.empty:
             continue
-        
-        # Try reading with headers first (backward compatibility)
+
         qcol = None
         acol = None
         lcol = None
-        
-        # Normalize columns and try to find by name
+
+        # Header-based first
         df.columns = [str(c).strip() for c in df.columns]
-        qcol = find_col(df, ["Question","Questions","Q"])
+        qcol = find_col(df, ["Question","Questions","Q"])  # raw question text in source
         acol = find_col(df, ["Answer","Answers","A","Response"])
         lcol = find_col(df, ["Links","Link","Sources","Source"])
-        
-        # If no headers found, read without headers and use column indices
+
+        # Fallback to headerless
         if not qcol or not acol:
-            # Re-read this sheet without headers
             xl_no_header = pd.read_excel(xlsx_path, sheet_name=sheet_name, header=None)
             if xl_no_header is not None and not xl_no_header.empty:
                 df = xl_no_header
-                # Use column indices: 0 = question, 1 = answer, 2 = links (optional)
                 qcol = 0
                 acol = 1
                 if df.shape[1] > 2:
                     lcol = 2
 
         if qcol is None or acol is None:
-            # Skip this sheet if structure doesn't match
             continue
 
         q_prefix = ""
         for _, row in df.iterrows():
-            q = str(row[qcol]).strip() if pd.notna(row[qcol]) else ""
+            q_raw = str(row[qcol]).strip() if pd.notna(row[qcol]) else ""
             a = str(row[acol]).strip() if pd.notna(row[acol]) else ""
-            if not q and not a:
+            if not q_raw and not a:
                 q_prefix = ""
                 continue
-            if q and not a:
-                q_prefix = q
+            if q_raw and not a and q_raw in valid_prefixes:
+                q_prefix = q_raw
                 continue
-
-            if q and a and q_prefix:
-                q = f"{q_prefix} {q}"
-            qid = qid_for(q)
-            if qid not in questions:
-                questions[qid] = {
-                    "question_id": qid,
-                    "question_text": q,
-                    "topic": infer_topic(q),
-                    "tags": [],  # keep empty for now; can enrich later
-                }
+            
             explicit_links = str(row[lcol]).strip() if lcol is not None and pd.notna(row[lcol]) else None
             links = extract_links(a, explicit_links)
-            answers.append({
+            qid = qid_for(q_raw, q_prefix)
+            if qid not in defs:
+                inconsistent_qids.add(qid)
+                continue
+            out.append({
                 "question_id": qid,
-                "country_code": country_code,
-                "answer_html": a,                # keep as-is; may already contain HTML fragments
+                "question_raw": q_raw,
+                "question_prefix": q_prefix,
+                "answer_html": a,
                 "links": links,
+                "country_code": country_code,
             })
-    return list(questions.values()), answers
+    if len(inconsistent_qids) > 0:
+        print(f"Warning: {len(inconsistent_qids)} inconsistent question IDs found in {xlsx_path.name}", file=sys.stderr)
+        for qid in inconsistent_qids:
+            print(f"  <{qid}>", file=sys.stderr)
+    return out
 
-def merge_rules(existing: Dict[str, Any], new_q: List[Dict[str, Any]], new_a: List[Dict[str, Any]],
-                last_reviewed: Optional[str], confidence: str) -> Dict[str, Any]:
-    q_by_id = {q["question_id"]: q for q in existing.get("questions", [])}
-    a_by_key = {(a["question_id"], a["country_code"]): a for a in existing.get("answers", [])}
+def merge_rules_with_definitions(existing: Dict[str, Any],
+                                 definitions: Dict[str, Dict[str, Any]],
+                                 country_results: List[Dict[str, Any]],
+                                 last_reviewed: Optional[str]
+                                 ) -> Dict[str, Any]:
+    """
+    Merge parsed country results into the combined structure using definitions.
+    Output schema:
+    {
+      "questions": [
+        {
+          "question_id": str,
+          "question_text": str,
+          "category": str,
+          "tags": [str,...],
+          "answers_by_country": {
+            "FR": { "answer_html": str, "links": [str], "last_reviewed": str, "confidence": str }
+          }
+        }
+      ]
+    }
+    """
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for q in existing.get("questions", []):
+        if not isinstance(q, dict) or "question_id" not in q:
+            continue
+        by_id[q["question_id"]] = q
+    defs =  definitions["definitions"]
 
-    # merge questions
-    for q in new_q:
-        if q["question_id"] in q_by_id:
-            # if wording differs slightly, keep the original; you can add auditing here
-            pass
+    # Ensure all definitions exist as base questions
+    for qid, d in defs.items():
+        if qid not in by_id:
+            by_id[qid] = {
+                "question_id": qid,
+                "question_raw": d["question_raw"],
+                "question_text": d["question_text"],
+                "question_prefix": d["question_prefix"],
+                "category": d.get("category", ""),
+                "tags": list(d.get("tags", [])),
+                "answers_by_country": {},
+            }
         else:
-            q_by_id[q["question_id"]] = q
+            existing_q = by_id[qid]
+            if not existing_q.get("question_raw"):
+                existing_q["question_raw"] = d["question_raw"]
+            if not existing_q.get("question_prefix"):
+                existing_q["question_prefix"] = d["question_prefix"]
+            if "category" not in existing_q:
+                existing_q["category"] = d.get("category", "")
+            if "tags" not in existing_q:
+                existing_q["tags"] = list(d.get("tags", []))
+            if "answers_by_country" not in existing_q:
+                existing_q["answers_by_country"] = {}
 
-    # merge answers (overwrite per question+country)
-    for a in new_a:
-        rec = dict(a)
+    # Merge country results
+    inconsistent_qids = set()
+    for rec in country_results:
+        qid = rec.get("question_id", "").strip()
+        cc = rec.get("country_code")
+        ans = {
+            "answer_html": rec.get("answer_html", ""),
+            "links": rec.get("links", []),
+        }
         if last_reviewed:
-            rec["last_reviewed"] = last_reviewed
-        rec["confidence"] = confidence
-        a_by_key[(rec["question_id"], rec["country_code"])] = rec
+            ans["last_reviewed"] = last_reviewed
+
+        d = defs.get(qid)
+        if d is None:
+            inconsistent_qids.add(qid)
+            continue
+        by_id[qid]["answers_by_country"][cc] = ans
 
     out = {
-        "questions": sorted(q_by_id.values(), key=lambda x: x["question_text"].lower()),
-        "answers": sorted(a_by_key.values(), key=lambda x: (x["question_id"], x["country_code"])),
+        "questions": sorted(by_id.values(), key=lambda x: x.get("question_text", "").lower())
     }
+    if len(inconsistent_qids) > 0:
+        out["inconsistent_qids"] = list(inconsistent_qids)
+        print(f"Warning: {len(inconsistent_qids)} inconsistent question IDs found", file=sys.stderr)
     return out
 
 def main(argv: Optional[List[str]] = None) -> int:
-    p = argparse.ArgumentParser(description="Convert country Excel Q/A files into rules.json")
+    p = argparse.ArgumentParser(description="Convert definitions + country Excel Q/A files into rules.json")
     p.add_argument("--out", required=True, help="Output rules.json path")
+    p.add_argument("--defs", required=True, help="Definitions Excel path (Raw Question, Question, Category, Tags)")
     p.add_argument("--append", action="store_true", help="Append into existing rules.json if present")
     p.add_argument("--last-reviewed", default=dt.date.today().isoformat(), help="YYYY-MM-DD for last_reviewed (default: today)")
     p.add_argument("--confidence", default="medium", choices=["low","medium","high"])
@@ -197,33 +300,51 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = p.parse_args(argv)
 
     out_path = Path(args.out)
+    defs_path = Path(args.defs).expanduser()
+    if not defs_path.exists():
+        print(f"Error: definitions file not found {defs_path}", file=sys.stderr)
+        return 2
     if not args.add:
         p.error("Provide at least one --add CC XLSX")
 
-    combined: Dict[str, Any] = {"questions": [], "answers": []}
+    combined: Dict[str, Any] = {"questions": []}
     if args.append and out_path.exists():
         try:
             combined = json.loads(out_path.read_text(encoding="utf-8"))
+            if not isinstance(combined, dict) or "questions" not in combined:
+                combined = {"questions": []}
         except Exception:
             print(f"Warning: failed to parse existing {out_path}, starting fresh", file=sys.stderr)
-            combined = {"questions": [], "answers": []}
+            combined = {"questions": []}
 
+    definitions = load_definitions(defs_path)
+
+    total_answers = 0
     for cc, fpath in args.add:
         xlsx = Path(fpath).expanduser()
         if not xlsx.exists():
             print(f"Error: file not found {xlsx}", file=sys.stderr)
             return 2
-        q, a = load_excel(cc, xlsx)
-        combined = merge_rules(combined, q, a, last_reviewed=args.last_reviewed, confidence=args.confidence)
-        print(f"Loaded {len(q)} questions / {len(a)} answers from {cc}:{xlsx.name}")
+        country_results = load_rules_for_country(cc, xlsx, definitions)
+        total_answers += len(country_results)
+        combined = merge_rules_with_definitions(
+            combined,
+            definitions,
+            country_results,
+            last_reviewed=args.last_reviewed,
+        )
+        print(f"Loaded {len(country_results)} entries from {cc}:{xlsx.name}")
 
-    # normalize fields naming for answers: links_json vs links; keep 'links' for MCP, but also write links_json for future MySQL loader
-    for rec in combined["answers"]:
-        if "links_json" not in rec:
-            rec["links_json"] = rec.get("links", [])
+    # optional: mirror links_json for potential downstream loaders
+    for q in combined.get("questions", []):
+        answers_by_country = q.get("answers_by_country", {})
+        for cc, ans in answers_by_country.items():
+            if "links_json" not in ans:
+                ans["links_json"] = ans.get("links", [])
 
     out_path.write_text(json.dumps(combined, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"Wrote {out_path} with {len(combined['questions'])} questions and {len(combined['answers'])} answers.")
+    num_q = len(combined.get('questions', []))
+    print(f"Wrote {out_path} with {num_q} questions and {total_answers} country-answers.")
     return 0
 
 if __name__ == "__main__":
