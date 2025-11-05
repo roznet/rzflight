@@ -30,6 +30,7 @@ from security_config import (
 
 # Import API routes
 from api import airports, procedures, filters, statistics
+from chat import ask as chat_ask
 
 # Configure logging
 logging.basicConfig(level=getattr(logging, LOG_LEVEL), format=LOG_FORMAT)
@@ -176,6 +177,7 @@ app.include_router(airports.router, prefix="/api/airports", tags=["airports"])
 app.include_router(procedures.router, prefix="/api/procedures", tags=["procedures"])
 app.include_router(filters.router, prefix="/api/filters", tags=["filters"])
 app.include_router(statistics.router, prefix="/api/statistics", tags=["statistics"])
+app.include_router(chat_ask.router, tags=["chat"])
 
 # Serve static files for client assets
 client_dir = Path(__file__).parent.parent / "client"
