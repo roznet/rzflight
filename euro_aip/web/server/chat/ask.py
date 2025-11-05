@@ -37,9 +37,7 @@ SYSTEM_PROMPT = (
 # -----------------------
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 MCP_BASE_URL = os.getenv("MCP_BASE_URL", "https://mcp.flyfun.aero/euro_aip").rstrip("/")
-# Allow fully-qualified overrides in case the server exposes root paths (e.g., /tools, /call)
-MCP_TOOLS_URL = os.getenv("MCP_TOOLS_URL") or f"{MCP_BASE_URL}/mcp/tools"
-MCP_CALL_URL = os.getenv("MCP_CALL_URL") or f"{MCP_BASE_URL}/mcp/call"
+MCP_RPC_URL = os.getenv("MCP_RPC_URL") or f"{MCP_BASE_URL}"
 
 _auth_header = os.getenv("MCP_AUTH_HEADER") or "Authorization"
 _auth_token = os.getenv("MCP_AUTH_TOKEN") or ""
@@ -48,23 +46,71 @@ if _auth_token:
     MCP_HEADERS[_auth_header] = _auth_token
 
 # --------------------------------
-# Simple async client for HTTPS MCP
+# Simple async client for HTTPS MCP (JSON-RPC)
 # --------------------------------
 class MCPClientHTTP:
-    def __init__(self, tools_url: str, call_url: str, headers: Optional[Dict[str, str]] = None, timeout: float = 60.0):
-        self.tools_url = tools_url
-        self.call_url = call_url
+    def __init__(self, rpc_url: str, headers: Optional[Dict[str, str]] = None, timeout: float = 60.0):
+        self.rpc_url = rpc_url
         self.client = httpx.AsyncClient(timeout=timeout, headers=headers or {})
+        self._initialized = False
+        self._next_id = 1
+
+    async def _rpc(self, method: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        payload = {
+            "jsonrpc": "2.0",
+            "id": self._next_id,
+            "method": method,
+        }
+        self._next_id += 1
+        if params is not None:
+            payload["params"] = params
+        r = await self.client.post(self.rpc_url, json=payload)
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, dict) and data.get("error"):
+            raise RuntimeError(f"MCP error calling {method}: {data['error']}")
+        # Standard JSON-RPC result envelope
+        return data.get("result", data)
+
+    async def _ensure_initialized(self):
+        if self._initialized:
+            return
+        # Minimal initialize per spec; servers may ignore unsupported capabilities
+        try:
+            await self._rpc(
+                "initialize",
+                {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
+                    "clientInfo": {"name": "euro_aip_web", "version": "0.1.0"},
+                },
+            )
+        except Exception:
+            # Some servers allow direct calls without explicit initialize; continue
+            pass
+        else:
+            # Best-effort notification
+            try:
+                await self._rpc("notifications/initialized")
+            except Exception:
+                pass
+        self._initialized = True
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        r = await self.client.get(self.tools_url)
-        r.raise_for_status()
-        return r.json()  # [{ name, description, parameters_json_schema, ...}]
+        await self._ensure_initialized()
+        res = await self._rpc("tools/list")
+        # Accept either {"tools": [...]} or a bare list
+        if isinstance(res, dict) and "tools" in res:
+            return res["tools"]
+        if isinstance(res, list):
+            return res
+        raise RuntimeError(f"Unexpected tools/list response: {res}")
 
     async def call_tool(self, name: str, args: Dict[str, Any]) -> Any:
-        r = await self.client.post(self.call_url, json={"name": name, "arguments": args})
-        r.raise_for_status()
-        return r.json()
+        await self._ensure_initialized()
+        res = await self._rpc("tools/call", {"name": name, "arguments": args})
+        # Accept either {"content": ...} or a bare value
+        return res
 
 # ------------------------------------
 # Lazy, global initialization (warm)
@@ -129,7 +175,7 @@ async def _get_agent():
             return _agent
 
         # 1) Build the MCP client and sanity-check connectivity
-        _mcp = MCPClientHTTP(MCP_TOOLS_URL, MCP_CALL_URL, headers=MCP_HEADERS)
+        _mcp = MCPClientHTTP(MCP_RPC_URL, headers=MCP_HEADERS)
         try:
             await _mcp.list_tools()
         except Exception as e:
