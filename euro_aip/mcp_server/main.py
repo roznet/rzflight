@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, TypedDict
+import json
 
 from fastmcp import FastMCP, Context
 
@@ -34,6 +35,8 @@ class AirportNearRoute(TypedDict):
 
 # ---- Global model storage for FastMCP 2.11 --------------------------------
 _model: Optional[EuroAipModel] = None
+_rules: Optional[Dict[str, Any]] = None
+_rules_index: Optional[Dict[str, Any]] = None
 
 def get_model() -> EuroAipModel:
     """Get the global model instance."""
@@ -45,10 +48,21 @@ def get_model() -> EuroAipModel:
 @asynccontextmanager
 async def lifespan(app: FastMCP):
     global _model
+    global _rules
+    global _rules_index
     db_path = os.environ.get("AIRPORTS_DB", "airports.db")
     # Let FastMCP handle logging/levels via FASTMCP_LOG_LEVEL, etc.
     db_storage = DatabaseStorage(db_path)
     _model = db_storage.load_model()
+    # Load rules store
+    rules_path = os.environ.get("RULES_JSON", os.path.join(os.path.dirname(__file__), "rules.json"))
+    try:
+        with open(rules_path, "r", encoding="utf-8") as f:
+            _rules = json.load(f)
+        _rules_index = _build_rules_index(_rules or {})
+    except Exception:
+        _rules = {"questions": []}
+        _rules_index = _build_rules_index(_rules)
     try:
         yield
     finally:
@@ -58,8 +72,9 @@ async def lifespan(app: FastMCP):
 mcp = FastMCP(
     name="euro_aip",
     instructions=(
-        "Euro AIP Airport Database MCP Server. Tools for querying airport data, "
-        "route planning, and flight information."
+        "Euro AIP Airport MCP Server. Tools for querying airport data, route planning, "
+        "and country-specific aviation rules. Use two-letter ISO country codes (e.g., FR, GB). "
+        "Rules tools support filters by category/tags; try listing available countries, categories, and tags first."
     ),
     lifespan=lifespan,
 )
@@ -87,6 +102,115 @@ def _pretty_airport(a: Airport) -> str:
         lines.append(f"Runway: {a.longest_runway_length_ft}ft")
     if getattr(a, "point_of_entry", False):
         lines.append("Border crossing point")
+    return "\n".join(lines)
+
+# ---- Rules helpers -----------------------------------------------------------
+def _get_rules() -> Dict[str, Any]:
+    if _rules is None:
+        raise RuntimeError("Rules store not initialized. Server not started properly.")
+    return _rules
+
+def _get_rules_index() -> Dict[str, Any]:
+    if _rules_index is None:
+        raise RuntimeError("Rules index not initialized. Server not started properly.")
+    return _rules_index
+
+def _build_rules_index(rules: Dict[str, Any]) -> Dict[str, Any]:
+    questions = rules.get("questions", []) or []
+    by_id: Dict[str, Dict[str, Any]] = {}
+    by_category: Dict[str, List[str]] = {}
+    by_tag: Dict[str, List[str]] = {}
+    categories: set[str] = set()
+    tags: set[str] = set()
+    for q in questions:
+        qid = q.get("question_id")
+        if not qid:
+            continue
+        by_id[qid] = q
+        cat = (q.get("category") or "").strip()
+        if cat:
+            categories.add(cat)
+            by_category.setdefault(cat.lower(), []).append(qid)
+        for t in (q.get("tags") or []):
+            tt = (t or "").strip()
+            if not tt:
+                continue
+            tags.add(tt)
+            by_tag.setdefault(tt.lower(), []).append(qid)
+    return {
+        "by_id": by_id,
+        "by_category": by_category,
+        "by_tag": by_tag,
+        "categories": sorted(categories),
+        "tags": sorted(tags),
+    }
+
+def _iter_filtered_questions(
+    category: Optional[str],
+    tags: Optional[List[str]],
+    search: Optional[str],
+    tags_mode: str = "any",
+):
+    rules = _get_rules()
+    index = _get_rules_index()
+    all_questions = rules.get("questions", []) or []
+    search_lc = (search or "").strip().lower()
+    cat_lc = (category or "").strip().lower()
+    tags_lc = [t.strip().lower() for t in (tags or []) if t and t.strip()]
+
+    def matches(q: Dict[str, Any]) -> bool:
+        if cat_lc and (q.get("category") or "").strip().lower() != cat_lc:
+            return False
+        if tags_lc:
+            qtags = {(t or "").strip().lower() for t in (q.get("tags") or [])}
+            if tags_mode == "all":
+                if not all(t in qtags for t in tags_lc):
+                    return False
+            else:
+                if not any(t in qtags for t in tags_lc):
+                    return False
+        if search_lc:
+            qt = (q.get("question_text") or "").lower()
+            if search_lc not in qt:
+                return False
+        return True
+
+    for q in all_questions:
+        if matches(q):
+            yield q
+
+def _format_rule_item_for_country(q: Dict[str, Any], cc: str, include_unanswered: bool) -> Optional[Dict[str, Any]]:
+    answers = q.get("answers_by_country", {}) or {}
+    ans = answers.get(cc)
+    if not ans and not include_unanswered:
+        return None
+    return {
+        "question_id": q.get("question_id"),
+        "question_text": q.get("question_text"),
+        "category": q.get("category"),
+        "tags": q.get("tags") or [],
+        "answer_html": (ans or {}).get("answer_html"),
+        "links": (ans or {}).get("links", []),
+        "last_reviewed": (ans or {}).get("last_reviewed"),
+    }
+
+def _pretty_grouped_by_category(items: List[Dict[str, Any]], title: str) -> str:
+    if not items:
+        return f"No results for {title}."
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for it in items:
+        grouped.setdefault(it.get("category") or "(uncategorized)", []).append(it)
+    lines: List[str] = [f"**{title}:**\n"]
+    for cat, arr in grouped.items():
+        lines.append(f"**{cat}:**")
+        for it in arr:
+            q = it.get("question_text") or ""
+            ans = it.get("answer_html")
+            if ans:
+                lines.append(f"- {q}\n  → {ans}")
+            else:
+                lines.append(f"- {q}\n  → (no answer)")
+        lines.append("")
     return "\n".join(lines)
 
 # ---- Tools -------------------------------------------------------------------
@@ -177,6 +301,123 @@ def get_airport_details(icao_code: str, ctx: Context = None) -> Dict[str, Any]:
     details["pretty"] = "\n".join(pretty)
     return details
 
+@mcp.tool(name="list_rules_for_country", description="List aviation rules answers for a country (ISO-2 code, e.g., FR, GB). Optional: category, tags, search. Example: {country:'FR', category:'VFR'}")
+def list_rules_for_country(country: str,
+                           category: Optional[str] = None,
+                           tags: Optional[List[str]] = None,
+                           include_unanswered: bool = False,
+                           search: Optional[str] = None,
+                           tags_mode: str = "any",
+                           ctx: Context = None) -> Dict[str, Any]:
+    cc = (country or "").strip().upper()
+    items: List[Dict[str, Any]] = []
+    for q in _iter_filtered_questions(category, tags, search, tags_mode):
+        it = _format_rule_item_for_country(q, cc, include_unanswered)
+        if it:
+            items.append(it)
+    pretty = _pretty_grouped_by_category(items, f"Rules for {cc}")
+    return {"count": len(items), "items": items, "pretty": pretty}
+
+@mcp.tool(name="compare_rules_between_countries", description="Compare aviation rules answers between two countries (ISO-2, e.g., FR vs GB). Optional: category, tags, search. Differences shown by default.")
+def compare_rules_between_countries(country_a: str,
+                                    country_b: str,
+                                    category: Optional[str] = None,
+                                    tags: Optional[List[str]] = None,
+                                    search: Optional[str] = None,
+                                    only_differences: bool = True,
+                                    tags_mode: str = "any",
+                                    ctx: Context = None) -> Dict[str, Any]:
+    ca = (country_a or "").strip().upper()
+    cb = (country_b or "").strip().upper()
+    diffs: List[Dict[str, Any]] = []
+    for q in _iter_filtered_questions(category, tags, search, tags_mode):
+        qa = _format_rule_item_for_country(q, ca, True) or {}
+        qb = _format_rule_item_for_country(q, cb, True) or {}
+        a_html = (qa.get("answer_html") or "").strip()
+        b_html = (qb.get("answer_html") or "").strip()
+        different = (a_html != b_html)
+        if only_differences and not different:
+            continue
+        diffs.append({
+            "question_id": q.get("question_id"),
+            "question_text": q.get("question_text"),
+            "category": q.get("category"),
+            "tags": q.get("tags") or [],
+            "a": {"answer_html": qa.get("answer_html"), "links": qa.get("links", []), "exists": qa.get("answer_html") is not None},
+            "b": {"answer_html": qb.get("answer_html"), "links": qb.get("links", []), "exists": qb.get("answer_html") is not None},
+            "different": different,
+        })
+    # Pretty output
+    if not diffs:
+        return {"count": 0, "items": [], "pretty": f"No differences between {ca} and {cb}."}
+    lines: List[str] = [f"**Comparison {ca} vs {cb}:**\n"]
+    for item in diffs:
+        lines.append(f"- {item['question_text']}")
+        lines.append(f"  {ca}: {(item['a'].get('answer_html') or '(no answer)')}\n  {cb}: {(item['b'].get('answer_html') or '(no answer)')}\n")
+    return {"count": len(diffs), "items": diffs, "pretty": "\n".join(lines)}
+
+@mcp.tool(name="get_answers_for_questions", description="Get answers by country for specific question IDs (country keys are ISO-2 codes). Use list_rule_categories_and_tags and list_rules_for_country to discover IDs.")
+def get_answers_for_questions(question_ids: List[str], ctx: Context = None) -> Dict[str, Any]:
+    index = _get_rules_index()
+    by_id = index["by_id"]
+    items: List[Dict[str, Any]] = []
+    for qid in question_ids or []:
+        q = by_id.get(qid)
+        if not q:
+            continue
+        items.append({
+            "question_id": q.get("question_id"),
+            "question_text": q.get("question_text"),
+            "category": q.get("category"),
+            "tags": q.get("tags") or [],
+            "answers_by_country": q.get("answers_by_country", {}),
+        })
+    pretty_lines: List[str] = []
+    for item in items:
+        pretty_lines.append(f"**{item['question_text']}**")
+        abc = item.get("answers_by_country") or {}
+        for cc, ans in sorted(abc.items()):
+            pretty_lines.append(f"- {cc}: {ans.get('answer_html') or '(no answer)'}")
+        pretty_lines.append("")
+    return {"count": len(items), "items": items, "pretty": "\n".join(pretty_lines)}
+
+@mcp.tool(name="list_rule_categories_and_tags", description="List available aviation rule categories and tags in the rules store")
+def list_rule_categories_and_tags(ctx: Context = None) -> Dict[str, Any]:
+    index = _get_rules_index()
+    categories = index.get("categories", [])
+    tags = index.get("tags", [])
+    # counts
+    by_category = index.get("by_category", {})
+    by_tag = index.get("by_tag", {})
+    pretty = ["**Categories:**"]
+    for c in categories:
+        pretty.append(f"- {c} ({len(by_category.get(c.lower(), []))})")
+    pretty.append("")
+    pretty.append("**Tags:**")
+    for t in tags:
+        pretty.append(f"- {t} ({len(by_tag.get(t.lower(), []))})")
+    return {
+        "categories": categories,
+        "tags": tags,
+        "counts": {
+            "by_category": {c: len(by_category.get(c.lower(), [])) for c in categories},
+            "by_tag": {t: len(by_tag.get(t.lower(), [])) for t in tags},
+        },
+        "pretty": "\n".join(pretty),
+    }
+
+@mcp.tool(name="list_rule_countries", description="List available countries (ISO-2 codes) present in the aviation rules store")
+def list_rule_countries(ctx: Context = None) -> Dict[str, Any]:
+    rules = _get_rules()
+    countries: set[str] = set()
+    for q in rules.get("questions", []) or []:
+        for cc in (q.get("answers_by_country", {}) or {}).keys():
+            if cc:
+                countries.add(str(cc).upper())
+    items = sorted(countries)
+    pretty = "**Rule Countries (ISO-2):**\n" + ("\n".join(f"- {c}" for c in items) if items else "(none)")
+    return {"count": len(items), "items": items, "pretty": pretty}
+
 @mcp.tool(name="get_border_crossing_airports", description="List airports that are border crossing points (optional country filter)")
 def get_border_crossing_airports(country: Optional[str] = None, ctx: Context = None) -> Dict[str, Any]:
     model = get_model()
@@ -255,10 +496,17 @@ if __name__ == "__main__":
         default="airports.db",
         help="Database file (default: airports.db)",
     )
+    parser.add_argument(
+        "--rules",
+        default=os.path.join(os.path.dirname(__file__), "rules.json"),
+        help="Rules JSON file (default: mcp_server/rules.json)",
+    )
 
     args = parser.parse_args()
     if args.database:
         os.environ["AIRPORTS_DB"] = args.database
+    if args.rules:
+        os.environ["RULES_JSON"] = args.rules
 
     if args.transport == "http":
         mcp.run(transport="http", host=args.host, port=args.port)

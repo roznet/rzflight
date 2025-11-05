@@ -1,0 +1,1680 @@
+{
+  "questions": [
+    {
+      "question_id": "Are autorouter FPL accepted? Whether yes or no, are there recommended local alternatives?",
+      "question_raw": "Are autorouter FPL accepted? Whether yes or no, are there recommended local alternatives?",
+      "question_text": "Are autorouter FPL accepted? Whether yes or no, are there recommended local alternatives?",
+      "question_prefix": "",
+      "category": "Tools",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Are military airfields generally available for civilian use?",
+      "question_raw": "Are military airfields generally available for civilian use?",
+      "question_text": "Are military airfields generally available for civilian use?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Are there any preferred weather services which particularly report local conditions?",
+      "question_raw": "Are there any preferred weather services which particularly report local conditions?",
+      "question_text": "Are there any preferred weather services which particularly report local conditions?",
+      "question_prefix": "",
+      "category": "Tools",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "windy, metoffice aviation briefing service https://www.metoffice.gov.uk/premium/generalaviation/#!/aerodromes",
+          "links": [
+            "https://www.metoffice.gov.uk/premium/generalaviation/#!/aerodromes"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://www.metoffice.gov.uk/premium/generalaviation/#!/aerodromes"
+          ]
+        },
+        "FR": {
+          "answer_html": "https://aviation.meteo.fr, windy",
+          "links": [
+            "https://aviation.meteo.fr,"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://aviation.meteo.fr,"
+          ]
+        },
+        "CH": {
+          "answer_html": "meteosuisse app with aviation weather addon, foreflight, GAFOR route particualarly useful",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Are there any specific requirements in the initial call for FIS?",
+      "question_raw": "Are there any specific requirements in the initial call for FIS?",
+      "question_text": "Are there any specific requirements in the initial call for FIS?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "center name, station name, request (service or transit). They wil lreply pass your message and you can then give your details",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Typically say your registration number, then \"CenterName (Paris/Lille…) N12345 Bonjour\". They will reply \"Bonjour N12345\" and then you can give your details and request (can be in english or french)",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Are there Listening Squawks and if so, how do they work?",
+      "question_raw": "Are there Listening Squawks and if so, how do they work?",
+      "question_text": "Are there Listening Squawks and if so, how do they work?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes, squawk the frequency using mode C or S, Map is found in section 6.80 of latest AIP found here https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/",
+          "links": [
+            "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/"
+          ]
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Are these rules generally abided by (or do lesser services try to \"overcontrol\")?",
+      "question_raw": "Are these rules generally abided by (or do lesser services try to \"overcontrol\")?",
+      "question_text": "Are these rules generally abided by (or do lesser services try to \"overcontrol\")?",
+      "question_prefix": "",
+      "category": "Flight Rules",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "usualy abided",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "usualy abided",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "abided, no overcontrol",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Can FIS grant clearance through Class D, C and B airspace?",
+      "question_raw": "Can FIS grant clearance through Class D, C and B airspace?",
+      "question_text": "Can FIS grant clearance through Class D, C and B airspace?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no FIS, only the controlling station can provide clearance",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "depends, sometime yes, sometime they will direct you to contact the relevant unit on the radio",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Can you rely on FIS to advise you regarding approaching and penetrating such airspace?",
+      "question_raw": "Can you rely on FIS to advise you regarding approaching and penetrating such airspace?",
+      "question_text": "Can you rely on FIS to advise you regarding approaching and penetrating such airspace?",
+      "question_prefix": "",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "usually no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "usually if workload permits. You can also ask for active zone ahead",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes when workload permits",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Do any specific requirements or procedures apply when arriving on an instrument approach to an unmanned airfield?",
+      "question_raw": "Do any specific requirements or procedures apply when arriving on an instrument approach to an unmanned airfield?",
+      "question_text": "Do any specific requirements or procedures apply when arriving on an instrument approach to an unmanned airfield?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "establish radio communication, pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "If the circuit is active you need to overfly the field and not do a straight in approach.",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "establish VFR above MSA/class G",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR in Class C airspace, what are the transponder requirements?",
+      "question_raw": "Flying under VFR in Class C airspace, what are the transponder requirements?",
+      "question_text": "Flying under VFR in Class C airspace, what are the transponder requirements?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR in Class D airspace, what are the transponder requirements?",
+      "question_raw": "Flying under VFR in Class D airspace, what are the transponder requirements?",
+      "question_text": "Flying under VFR in Class D airspace, what are the transponder requirements?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR in Class E airspace, what are the transponder requirements?",
+      "question_raw": "Flying under VFR in Class E airspace, what are the transponder requirements?",
+      "question_text": "Flying under VFR in Class E airspace, what are the transponder requirements?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no unless TMZ",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no unless TMZ",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR in Class G airspace, what are the transponder requirements?",
+      "question_raw": "Flying under VFR in Class G airspace, what are the transponder requirements?",
+      "question_text": "Flying under VFR in Class G airspace, what are the transponder requirements?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR in Class G and E airspace, are you required to use FIS?",
+      "question_raw": "Flying under VFR in Class G and E airspace, are you required to use FIS?",
+      "question_text": "Flying under VFR in Class G and E airspace, are you required to use FIS?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Flying under VFR, what are the requirements to enter Class D and Class C airspace?",
+      "question_raw": "Flying under VFR, what are the requirements to enter Class D and Class C airspace?",
+      "question_text": "Flying under VFR, what are the requirements to enter Class D and Class C airspace?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "You need an explicit clearance from the controlling station. Do not enter until you heard \"Cleared to enter airspace\"",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Class D, usually be in contact with ATC. Class C/TMA Be in contact with ATC and ask for transit. Reply will typically be \"approved\" with potential routing",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Radio communication for D, clearance for C (ex geneva tma)",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Information service-What permissions are required in the air?",
+      "question_raw": "What permissions are required in the air?",
+      "question_text": "For Airfield Information service, what permissions are required in the air?",
+      "question_prefix": "For Airfield Information service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Establish radio contact required, say your intention and position, and you'll get traffic and field information.",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Establish radio contact required, say your intention and position, and you'll get traffic and field information.",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "radio contact to enter",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Information service-What permissions are required on taxiways and aprons?",
+      "question_raw": "What permissions are required on taxiways and aprons?",
+      "question_text": "For Airfield Information service, what permissions are required on taxiways and aprons?",
+      "question_prefix": "For Airfield Information service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Information service-What permissions are required on the runway (ie take-off and land)?",
+      "question_raw": "What permissions are required on the runway (ie take-off and land)?",
+      "question_text": "For Airfield Information service, what permissions are required on the runway (ie take-off and land)?",
+      "question_prefix": "For Airfield Information service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "report position, intention. you'll get traffic and field information, not permission or clearance will be given. Pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Radio service-What permissions are required in the air?",
+      "question_raw": "What permissions are required in the air?",
+      "question_text": "For Airfield Radio service, what permissions are required in the air?",
+      "question_prefix": "For Airfield Radio service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Radio service-What permissions are required on taxiways and aprons?",
+      "question_raw": "What permissions are required on taxiways and aprons?",
+      "question_text": "For Airfield Radio service, what permissions are required on taxiways and aprons?",
+      "question_prefix": "For Airfield Radio service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For Airfield Radio service-What permissions are required on the runway (ie take-off and land)?",
+      "question_raw": "What permissions are required on the runway (ie take-off and land)?",
+      "question_text": "For Airfield Radio service, what permissions are required on the runway (ie take-off and land)?",
+      "question_prefix": "For Airfield Radio service",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Announce position and intention, coordinate with other planes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For ATC at an airfield:-What permissions are required in the air?",
+      "question_raw": "What permissions are required in the air?",
+      "question_text": "For ATC at an airfield, what permissions are required in the air?",
+      "question_prefix": "For ATC at an airfield:",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Radio contact and follow instructions",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Radio contact and follow instructions",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "enter zone by radio contact, no explicit clearance for D",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For ATC at an airfield:-What permissions are required on taxiways and aprons?",
+      "question_raw": "What permissions are required on taxiways and aprons?",
+      "question_text": "For ATC at an airfield, what permissions are required on taxiways and aprons?",
+      "question_prefix": "For ATC at an airfield:",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "start for IFR and VFR, taxi clearance required",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "start for IFR, taxi clearance required and typical to ask permission to leave frequency before shutdown",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "start for IFR, taxi for VFR",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "For ATC at an airfield:-What permissions are required on the runway (ie take-off and land)?",
+      "question_raw": "What permissions are required on the runway (ie take-off and land)?",
+      "question_text": "For ATC at an airfield, what permissions are required on the runway (ie take-off and land)?",
+      "question_prefix": "For ATC at an airfield:",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Takeoff and landing clearance required",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Takeoff and landing clearance required",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "clearance to land and takeoff",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "How are FPL closed when arriving on a non-controlled airport?",
+      "question_raw": "How are FPL closed when arriving on a non-controlled airport?",
+      "question_text": "How are FPL closed when arriving on a non-controlled airport?",
+      "question_prefix": "",
+      "category": "Flight Rules",
+      "tags": [
+        "flight plan"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "not required (no search and rescue will be triggered)",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "either by calling phone number provided by ATC in the air (common) or +33 1 56 30 13 01",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "phone on 0800 437 837 (0800 IFR VFR)",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "How far from destination would you generally first call a VFR airfield?",
+      "question_raw": "How far from destination would you generally first call a VFR airfield?",
+      "question_text": "How far from destination would you generally first call a VFR airfield?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "5 to 10 NM or 5 min",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "5 to 10 NM or 5 min",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "downwind join, with overhead check of airfield if no afis. Base or straightin possible if communication/coordination with afis or tower",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If arriving at a VFR airfield following an IFR flight, who is permitted to terminate IFR, and under what circumstance?",
+      "question_raw": "If arriving at a VFR airfield following an IFR flight, who is permitted to terminate IFR, and under what circumstance?",
+      "question_text": "If arriving at a VFR airfield following an IFR flight, who is permitted to terminate IFR, and under what circumstance?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Once leaving controlled airspace, it becomes pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "You can continue IFR until after landing. ATC or AFIS will closed your flight plan, if no ATC, you need to call to close it (it is common to receive the phone number in the air from ATC). It is important to close your flight plan, as not doing so will trigger search and rescue in France",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If IFR practical in Class G, is a clearance required?",
+      "question_raw": "If IFR practical in Class G, is a clearance required?",
+      "question_text": "If IFR practical in Class G, is a clearance required?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [
+        "airspace"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes, you need to be in contact with ATC",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If IFR practical in Class G, is an ATC service required?",
+      "question_raw": "If IFR practical in Class G, is an ATC service required?",
+      "question_text": "If IFR practical in Class G, is an ATC service required?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [
+        "airspace"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If IFR practical in Class G, is an FPL required, if so, does that FPL have to filed before flight?",
+      "question_raw": "If IFR practical in Class G, is an FPL required, if so, does that FPL have to filed before flight?",
+      "question_text": "If IFR practical in Class G, is an FPL required, if so, does that FPL have to filed before flight?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [
+        "airspace"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "FPL should be filed, if not IFR FPL, ATS can give you a clearance in the air",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If joining IFR from a VFR airfield what are the requirements in terms of clearances to start IFR?",
+      "question_raw": "If joining IFR from a VFR airfield what are the requirements in terms of clearances to start IFR?",
+      "question_text": "If joining IFR from a VFR airfield what are the requirements in terms of clearances to start IFR?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Depart VFR or IFR outside controlled airspace and call London Information for join on the radio. Some airport will list in the AIP phone number and procedure when uncontrolled",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "You can depart VFR and call ATC to get your clearance. If you can't depart VFR, you can get your clearance on the ground by calling relevant unit phone number listed in AIP or by local knowledge",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "request start, get squawk and get frequency to call for the join",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If so, what permissions are needed?",
+      "question_raw": "If so, what permissions are needed?",
+      "question_text": "If military airfields are available, what permissions are needed?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "If so, is an FPL generally considered sufficient?",
+      "question_raw": "If so, is an FPL generally considered sufficient?",
+      "question_text": "If PPR is required, is an FPL generally considered sufficient?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "not applicable",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "na",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is a clearance required for a VFR flight in Class G or E airspace?",
+      "question_raw": "Is a clearance required for a VFR flight in Class G or E airspace?",
+      "question_text": "Is a clearance required for a VFR flight in Class G or E airspace?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is a FPL required when crossing a FIR boundary?",
+      "question_raw": "Is a FPL required when crossing a FIR boundary?",
+      "question_text": "Is a FPL required when crossing a FIR boundary?",
+      "question_prefix": "",
+      "category": "International",
+      "tags": [
+        "flight plan"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is a FPL required when crossing an international boundary from neighbouring countries?",
+      "question_raw": "Is a FPL required when crossing an international boundary from neighbouring countries?",
+      "question_text": "Is a FPL required when crossing an international boundary from neighbouring countries?",
+      "question_prefix": "",
+      "category": "International",
+      "tags": [
+        "flight plan"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is an FPL required for a VFR flight?",
+      "question_raw": "Is an FPL required for a VFR flight?",
+      "question_text": "Is an FPL required for a VFR flight?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [
+        "flight plan"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is IFR permitted and practical in Class G?",
+      "question_raw": "Is IFR permitted and practical in Class G?",
+      "question_text": "Is IFR permitted and practical in Class G?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [
+        "airspace"
+      ],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no, only when on a instrument approach crossing class G",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is PPR generally required for airfields?",
+      "question_raw": "Is PPR generally required for airfields?",
+      "question_text": "Is PPR generally required for airfields?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "yes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Is there a preferred way to file an FPL (VFR & IFR)?",
+      "question_raw": "Is there a preferred way to file an FPL (VFR & IFR)?",
+      "question_text": "Is there a preferred way to file an FPL (VFR & IFR)?",
+      "question_prefix": "",
+      "category": "Flight Rules",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "autorouter, foreflight, skydemon for VFR",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "autorouter, foreflight",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "autorouter, foreflight",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "My country is:",
+      "question_raw": "My country is:",
+      "question_text": "My country is:",
+      "question_prefix": "",
+      "category": "ignore",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "UK",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "France",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Switzerland",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Please describe anything odd or unusual about flying in your country not already covered.",
+      "question_raw": "Please describe anything odd or unusual about flying in your country not already covered.",
+      "question_text": "Please describe anything odd or unusual about flying in your country not already covered.",
+      "question_prefix": "",
+      "category": "Flight Rules",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "uncoordinated system of FIS/radar facility, you will need initiate new contact each time. Multiple class of service (Basic Service, Traffic Service, Deconfliction), zero tolerance for airspace infringement",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Airport, AIP, maps available in https://www.sia.aviation-civile.gouv.fr  select AIP/eAIP, quite a few airport have noise area that you need to respect or risk a warning letter (ex LFPN, LFMD to name a few). Quite a few airport have Visual Prescribed Track procedure after IFR approach, some airport have the approach broken down in two plates INA (contain IAF) and FNA (contains final approach) make sure you study both",
+          "links": [
+            "https://www.sia.aviation-civile.gouv.fr"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://www.sia.aviation-civile.gouv.fr"
+          ]
+        },
+        "CH": {
+          "answer_html": "Subscribing to the Skyguide manual is recommended as it contains most relevant information, for example the VFR manual and airport information. EFB have option to purchase (for example foreflight) or subscribe to https://skybriefing.com",
+          "links": [
+            "https://skybriefing.com"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://skybriefing.com"
+          ]
+        }
+      }
+    },
+    {
+      "question_id": "2) Abided by?",
+      "question_raw": "2) Abided by?",
+      "question_text": "Under VFR, how strictly are the rules about semicircle + 500' Abided by?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "sometimes",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "usually",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "1) Enforced?",
+      "question_raw": "1) Enforced?",
+      "question_text": "Under VFR, how strictly are the rules about semicircle + 500' Enforced?",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "no",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "If in contact with ATC they will ask you to choose a compliant altitude if you don't",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "Under VFR, how strictly are the rules about semicircle + 500':",
+      "question_raw": "Under VFR, how strictly are the rules about semicircle + 500':",
+      "question_text": "Under VFR, how strictly are the rules about semicircle + 500':",
+      "question_prefix": "",
+      "category": "VFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are general rules, views and attitudes towards cloudbreak at an airport followed by VFR transit to an airfield?",
+      "question_raw": "What are general rules, views and attitudes towards cloudbreak at an airport followed by VFR transit to an airfield?",
+      "question_text": "What are general rules, views and attitudes towards cloudbreak at an airport followed by VFR transit to an airfield?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "common in class G and pilot discretion",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Possible, you need to maintain VFR",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "establish VFR above MSA/class G",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the accepted norms for joining a visual circuit?",
+      "question_raw": "What are the accepted norms for joining a visual circuit?",
+      "question_text": "What are the accepted norms for joining a visual circuit?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "overhead join",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "downwind join, with overhead check of airfield if no afis. Base or straightin possible if communication/coordination with afis or tower",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "downwind join, with overhead check of airfield if no afis. Base or straightin possible if communication/coordination with afis or tower",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and general practices for approaching an airfield without IAPs in poor weather?",
+      "question_raw": "What are the rules and general practices for approaching an airfield without IAPs in poor weather?",
+      "question_text": "What are the rules and general practices for approaching an airfield without IAPs in poor weather?",
+      "question_prefix": "",
+      "category": "IFR",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "if outside controlled airspace pilot discretion, if inside controlled airspace minimum will be listed",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "You need to become VFR by either using another airfield approach or descend to MSA while in contact with ATC for class G",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "establish VFR above MSA/class G",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Danger Areas",
+      "question_raw": "Danger Areas",
+      "question_text": "What are the rules and normal practices regarding penetration of Danger Areas",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Do not enter, you may ask for transit but not always possible. Information about the areas can be found in the official AIP https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/ section 5 search for EGDnnn",
+          "links": [
+            "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/AIP/"
+          ]
+        },
+        "FR": {
+          "answer_html": "N/A only R and P zone",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Gliding Launch Sites",
+      "question_raw": "Gliding Launch Sites",
+      "question_text": "What are the rules and normal practices regarding penetration of Gliding Launch Sites",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Avoid, some service may warn you of possible activity",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "ATC will notify you gliding activities",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "ATC will notify you gliding activities",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Military Areas",
+      "question_raw": "Military Areas",
+      "question_text": "What are the rules and normal practices regarding penetration of Military Areas",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "MTZ in class G can be entered.",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "See Restricted Area",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Parachute Areas",
+      "question_raw": "Parachute Areas",
+      "question_text": "What are the rules and normal practices regarding penetration of Parachute Areas",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "FIS may warn you of parachute activity",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "ATC will notify you parachute activity and ask you to avoid",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "ATC will notify you parachute activity and ask you to avoid",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Prohibited Zones",
+      "question_raw": "Prohibited Zones",
+      "question_text": "What are the rules and normal practices regarding penetration of Prohibited Zones",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "do not enter",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "do not enter",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "do not enter",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and normal practices regarding penetration of:-Restricted Areas",
+      "question_raw": "Restricted Areas",
+      "question_text": "What are the rules and normal practices regarding penetration of Restricted Areas",
+      "question_prefix": "What are the rules and normal practices regarding penetration of:",
+      "category": "Airspace",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "Requirement and activations of R zone vary a lot. Some are only requiring radio communication (for ex around Paris), some can't be entered, some activated by notam or by ATC. You can review information on the french eAIP, go to section ENR 5.1 and search for the zone using the syntax \"LF R nnn\" to get the details. For temporary area you can find if applicable the SUP information on the same website, select preflight briefing, AIP Suplement, AIP SUP Metropole",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "Condition Varies. You can find the condition for each in the VFR Manual, For ex Restricted Area 4, search for \"LSR4\" to find the official information",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules and practicality of arriving Non-Schengen?",
+      "question_raw": "What are the rules and practicality of arriving Non-Schengen?",
+      "question_text": "What are the rules and practicality of arriving Non-Schengen?",
+      "question_prefix": "",
+      "category": "International",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "Use a designated airport listed here https://www.gov.uk/government/publications/general-aviation-operators-and-pilots-notification-of-flights/general-aviation-report-guidance-accessible",
+          "links": [
+            "https://www.gov.uk/government/publications/general-aviation-operators-and-pilots-notification-of-flights/general-aviation-report-guidance-accessible"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://www.gov.uk/government/publications/general-aviation-operators-and-pilots-notification-of-flights/general-aviation-report-guidance-accessible"
+          ]
+        },
+        "FR": {
+          "answer_html": "Use a port of entry listed here https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009 check on the AIP for each airport the rules on PPR or PN as they vary quite a bit",
+          "links": [
+            "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://www.legifrance.gouv.fr/jorf/id/JORFTEXT000043547009"
+          ]
+        },
+        "CH": {
+          "answer_html": "Usually airport have PN. You can find list of airport with custom here https://www.bazg.admin.ch/bazg/en/home/information-individuals/declaring-goods/importation-into-switzerland/crossborder-flights.html",
+          "links": [
+            "https://www.bazg.admin.ch/bazg/en/home/information-individuals/declaring-goods/importation-into-switzerland/crossborder-flights.html"
+          ],
+          "last_reviewed": "2025-11-05",
+          "links_json": [
+            "https://www.bazg.admin.ch/bazg/en/home/information-individuals/declaring-goods/importation-into-switzerland/crossborder-flights.html"
+          ]
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules for joining a visual circuit?",
+      "question_raw": "What are the rules for joining a visual circuit?",
+      "question_text": "What are the rules for joining a visual circuit?",
+      "question_prefix": "",
+      "category": "Airfields",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "overhead join",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "downwind join, with overhead check of airfield if no afis. Base or straightin possible if communication/coordination with afis or tower",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "downwind join and overhead check of parameters",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What are the rules pertaining to the use of local language?",
+      "question_raw": "What are the rules pertaining to the use of local language?",
+      "question_text": "What are the rules pertaining to the use of local language?",
+      "question_prefix": "",
+      "category": "Flight Rules",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "english",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "You can use local language (french) or english. Some airport will have restriction for French only indicated in the VAC plate, some will revert to French only when ATS is not active",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "You can always use english with ATC, airfield or FIS will support an additional local language as well. Ex: Geneva French, Bern German, etc",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    },
+    {
+      "question_id": "What electronic conspicuity is generally in use in your country?",
+      "question_raw": "What electronic conspicuity is generally in use in your country?",
+      "question_text": "What electronic conspicuity is generally in use in your country?",
+      "question_prefix": "",
+      "category": "Tools",
+      "tags": [],
+      "answers_by_country": {
+        "GB": {
+          "answer_html": "skydemon, foreflight,",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "FR": {
+          "answer_html": "SDVFR, skydemon, foreflight,",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        },
+        "CH": {
+          "answer_html": "skydemon, foreflight",
+          "links": [],
+          "last_reviewed": "2025-11-05",
+          "links_json": []
+        }
+      }
+    }
+  ]
+}
