@@ -3,3 +3,4 @@ cache
 t.*
 airports.db
 output.json
+secrets.json

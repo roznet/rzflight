@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # Place this file at: euro_aip/web/server/chat/ask.py  (or .../api/chat/ask.py)
 # Deps:
-#   pip install langchain langchain-core langchain-openai langchain-community httpx pydantic fastapi
+#   pip install langchain langchain-core langchain-openai langchain-mcp-adapters pydantic fastapi
 # Env:
 #   OPENAI_API_KEY=sk-...
 #   (optional) OPENAI_MODEL=gpt-4o
-#   (optional) MCP_BASE_URL=https://mcp.flyfun.aero
+#   (optional) MCP_BASE_URL=https://mcp.flyfun.aero/euro_aip
 #   (optional) MCP_AUTH_HEADER=Authorization
 #   (optional) MCP_AUTH_TOKEN=Bearer xxx
 
@@ -13,16 +13,18 @@ from __future__ import annotations
 
 import os
 import asyncio
+import logging
+import traceback
 from typing import Any, Dict, List, Optional
 
-import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
-# LangChain / OpenAI
-from langchain_openai import ChatOpenAI
-from langchain_core.tools import StructuredTool
+# LangChain / MCP
 from langchain.agents import create_agent
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -41,83 +43,6 @@ MCP_RPC_URL = os.getenv("MCP_RPC_URL") or f"{MCP_BASE_URL}"
 
 _auth_header = os.getenv("MCP_AUTH_HEADER") or "Authorization"
 _auth_token = os.getenv("MCP_AUTH_TOKEN") or ""
-MCP_HEADERS: Dict[str, str] = {}
-if _auth_token:
-    MCP_HEADERS[_auth_header] = _auth_token
-
-# --------------------------------
-# Simple async client for HTTPS MCP (JSON-RPC)
-# --------------------------------
-class MCPClientHTTP:
-    def __init__(self, rpc_url: str, headers: Optional[Dict[str, str]] = None, timeout: float = 60.0):
-        self.rpc_url = rpc_url
-        self.client = httpx.AsyncClient(timeout=timeout, headers=headers or {})
-        self._initialized = False
-        self._next_id = 1
-
-    async def _rpc(self, method: str, params: Optional[Dict[str, Any]] = None) -> Any:
-        payload = {
-            "jsonrpc": "2.0",
-            "id": self._next_id,
-            "method": method,
-        }
-        self._next_id += 1
-        if params is not None:
-            payload["params"] = params
-        r = await self.client.post(self.rpc_url, json=payload)
-        r.raise_for_status()
-        data = r.json()
-        if isinstance(data, dict) and data.get("error"):
-            raise RuntimeError(f"MCP error calling {method}: {data['error']}")
-        # Standard JSON-RPC result envelope
-        return data.get("result", data)
-
-    async def _ensure_initialized(self):
-        if self._initialized:
-            return
-        # Minimal initialize per spec; servers may ignore unsupported capabilities
-        try:
-            await self._rpc(
-                "initialize",
-                {
-                    "protocolVersion": "2025-06-18",
-                    "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
-                    "clientInfo": {"name": "euro_aip_web", "version": "0.1.0"},
-                },
-            )
-        except Exception:
-            # Some servers allow direct calls without explicit initialize; continue
-            pass
-        else:
-            # Best-effort notification
-            try:
-                await self._rpc("notifications/initialized")
-            except Exception:
-                pass
-        self._initialized = True
-
-    async def list_tools(self) -> List[Dict[str, Any]]:
-        await self._ensure_initialized()
-        res = await self._rpc("tools/list")
-        # Accept either {"tools": [...]} or a bare list
-        if isinstance(res, dict) and "tools" in res:
-            return res["tools"]
-        if isinstance(res, list):
-            return res
-        raise RuntimeError(f"Unexpected tools/list response: {res}")
-
-    async def call_tool(self, name: str, args: Dict[str, Any]) -> Any:
-        await self._ensure_initialized()
-        res = await self._rpc("tools/call", {"name": name, "arguments": args})
-        # Accept either {"content": ...} or a bare value
-        return res
-
-# ------------------------------------
-# Lazy, global initialization (warm)
-# ------------------------------------
-_mcp: Optional[MCPClientHTTP] = None
-_agent = None
-_init_lock = asyncio.Lock()
 
 # Optional: restrict which MCP tools are exposable to the agent
 _TOOL_ALLOWLIST = {
@@ -132,41 +57,19 @@ _TOOL_ALLOWLIST = {
     "get_airport_statistics",
 }
 
-async def _mcp_tools_as_langchain_tools(mcp: MCPClientHTTP) -> List[StructuredTool]:
-    tools = []
-    for t in await mcp.list_tools():
-        name = t.get("name")
-        if _TOOL_ALLOWLIST and name not in _TOOL_ALLOWLIST:
-            continue
-
-        schema = t.get("parameters_json_schema") or {}
-        props = schema.get("properties", {}) or {}
-        reqd = set(schema.get("required", []) or [])
-
-        # Build a Pydantic args model that mirrors the MCP JSON Schema
-        fields = {k: (Any, ... if k in reqd else None) for k in props.keys()}
-        ArgsModel = create_model(f"{name}_Args", **fields)
-
-        async def _acall(**kwargs):
-            # Important: closure captures 'name'
-            return await mcp.call_tool(name, kwargs)
-
-        tools.append(
-            StructuredTool.from_function(
-                name=name,
-                description=t.get("description", ""),
-                args_schema=ArgsModel,
-                coroutine=_acall,  # async call, no threadpool
-            )
-        )
-    return tools
+# ------------------------------------
+# Lazy, global initialization (warm)
+# ------------------------------------
+_mcp_client: Optional[MultiServerMCPClient] = None
+_agent = None
+_init_lock = asyncio.Lock()
 
 async def _get_agent():
     """
     Lazily initialize and memoize the Agent that uses OpenAI tool-calling
-    and your HTTPS MCP tools.
+    and MCP tools via langchain-mcp-adapters.
     """
-    global _mcp, _agent
+    global _mcp_client, _agent
     if _agent:
         return _agent
 
@@ -174,24 +77,69 @@ async def _get_agent():
         if _agent:
             return _agent
 
-        # 1) Build the MCP client and sanity-check connectivity
-        _mcp = MCPClientHTTP(MCP_RPC_URL, headers=MCP_HEADERS)
+        # 1) Build the MCP client using official langchain-mcp-adapters
+        # According to docs: https://docs.langchain.com/oss/python/langchain/mcp
+        server_config = {
+            "euro_aip": {
+                "transport": "streamable_http",
+                "url": MCP_RPC_URL,
+            }
+        }
+        # Add auth headers if provided (check if MultiServerMCPClient supports this)
+        if _auth_token:
+            # Note: MultiServerMCPClient may need headers in server config
+            # Check langchain-mcp-adapters docs for exact format
+            server_config["euro_aip"]["headers"] = {_auth_header: _auth_token}
+        
         try:
-            await _mcp.list_tools()
+            _mcp_client = MultiServerMCPClient(server_config)
+            # Get all tools from MCP server
+            all_tools = await _mcp_client.get_tools()
         except Exception as e:
-            raise HTTPException(status_code=502, detail=f"MCP not reachable: {e}")
+            error_msg = f"MCP server not reachable at {MCP_RPC_URL}"
+            logger.error(f"{error_msg}: {type(e).__name__}: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=502,
+                detail=f"{error_msg}. Please check the MCP server is running and accessible."
+            )
 
-        # 2) Build LLM + tools + agent
-        llm = ChatOpenAI(model=OPENAI_MODEL, temperature=0)
-        tools = await _mcp_tools_as_langchain_tools(_mcp)
+        # 2) Filter tools by allowlist if configured
+        if _TOOL_ALLOWLIST:
+            tools = [t for t in all_tools if t.name in _TOOL_ALLOWLIST]
+        else:
+            tools = all_tools
+        
         if not tools:
-            raise HTTPException(status_code=500, detail="No MCP tools exposed to the agent (allowlist empty?)")
+            error_msg = f"No MCP tools available. Allowlist: {list(_TOOL_ALLOWLIST)}"
+            logger.error(error_msg)
+            raise HTTPException(
+                status_code=500,
+                detail="No MCP tools available for the agent. Check tool allowlist configuration."
+            )
 
-        agent = create_agent(
-            model=OPENAI_MODEL,  # v1 accepts a model id string
-            tools=tools,
-            system_prompt=SYSTEM_PROMPT,
-        )
+        # 3) Create agent with filtered tools
+        try:
+            agent = create_agent(
+                model=OPENAI_MODEL,
+                tools=tools,
+                system_prompt=SYSTEM_PROMPT,
+            )
+        except Exception as e:
+            error_type = type(e).__name__
+            error_msg = str(e)
+            logger.error(f"Failed to create agent: {error_type}: {error_msg}", exc_info=True)
+            
+            if "API key" in error_msg or "authentication" in error_msg.lower():
+                raise HTTPException(
+                    status_code=500,
+                    detail="OpenAI API authentication failed. Please check OPENAI_API_KEY environment variable."
+                )
+            else:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to create agent: {error_type}. Check logs for details."
+                )
+        
         _agent = agent
         return _agent
 
@@ -217,10 +165,49 @@ async def ask(req: AskRequest) -> AskResponse:
     """
     Chat endpoint that lets the model use your aviation MCP tools when helpful.
     """
-    agent = await _get_agent()
-    messages = [m.model_dump() for m in (req.chat_history or [])]
-    messages.append({"role": "user", "content": req.input})
-    result = await agent.ainvoke({"messages": messages})
+    try:
+        agent = await _get_agent()
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 502 Bad Gateway)
+        raise
+    except Exception as e:
+        logger.error(f"Failed to initialize agent: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to initialize chat agent. Please try again later."
+        )
+    
+    try:
+        messages = [m.model_dump() for m in (req.chat_history or [])]
+        messages.append({"role": "user", "content": req.input})
+        result = await agent.ainvoke({"messages": messages})
+    except Exception as e:
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Agent invocation failed: {error_type}: {error_msg}", exc_info=True)
+        
+        # Provide user-friendly error messages based on error type
+        if "API key" in error_msg or "authentication" in error_msg.lower():
+            raise HTTPException(
+                status_code=500,
+                detail="OpenAI API authentication failed. Please check API key configuration."
+            )
+        elif "rate limit" in error_msg.lower() or "429" in error_msg:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit exceeded. Please try again in a moment. Error: {error_msg}"
+            )
+        elif "timeout" in error_msg.lower():
+            raise HTTPException(
+                status_code=504,
+                detail="Request timed out. The MCP server may be slow or unresponsive."
+            )
+        else:
+            # Generic error for unexpected issues
+            raise HTTPException(
+                status_code=500,
+                detail="An error occurred while processing your request. Please try again."
+            )
 
     def _extract_text(res: Any) -> str:
         try:
@@ -239,10 +226,18 @@ async def ask(req: AskRequest) -> AskResponse:
             if isinstance(res, str):
                 return res
             return str(res)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to extract text from agent response: {e}")
             return str(res)
 
-    return AskResponse(text=_extract_text(result))
+    try:
+        return AskResponse(text=_extract_text(result))
+    except Exception as e:
+        logger.error(f"Failed to format response: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to format agent response. Please try again."
+        )
 
 @router.get("/health")
 async def chat_health():
@@ -253,6 +248,13 @@ async def chat_health():
         await _get_agent()
         return {"ok": True, "mcp": MCP_BASE_URL, "model": OPENAI_MODEL}
     except HTTPException as e:
-        raise e
+        # Re-raise HTTP exceptions with their status codes
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_type = type(e).__name__
+        error_msg = str(e)
+        logger.error(f"Health check failed: {error_type}: {error_msg}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {error_type}. Check logs for details."
+        )
