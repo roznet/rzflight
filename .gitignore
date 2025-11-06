@@ -6,3 +6,5 @@ __pycache__
 ~$*
 venv
 apptest
+*.egg-info
+.pytest_cache
