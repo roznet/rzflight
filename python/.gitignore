@@ -1,8 +1,0 @@
-runways.csv
-airports.csv
-airports*.db
-aip.db
-metar_taf.db
-cache
-*.kml
-.vscode
