@@ -53,6 +53,10 @@ pdf = [
 
 [tool.setuptools]
 packages = {find = {}}
+include-package-data = true
+
+[tool.setuptools.package-data]
+"euro_aip.utils" = ["aip_fields.csv"]
 
 [tool.black]
 line-length = 88
