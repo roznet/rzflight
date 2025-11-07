@@ -1,2 +1,2 @@
 camelot-py>=1.0.0
-pdfplumber>=0.7.0
+pdfplumber>=0.11.6
