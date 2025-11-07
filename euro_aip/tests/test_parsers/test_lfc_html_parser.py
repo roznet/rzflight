@@ -24,7 +24,7 @@ def test_lfc_html_parser_basic_extraction():
 
     # Find a known field/value pair from section AD 2.4 (handling)
     # Field (FR): "Types de carburants et lubrifiants" should map to handling section
-    fuels = [row for row in data if row['section'] == 'handling' and 'carburants' in row['field'].lower()]
+    fuels = [row for row in data if row['section'] == 'handling' and 'fuel' in row['field'].lower()]
     assert len(fuels) >= 1
     # Ensure values contain the expected fuel types
     found = any(('100LL' in (row['value'] or '') or 'JET A1' in (row['value'] or '')) for row in fuels)
