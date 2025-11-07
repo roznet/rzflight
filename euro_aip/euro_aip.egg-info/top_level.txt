@@ -1,1 +1,8 @@
+data
+dist
 euro_aip
+example
+mcp_server
+tests
+venv
+web

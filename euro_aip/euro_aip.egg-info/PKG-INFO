@@ -6,27 +6,35 @@ Author-email: Brice Rosenzweig <brice@rosenzweig.io>
 License: MIT
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
-Requires-Python: >=3.8
+Requires-Python: >=3.13
 Description-Content-Type: text/markdown
 Requires-Dist: requests>=2.25.1
 Requires-Dist: pandas>=1.2.0
-Requires-Dist: camelot-py>=1.0.0
 Requires-Dist: sqlalchemy>=1.4.0
-Requires-Dist: python-dateutil>=2.8.1
 Requires-Dist: simplekml>=1.3.0
 Requires-Dist: openpyxl>=3.0.0
 Requires-Dist: beautifulsoup4>=4.9.0
-Requires-Dist: pdfplumber>=0.7.0
+Requires-Dist: tabulate>=0.9.0
+Requires-Dist: numpy>=2.2.5
+Requires-Dist: fastapi>=0.116.1
+Requires-Dist: fastmcp>=2.11.3
+Requires-Dist: pydantic>=2.11.7
+Requires-Dist: langchain>=1.0.3
+Requires-Dist: langchain_mcp_adapters>=0.1.12
+Requires-Dist: uvicorn>=0.35.0
 Provides-Extra: dev
 Requires-Dist: pytest>=6.0; extra == "dev"
 Requires-Dist: black>=21.0; extra == "dev"
 Requires-Dist: mypy>=0.900; extra == "dev"
 Requires-Dist: flake8>=3.9.0; extra == "dev"
+Provides-Extra: pdf
+Requires-Dist: camelot-py>=1.0.0; extra == "pdf"
+Requires-Dist: pdfplumber>=0.7.0; extra == "pdf"
+Requires-Dist: pdfminer>=20191125; extra == "pdf"
 
 # Euro AIP: European Aeronautical Information Library & Explorer
 

@@ -18,6 +18,7 @@ from datetime import datetime
 from .sources.autorouter import AutorouterSource
 from .sources.france_eaip import FranceEAIPSource
 from .models.navpoint import NavPoint
+from .models.airport import Airport
 from .sources.database import DatabaseSource
 from .parsers.aip_factory import AIPParserFactory
 from .parsers.procedure_factory import ProcedureParserFactory
