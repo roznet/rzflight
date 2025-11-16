@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Any, Callable
+from typing import Dict, List, Optional, Set, Any, Callable, Union
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -688,13 +688,14 @@ class EuroAipModel:
         """
         self._update_border_crossing_airports() 
 
-    def find_airports_near_route(self, route_airports: List[str], distance_nm: float = 50.0) -> List[Dict[str, Any]]:
+    def find_airports_near_route(self, route_airports: List[Union[str, NavPoint]], distance_nm: float = 50.0) -> List[Dict[str, Any]]:
         """
-        Find all airports within a specified distance from a route defined by airport ICAO codes.
+        Find all airports within a specified distance from a route defined by airport ICAO codes
+        or precomputed NavPoints.
         For single airports, treats them as a point search within the specified distance.
         
         Args:
-            route_airports: List of ICAO airport codes defining the route
+            route_airports: List of ICAO airport codes or NavPoint objects defining the route
             distance_nm: Distance in nautical miles from the route (default: 50.0)
             
         Returns:
@@ -708,16 +709,20 @@ class EuroAipModel:
             logger.warning("Route must contain at least 1 airport")
             return []
         
-        # Convert route airports to NavPoints
+        # Convert route inputs to NavPoints
         route_points = []
-        for icao in route_airports:
-            airport = self.get_airport(icao.upper())
+        for item in route_airports:
+            if isinstance(item, NavPoint):
+                route_points.append(item)
+                continue
+            # Assume string ICAO
+            icao = str(item).upper()
+            airport = self.get_airport(icao)
             if not airport or not airport.latitude_deg or not airport.longitude_deg:
                 logger.warning(f"Airport {icao} not found or missing coordinates, skipping")
                 continue
-            navpoint = airport.navpoint
-            if navpoint:
-                route_points.append(navpoint)
+            if airport.navpoint:
+                route_points.append(airport.navpoint)
         
         if len(route_points) < 1:
             logger.warning("No valid airports in route")
