@@ -55,6 +55,8 @@ euro_aip/sources/worldairports.py
 euro_aip/storage/__init__.py
 euro_aip/storage/base.py
 euro_aip/storage/database_storage.py
+euro_aip/storage/enrichment_schema.py
+euro_aip/storage/enrichment_storage.py
 euro_aip/storage/field_definitions.py
 euro_aip/utils/__init__.py
 euro_aip/utils/aip_fields.csv

@@ -698,7 +698,11 @@ class EuroAipModel:
             distance_nm: Distance in nautical miles from the route (default: 50.0)
             
         Returns:
-            List of dictionaries containing airport data and distance information
+            List of dictionaries containing airport data and distance information, including:
+            - airport: Airport object
+            - segment_distance_nm: Perpendicular distance to the route in nautical miles
+            - enroute_distance_nm: Distance along the route to the closest point in nautical miles
+            - closest_segment: Tuple of (start_airport_name, end_airport_name) for the closest segment
         """
         if len(route_airports) < 1:
             logger.warning("Route must contain at least 1 airport")
@@ -719,6 +723,12 @@ class EuroAipModel:
             logger.warning("No valid airports in route")
             return []
         
+        # Calculate cumulative distances along the route (distance from start to each segment start)
+        cumulative_distances = [0.0]  # Start at 0
+        for i in range(len(route_points) - 1):
+            _, segment_length = route_points[i].haversine_distance(route_points[i + 1])
+            cumulative_distances.append(cumulative_distances[-1] + segment_length)
+        
         # Find airports near the route
         nearby_airports = []
         
@@ -731,31 +741,45 @@ class EuroAipModel:
             # Calculate minimum distance to the route
             min_distance = float('inf')
             closest_segment = None
+            enroute_distance = None
             
             if len(route_points) == 1:
                 # Single airport: calculate direct distance to the point
                 _, min_distance = airport_point.haversine_distance(route_points[0])
                 closest_segment = (route_points[0].name, route_points[0].name)
+                enroute_distance = 0.0  # At the starting point
             else:
                 # Multiple airports: calculate minimum distance to any segment of the route
                 for i in range(len(route_points) - 1):
+                    segment_start = route_points[i]
+                    segment_end = route_points[i + 1]
+                    
+                    # Calculate perpendicular distance to segment
                     segment_distance = airport_point.distance_to_segment(
-                        route_points[i], route_points[i + 1]
+                        segment_start, segment_end
                     )
+                    
                     if segment_distance < min_distance:
                         min_distance = segment_distance
-                        closest_segment = (route_points[i].name, route_points[i + 1].name)
+                        closest_segment = (segment_start.name, segment_end.name)
+                        closest_segment_index = i
+                        
+                        # Calculate along-track distance within this segment
+                        _, dist_AP = segment_start.haversine_distance(airport_point)
+                        enroute_distance = cumulative_distances[i] + dist_AP  # At segment start
+                        
             
             # Check if airport is within the specified distance
             if min_distance <= distance_nm:
                 nearby_airports.append({
                     'airport': airport,
-                    'distance_nm': round(min_distance, 2),
+                    'segment_distance_nm': round(min_distance, 2),
+                    'enroute_distance_nm': round(enroute_distance, 2) if enroute_distance is not None else None,
                     'closest_segment': closest_segment
                 })
         
         # Sort by distance
-        nearby_airports.sort(key=lambda x: x['distance_nm'])
+        nearby_airports.sort(key=lambda x: x['segment_distance_nm'])
         
         logger.info(f"Found {len(nearby_airports)} airports within {distance_nm}nm of route")
         return nearby_airports
