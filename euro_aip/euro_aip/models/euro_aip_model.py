@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Any, Callable, Union
+from typing import Dict, List, Optional, Set, Any, Callable, Union, TYPE_CHECKING
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -11,6 +11,10 @@ from .aip_entry import AIPEntry
 from .procedure import Procedure
 from .border_crossing_entry import BorderCrossingEntry
 from .navpoint import NavPoint
+
+if TYPE_CHECKING:
+    from ..interp.base import BaseInterpreter, InterpretationResult
+    from ..utils.field_standardization_service import FieldStandardizationService
 
 import math
 
@@ -168,6 +172,28 @@ class EuroAipModel:
         """
         return [airport for airport in self.airports.values() 
                 if airport.iso_country == country_code]
+    
+    def remove_airports_by_country(self, country_code: str) -> None:
+        """
+        Remove all airports for a specific country from the model.
+        
+        Args:
+            country_code: ISO country code
+        """
+        # Find all airports for this country
+        airports_to_remove = [
+            icao for icao, airport in self.airports.items()
+            if airport.iso_country == country_code
+        ]
+        
+        if airports_to_remove:
+            removed_count = len(airports_to_remove)
+            for icao in airports_to_remove:
+                del self.airports[icao]
+            self.updated_at = datetime.now()
+            logger.info(f"Removed {removed_count} airports for country {country_code}")
+        else:
+            logger.debug(f"No airports found for country {country_code}")
     
     def get_airports_by_source(self, source_name: str) -> List[Airport]:
         """
