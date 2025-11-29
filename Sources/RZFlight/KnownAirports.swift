@@ -138,6 +138,23 @@ public class KnownAirports {
         return rv
     }
     
+    public func airportsWithinBox(minCoord: CLLocationCoordinate2D, maxCoord: CLLocationCoordinate2D) -> [Airport] {
+        var results: [Airport] = []
+        let minLat = min(minCoord.latitude, maxCoord.latitude)
+        let maxLat = max(minCoord.latitude, maxCoord.latitude)
+        let minLon = min(minCoord.longitude, maxCoord.longitude)
+        let maxLon = max(minCoord.longitude, maxCoord.longitude)
+        
+        for (_, airport) in known {
+            if airport.latitude >= minLat && airport.latitude <= maxLat &&
+               airport.longitude >= minLon && airport.longitude <= maxLon {
+                results.append(airport)
+            }
+        }
+        
+        return results
+    }
+    
     public func frenchPPL() -> [Airport] {
         var rv : [Airport] = []
         let sql = "SELECT ident FROM frppf"
