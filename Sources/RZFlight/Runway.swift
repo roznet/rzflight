@@ -38,11 +38,11 @@ public struct Runway : Codable{
                  le_latitude_deg, le_longitude_deg, le_elevation_ft, le_displaced_threshold_ft,
                  he_latitude_deg, he_longitude_deg, he_elevation_ft, he_displaced_threshold_ft
         }
-    var length_ft : Int
-    var width_ft : Int
-    var surface : String
-    var lighted: Bool
-    var closed: Bool
+    public var length_ft : Int
+    public var width_ft : Int
+    public var surface : String
+    public var lighted: Bool
+    public var closed: Bool
     
     public var le: RunwayEnd
     public var he: RunwayEnd
