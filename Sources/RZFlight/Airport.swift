@@ -279,38 +279,66 @@ public struct Airport : Codable {
     enum CodingKeys: String, CodingKey {
         case name
         case city
+        case municipality  // API format - for decoding only
         case country
-        case isoRegion = "isoRegion"
-        case scheduledService = "scheduledService"
-        case gpsCode = "gpsCode"
-        case iataCode = "iataCode"
-        case localCode = "localCode"
-        case homeLink = "homeLink"
-        case wikipediaLink = "wikipediaLink"
+        case iso_country  // API format - for decoding only
+        case isoRegion = "iso_region"  // API format (snake_case)
+        case scheduledService = "scheduled_service"  // API format (snake_case)
+        case gpsCode = "gps_code"  // API format (snake_case)
+        case iataCode = "iata_code"  // API format (snake_case)
+        case localCode = "local_code"  // API format (snake_case)
+        case homeLink = "home_link"  // API format (snake_case)
+        case wikipediaLink = "wikipedia_link"  // API format (snake_case)
         case keywords
         case sources
-        case createdAt
-        case updatedAt
+        case createdAt = "created_at"  // API format (snake_case)
+        case updatedAt = "updated_at"  // API format (snake_case)
         case elevation_ft
         case icao
+        case ident  // API format - for decoding only
         case type
         case continent
         case latitude
+        case latitude_deg  // API format - for decoding only
         case longitude
+        case longitude_deg  // API format - for decoding only
         case runways
         case procedures
-        case aipEntries
+        case aipEntries = "aip_entries"  // API format (snake_case)
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        // Helper to try multiple keys (returns first non-nil value found)
+        func decodeString(keys: CodingKeys..., defaultValue: String = "") throws -> String {
+            for key in keys {
+                if let value = try container.decodeIfPresent(String.self, forKey: key), !value.isEmpty {
+                    return value
+                }
+            }
+            return defaultValue
+        }
+        
+        func decodeDouble(keys: CodingKeys..., defaultValue: Double = 0.0) throws -> Double {
+            for key in keys {
+                if let value = try container.decodeIfPresent(Double.self, forKey: key) {
+                    return value
+                }
+            }
+            return defaultValue
+        }
 
         // Basic strings with defaults
         self.name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
-        self.city = try container.decodeIfPresent(String.self, forKey: .city) ?? ""
-        self.country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+        
+        // Support both "city" and "municipality" (API format)
+        self.city = try decodeString(keys: .city, .municipality)
+        
+        // Support both "country" and "iso_country" (API format)
+        self.country = try decodeString(keys: .country, .iso_country)
 
-        // Optional strings
+        // Optional strings - support both camelCase and snake_case
         self.isoRegion = try container.decodeIfPresent(String.self, forKey: .isoRegion)
         self.scheduledService = try container.decodeIfPresent(String.self, forKey: .scheduledService)
         self.gpsCode = try container.decodeIfPresent(String.self, forKey: .gpsCode)
@@ -330,21 +358,49 @@ public struct Airport : Codable {
         // Numerics with defaults
         self.elevation_ft = try container.decodeIfPresent(Int.self, forKey: .elevation_ft) ?? 0
 
-        // Identifiers
-        self.icao = try container.decodeIfPresent(String.self, forKey: .icao) ?? ""
+        // Identifiers - support both "icao" and "ident" (API format)
+        self.icao = try decodeString(keys: .icao, .ident)
 
         // Enums with defaults
         self.type = try container.decodeIfPresent(AirportType.self, forKey: .type) ?? .none
         self.continent = try container.decodeIfPresent(Continent.self, forKey: .continent) ?? .none
 
-        // Coordinates
-        self.latitude = try container.decodeIfPresent(Double.self, forKey: .latitude) ?? 0.0
-        self.longitude = try container.decodeIfPresent(Double.self, forKey: .longitude) ?? 0.0
+        // Coordinates - support both "latitude"/"longitude" and "latitude_deg"/"longitude_deg" (API format)
+        self.latitude = try decodeDouble(keys: .latitude, .latitude_deg)
+        self.longitude = try decodeDouble(keys: .longitude, .longitude_deg)
 
         // Collections with defaults
         self.runways = try container.decodeIfPresent([Runway].self, forKey: .runways) ?? []
         self.procedures = try container.decodeIfPresent([Procedure].self, forKey: .procedures) ?? []
         self.aipEntries = try container.decodeIfPresent([AIPEntry].self, forKey: .aipEntries) ?? []
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(name, forKey: .name)
+        try container.encode(city, forKey: .city)
+        try container.encode(country, forKey: .country)
+        try container.encodeIfPresent(isoRegion, forKey: .isoRegion)
+        try container.encodeIfPresent(scheduledService, forKey: .scheduledService)
+        try container.encodeIfPresent(gpsCode, forKey: .gpsCode)
+        try container.encodeIfPresent(iataCode, forKey: .iataCode)
+        try container.encodeIfPresent(localCode, forKey: .localCode)
+        try container.encodeIfPresent(homeLink, forKey: .homeLink)
+        try container.encodeIfPresent(wikipediaLink, forKey: .wikipediaLink)
+        try container.encodeIfPresent(keywords, forKey: .keywords)
+        try container.encode(sources, forKey: .sources)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
+        try container.encode(elevation_ft, forKey: .elevation_ft)
+        try container.encode(icao, forKey: .icao)
+        try container.encode(type, forKey: .type)
+        try container.encode(continent, forKey: .continent)
+        try container.encode(latitude, forKey: .latitude)
+        try container.encode(longitude, forKey: .longitude)
+        try container.encode(runways, forKey: .runways)
+        try container.encode(procedures, forKey: .procedures)
+        try container.encode(aipEntries, forKey: .aipEntries)
     }
     
     public func bestRunway(wind : Heading) -> Heading {

@@ -89,5 +89,84 @@ public struct Runway : Codable{
         self.le = RunwayEnd.load(from: res, prefix: "le")
         self.he = RunwayEnd.load(from: res, prefix: "he")
     }
+    
+    enum CodingKeys: String, CodingKey {
+        case length_ft
+        case width_ft
+        case surface
+        case lighted
+        case closed
+        // RunwayEnd fields with prefixes
+        case le_ident
+        case le_latitude_deg
+        case le_longitude_deg
+        case le_elevation_ft
+        case le_heading_degT
+        case le_displaced_threshold_ft
+        case he_ident
+        case he_latitude_deg
+        case he_longitude_deg
+        case he_elevation_ft
+        case he_heading_degT
+        case he_displaced_threshold_ft
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.length_ft = try container.decodeIfPresent(Int.self, forKey: .length_ft) ?? 0
+        self.width_ft = try container.decodeIfPresent(Int.self, forKey: .width_ft) ?? 0
+        self.surface = try container.decodeIfPresent(String.self, forKey: .surface) ?? ""
+        self.lighted = try container.decodeIfPresent(Bool.self, forKey: .lighted) ?? false
+        self.closed = try container.decodeIfPresent(Bool.self, forKey: .closed) ?? false
+        
+        // Decode LE (low end) runway end
+        let leIdent = try container.decodeIfPresent(String.self, forKey: .le_ident) ?? ""
+        let leLat = try container.decodeIfPresent(Double.self, forKey: .le_latitude_deg)
+        let leLon = try container.decodeIfPresent(Double.self, forKey: .le_longitude_deg)
+        let leElev = try container.decodeIfPresent(Double.self, forKey: .le_elevation_ft)
+        let leHeading = try container.decodeIfPresent(Double.self, forKey: .le_heading_degT) ?? 0.0
+        let leDisplaced = try container.decodeIfPresent(Double.self, forKey: .le_displaced_threshold_ft)
+        self.le = RunwayEnd(ident: leIdent, latitude: leLat, longitude: leLon, 
+                           elevationFt: leElev, headingTrue: leHeading, 
+                           displacedThresholdFt: leDisplaced)
+        
+        // Decode HE (high end) runway end
+        let heIdent = try container.decodeIfPresent(String.self, forKey: .he_ident) ?? ""
+        let heLat = try container.decodeIfPresent(Double.self, forKey: .he_latitude_deg)
+        let heLon = try container.decodeIfPresent(Double.self, forKey: .he_longitude_deg)
+        let heElev = try container.decodeIfPresent(Double.self, forKey: .he_elevation_ft)
+        let heHeading = try container.decodeIfPresent(Double.self, forKey: .he_heading_degT) ?? 0.0
+        let heDisplaced = try container.decodeIfPresent(Double.self, forKey: .he_displaced_threshold_ft)
+        self.he = RunwayEnd(ident: heIdent, latitude: heLat, longitude: heLon, 
+                           elevationFt: heElev, headingTrue: heHeading, 
+                           displacedThresholdFt: heDisplaced)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(length_ft, forKey: .length_ft)
+        try container.encode(width_ft, forKey: .width_ft)
+        try container.encode(surface, forKey: .surface)
+        try container.encode(lighted, forKey: .lighted)
+        try container.encode(closed, forKey: .closed)
+        
+        // Encode LE runway end
+        try container.encode(le.ident, forKey: .le_ident)
+        try container.encodeIfPresent(le.latitude, forKey: .le_latitude_deg)
+        try container.encodeIfPresent(le.longitude, forKey: .le_longitude_deg)
+        try container.encodeIfPresent(le.elevationFt, forKey: .le_elevation_ft)
+        try container.encode(le.headingTrue, forKey: .le_heading_degT)
+        try container.encodeIfPresent(le.displacedThresholdFt, forKey: .le_displaced_threshold_ft)
+        
+        // Encode HE runway end
+        try container.encode(he.ident, forKey: .he_ident)
+        try container.encodeIfPresent(he.latitude, forKey: .he_latitude_deg)
+        try container.encodeIfPresent(he.longitude, forKey: .he_longitude_deg)
+        try container.encodeIfPresent(he.elevationFt, forKey: .he_elevation_ft)
+        try container.encode(he.headingTrue, forKey: .he_heading_degT)
+        try container.encodeIfPresent(he.displacedThresholdFt, forKey: .he_displaced_threshold_ft)
+    }
 }
 

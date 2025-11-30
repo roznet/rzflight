@@ -126,6 +126,46 @@ public struct Procedure: Codable {
         self.rawName = rawName
     }
     
+    enum CodingKeys: String, CodingKey {
+        case name
+        case procedureType = "procedure_type"  // API format (snake_case)
+        case approachType = "approach_type"  // API format (snake_case)
+        case runwayNumber = "runway_number"  // API format (snake_case)
+        case runwayLetter = "runway_letter"  // API format (snake_case)
+        case runwayIdent = "runway_ident"  // API format (snake_case)
+        case source
+        case authority
+        case rawName = "raw_name"  // API format (snake_case)
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.name = try container.decode(String.self, forKey: .name)
+        self.procedureType = try container.decode(ProcedureType.self, forKey: .procedureType)
+        self.approachType = try container.decodeIfPresent(ApproachType.self, forKey: .approachType)
+        self.runwayNumber = try container.decodeIfPresent(String.self, forKey: .runwayNumber)
+        self.runwayLetter = try container.decodeIfPresent(String.self, forKey: .runwayLetter)
+        self.runwayIdent = try container.decodeIfPresent(String.self, forKey: .runwayIdent)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+        self.authority = try container.decodeIfPresent(String.self, forKey: .authority)
+        self.rawName = try container.decodeIfPresent(String.self, forKey: .rawName)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(name, forKey: .name)
+        try container.encode(procedureType, forKey: .procedureType)
+        try container.encodeIfPresent(approachType, forKey: .approachType)
+        try container.encodeIfPresent(runwayNumber, forKey: .runwayNumber)
+        try container.encodeIfPresent(runwayLetter, forKey: .runwayLetter)
+        try container.encodeIfPresent(runwayIdent, forKey: .runwayIdent)
+        try container.encodeIfPresent(source, forKey: .source)
+        try container.encodeIfPresent(authority, forKey: .authority)
+        try container.encodeIfPresent(rawName, forKey: .rawName)
+    }
+    
     /// Check if this procedure matches a specific runway
     public func matches(runway: Runway) -> Bool {
         guard let fullIdent = fullRunwayIdent else { return false }

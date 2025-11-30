@@ -119,6 +119,59 @@ public struct AIPEntry: Codable {
         self.source = source
     }
     
+    enum CodingKeys: String, CodingKey {
+        case ident
+        case section
+        case field
+        case value
+        case std_field_id  // API format - used to lookup standardField
+        case std_field  // Alternative API format
+        case mappingScore = "mapping_score"  // API format (snake_case)
+        case altField = "alt_field"  // API format (snake_case)
+        case altValue = "alt_value"  // API format (snake_case)
+        case source
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        
+        self.ident = try container.decode(String.self, forKey: .ident)
+        self.section = try container.decode(Section.self, forKey: .section)
+        self.field = try container.decode(String.self, forKey: .field)
+        self.value = try container.decode(String.self, forKey: .value)
+        
+        // Handle standardField - API provides std_field_id, we look it up
+        if let stdFieldId = try container.decodeIfPresent(Int.self, forKey: .std_field_id), stdFieldId > 0 {
+            self.standardField = AIPFieldCatalog.field(for: stdFieldId)
+        } else {
+            self.standardField = nil
+        }
+        
+        self.mappingScore = try container.decodeIfPresent(Double.self, forKey: .mappingScore)
+        self.altField = try container.decodeIfPresent(String.self, forKey: .altField)
+        self.altValue = try container.decodeIfPresent(String.self, forKey: .altValue)
+        self.source = try container.decodeIfPresent(String.self, forKey: .source)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        
+        try container.encode(ident, forKey: .ident)
+        try container.encode(section, forKey: .section)
+        try container.encode(field, forKey: .field)
+        try container.encode(value, forKey: .value)
+        
+        // Encode std_field_id if we have a standardField
+        if let stdField = standardField {
+            try container.encode(stdField.id, forKey: .std_field_id)
+        }
+        
+        try container.encodeIfPresent(mappingScore, forKey: .mappingScore)
+        try container.encodeIfPresent(altField, forKey: .altField)
+        try container.encodeIfPresent(altValue, forKey: .altValue)
+        try container.encodeIfPresent(source, forKey: .source)
+    }
+    
     public var displayDescription: String {
         let fieldName = effectiveFieldName.capitalized
         let sectionName = section.displayName
