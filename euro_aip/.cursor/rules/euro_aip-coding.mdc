@@ -1,0 +1,8 @@
+---
+alwaysApply: true
+---
+
+- always be careful to review, abstract common logic. 
+- search for existing logic before duplicating and avoid code duplication
+- always try to think of a few ways to implement and compare pros and cons before deciding
+- always consider maintainability, testability, readability and possible future extensions

@@ -10,3 +10,4 @@ apptest
 .pytest_cache
 .build
 dist
+tmp
