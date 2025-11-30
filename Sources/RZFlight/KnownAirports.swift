@@ -56,7 +56,7 @@ extension Airport : KDTreePoint {
 public class KnownAirports {
     let tree : KDTree<Airport>
     let db : FMDatabase
-    let known : [String:Airport]
+    var known : [String:Airport]  // Made mutable to allow bulk loading updates
     private var borderCrossingICAOs : Set<String>?
     
     public init(db : FMDatabase, where whereClause : String? = nil){
@@ -155,24 +155,6 @@ public class KnownAirports {
         return results
     }
     
-    public func frenchPPL() -> [Airport] {
-        var rv : [Airport] = []
-        let sql = "SELECT ident FROM frppf"
-        if let res = db.executeQuery(sql, withArgumentsIn: []){
-            while( res.next() ){
-                if let ident = res.string(forColumn: "ident"),
-                   let airport = self.airport(icao: ident, ensureRunway: false) {
-                    rv.append(airport)
-                }
-            }
-        }
-        var ppf : [Airport] = []
-        for airport in rv {
-            var one = airport
-            ppf.append(one.addRunways(db: self.db))
-        }
-        return ppf
-    }
     
     // MARK: - Enhanced Query Methods
     
@@ -237,6 +219,130 @@ public class KnownAirports {
         }
         
         return results
+    }
+    
+    // MARK: - Bulk Loading Methods
+    
+    /// Preload all procedures for all airports from the database and update the airports in place.
+    /// This is more efficient than loading procedures individually for each airport.
+    /// After calling this, all airports in `known` will have their procedures loaded.
+    public func loadAllProcedures() {
+        var proceduresByAirport: [String: [Procedure]] = [:]
+        
+        // Load all procedures from database in one query
+        let query = "SELECT * FROM procedures"
+        if let res = db.executeQuery(query, withArgumentsIn: []) {
+            while res.next() {
+                if let airportIcao = res.string(forColumn: "airport_icao"), !airportIcao.isEmpty {
+                    let procedure = Procedure(res: res)
+                    if proceduresByAirport[airportIcao] == nil {
+                        proceduresByAirport[airportIcao] = []
+                    }
+                    proceduresByAirport[airportIcao]?.append(procedure)
+                }
+            }
+        }
+        
+        // Update all airports in known dictionary with their procedures
+        for (icao, procedures) in proceduresByAirport {
+            if var airport = known[icao] {
+                airport.procedures = procedures
+                known[icao] = airport
+            }
+        }
+    }
+    
+    /// Preload all runways for all airports from the database and update the airports in place.
+    /// This is more efficient than loading runways individually for each airport.
+    /// After calling this, all airports in `known` will have their runways loaded.
+    public func loadAllRunways() {
+        var runwaysByAirport: [String: [Runway]] = [:]
+        
+        // Load all runways from database in one query
+        let query = "SELECT * FROM runways"
+        if let res = db.executeQuery(query, withArgumentsIn: []) {
+            while res.next() {
+                if let airportIcao = res.string(forColumn: "airport_icao"), !airportIcao.isEmpty {
+                    let runway = Runway(res: res)
+                    if runwaysByAirport[airportIcao] == nil {
+                        runwaysByAirport[airportIcao] = []
+                    }
+                    runwaysByAirport[airportIcao]?.append(runway)
+                }
+            }
+        }
+        
+        // Update all airports in known dictionary with their runways
+        for (icao, runways) in runwaysByAirport {
+            if var airport = known[icao] {
+                airport.runways = runways
+                known[icao] = airport
+            }
+        }
+    }
+    
+    /// Preload all AIP entries for all airports from the database and update the airports in place.
+    /// This is more efficient than loading AIP entries individually for each airport.
+    /// After calling this, all airports in `known` will have their AIP entries loaded.
+    public func loadAllAIPEntries() {
+        var aipEntriesByAirport: [String: [AIPEntry]] = [:]
+        
+        // Load all AIP entries from database in one query
+        let query = "SELECT * FROM aip_entries"
+        if let res = db.executeQuery(query, withArgumentsIn: []) {
+            while res.next() {
+                if let airportIcao = res.string(forColumn: "airport_icao"), !airportIcao.isEmpty {
+                    let entry = AIPEntry(res: res)
+                    if aipEntriesByAirport[airportIcao] == nil {
+                        aipEntriesByAirport[airportIcao] = []
+                    }
+                    aipEntriesByAirport[airportIcao]?.append(entry)
+                }
+            }
+        }
+        
+        // Update all airports in known dictionary with their AIP entries
+        for (icao, entries) in aipEntriesByAirport {
+            if var airport = known[icao] {
+                airport.aipEntries = entries
+                known[icao] = airport
+            }
+        }
+    }
+    
+    /// Preload all border crossing data from the database.
+    /// This loads the border crossing ICAO set and makes it immediately available
+    /// without lazy loading on first access.
+    public func loadAllBorderCrossing() {
+        if borderCrossingICAOs != nil {
+            return  // Already loaded
+        }
+        
+        var icaoSet = Set<String>()
+        let query = "SELECT DISTINCT icao_code, matched_airport_icao FROM border_crossing_points"
+        
+        if let res = db.executeQuery(query, withArgumentsIn: []) {
+            while res.next() {
+                if let icao = res.string(forColumn: "icao_code"), !icao.isEmpty {
+                    icaoSet.insert(icao)
+                }
+                if let matchedIcao = res.string(forColumn: "matched_airport_icao"), !matchedIcao.isEmpty {
+                    icaoSet.insert(matchedIcao)
+                }
+            }
+        }
+        
+        borderCrossingICAOs = icaoSet
+    }
+    
+    /// Preload all extended data (runways, procedures, AIP entries, and border crossing) for all airports.
+    /// This is the most efficient way to load everything at once.
+    /// After calling this, all airports in `known` will have all their data loaded.
+    public func loadAllExtendedData() {
+        loadAllRunways()
+        loadAllProcedures()
+        loadAllAIPEntries()
+        loadAllBorderCrossing()
     }
     
     // MARK: - Border Crossing / Point of Entry Methods
