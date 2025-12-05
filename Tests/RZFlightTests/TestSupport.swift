@@ -9,13 +9,11 @@ final class TestSupport {
 
     private init() {
         let thisSourceFile = URL(fileURLWithPath: #file)
-        let rootDirectory = thisSourceFile
+        let thisDirectory = thisSourceFile
             .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let resourceURL = rootDirectory
-            .appendingPathComponent("euro_aip/example")
-            .appendingPathComponent("airports.db")
+        let resourceURL = thisDirectory
+            .appendingPathComponent("samples")
+            .appendingPathComponent("airports_small.db")
         if FileManager.default.fileExists(atPath: resourceURL.path) {
             let database = FMDatabase(url: resourceURL)
             database.open()

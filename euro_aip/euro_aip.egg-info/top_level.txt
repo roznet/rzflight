@@ -1,5 +1,0 @@
-data
-dist
-euro_aip
-tests
-venv

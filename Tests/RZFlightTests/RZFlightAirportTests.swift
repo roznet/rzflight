@@ -38,7 +38,7 @@ final class RZFlightAirportTests: XCTestCase {
             XCTFail("No db found, make sure you run airports.py")
             return
         }
-            XCTAssertEqual(known.airport(icao: "LFPG")?.name, "Charles de Gaulle International Airport")
+            XCTAssertEqual(known.airport(icao: "LFMD")?.name, "Cannes-Mandelieu Airport")
  
             let uk = known.matching(needle: "fairo")
             XCTAssertEqual(uk.count, 1)
@@ -51,12 +51,12 @@ final class RZFlightAirportTests: XCTestCase {
                 // by default should contain heathrow
                 XCTAssertTrue(near.contains(egtf))
                 XCTAssertTrue(near.contains(egll))
-                near = known.nearestMatching(coord: ock, needle: "EGT", count: 10)
-                XCTAssertEqual(near.count,10)
+                near = known.nearestMatching(coord: ock, needle: "EGL", count: 2)
+                XCTAssertEqual(near.count,2)
                 for one in near {
-                    XCTAssertTrue(one.icao.hasPrefix("EGT"))
+                    XCTAssertFalse(one.icao.hasPrefix("EGT"))
                     // because of needle match, should not contain heathrow
-                    XCTAssertFalse(one.icao.hasPrefix("EGL"))
+                    XCTAssertTrue(one.icao.hasPrefix("EGL"))
                 }
             }
             
@@ -129,6 +129,100 @@ final class RZFlightAirportTests: XCTestCase {
             if let rw = egkb.runways.first, !egkb.approaches.isEmpty {
                 _ = egkb.mostPreciseApproach(for: rw) // Not strictly asserting type due to DB variability
             }
+        }
+    }
+    
+    func testProcedureLines() throws {
+        guard let db = TestSupport.shared.db, let known = TestSupport.shared.known else {
+            XCTFail("No db found, make sure you run airports.py")
+            return
+        }
+        
+        // Test with EGKB which should have runways and procedures
+        if var egkb = known.airport(icao: "EGKB", ensureRunway: true) {
+            _ = egkb.addProcedures(db: db)
+            
+            // Skip test if airport doesn't have runways or approaches
+            guard !egkb.runways.isEmpty, !egkb.approaches.isEmpty else {
+                return // Skip silently if test data doesn't have required info
+            }
+            
+            // Get procedure lines with default distance
+            let result = egkb.procedureLines()
+            
+            // Verify structure
+            XCTAssertEqual(result.airportIdent, "EGKB", "Airport ident should match")
+            XCTAssertFalse(result.procedureLines.isEmpty, "Should have at least one procedure line")
+            
+            // Verify each procedure line
+            for line in result.procedureLines {
+                // Runway end should not be empty
+                XCTAssertFalse(line.runwayEnd.isEmpty, "Runway end ident should not be empty")
+                
+                // Coordinates should be valid
+                XCTAssertGreaterThanOrEqual(line.startCoordinate.latitude, -90.0)
+                XCTAssertLessThanOrEqual(line.startCoordinate.latitude, 90.0)
+                XCTAssertGreaterThanOrEqual(line.startCoordinate.longitude, -180.0)
+                XCTAssertLessThanOrEqual(line.startCoordinate.longitude, 180.0)
+                
+                XCTAssertGreaterThanOrEqual(line.endCoordinate.latitude, -90.0)
+                XCTAssertLessThanOrEqual(line.endCoordinate.latitude, 90.0)
+                XCTAssertGreaterThanOrEqual(line.endCoordinate.longitude, -180.0)
+                XCTAssertLessThanOrEqual(line.endCoordinate.longitude, 180.0)
+                
+                // End coordinate should be different from start (line extends outward)
+                // Calculate distance to verify they're different and approximately correct
+                let start = CLLocation(latitude: line.startCoordinate.latitude, 
+                                      longitude: line.startCoordinate.longitude)
+                let end = CLLocation(latitude: line.endCoordinate.latitude,
+                                    longitude: line.endCoordinate.longitude)
+                let distanceMeters = start.distance(from: end)
+                let distanceNm = distanceMeters / 1852.0
+                XCTAssertGreaterThan(distanceNm, 0.1, "End point should be at least 0.1nm from start")
+                // Great circle distance should be approximately equal to the requested distance
+                // Allow some tolerance for floating point precision
+                XCTAssertEqual(distanceNm, line.distanceNm, accuracy: 1.0, 
+                              "Calculated distance should approximately match requested distance")
+                
+                // Procedure name should not be empty
+                XCTAssertFalse(line.procedureName.isEmpty, "Procedure name should not be empty")
+                
+                // Distance should be positive
+                XCTAssertGreaterThan(line.distanceNm, 0, "Distance should be positive")
+                XCTAssertEqual(line.distanceNm, 10.0, accuracy: 0.01, "Default distance should be 10.0 nm")
+            }
+            
+            // Test with custom distance
+            let customResult = egkb.procedureLines(distanceNm: 5.0)
+            XCTAssertEqual(customResult.airportIdent, "EGKB")
+            for line in customResult.procedureLines {
+                XCTAssertEqual(line.distanceNm, 5.0, accuracy: 0.01, "Custom distance should be 5.0 nm")
+            }
+            
+            // Verify that procedure lines correspond to runway ends with approaches
+            // Each line should match a runway end that has an approach
+            for line in result.procedureLines {
+                let matchingRunwayEnd = egkb.runways.flatMap { [$0.le, $0.he] }
+                    .first { $0.ident == line.runwayEnd }
+                XCTAssertNotNil(matchingRunwayEnd, "Procedure line should match a runway end")
+                
+                // Verify the approach type matches what we expect
+                let matchingApproaches = egkb.approaches.filter { $0.matches(runwayIdent: line.runwayEnd) }
+                XCTAssertFalse(matchingApproaches.isEmpty, "Should have approaches for this runway end")
+                
+                // The approach type in the line should match one of the approaches
+                let hasMatchingType = matchingApproaches.contains { $0.approachType == line.approachType }
+                XCTAssertTrue(hasMatchingType, "Approach type should match one of the approaches for this runway end")
+            }
+        }
+        
+        // Test with airport that has no approaches (should return empty lines)
+        if var egtf = known.airport(icao: "EGTF", ensureRunway: true) {
+            _ = egtf.addProcedures(db: db)
+            let result = egtf.procedureLines()
+            XCTAssertEqual(result.airportIdent, "EGTF")
+            // EGTF typically has no procedures, so lines should be empty
+            XCTAssertTrue(result.procedureLines.isEmpty, "Airport without approaches should have empty procedure lines")
         }
     }
 
