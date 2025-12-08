@@ -89,7 +89,95 @@ class Airport:
         entry = self.get_aip_entry_for_field(field_id)
         return entry and entry.value
     
-
+    def update_all_derived_fields(self) -> None:
+        """
+        Update all calculated/derived fields for this airport.
+        
+        This includes:
+        - Runway characteristics (surface types, lighting, longest runway)
+        - AIP-derived fields (fuel types, etc.)
+        """
+        # Update runway characteristics
+        self._update_runway_characteristics()
+        
+        # Update AIP-derived fields
+        self.update_aip_derived_fields()
+    
+    def _update_runway_characteristics(self) -> None:
+        """
+        Update airport with runway characteristics derived from runway data.
+        """
+        from ..utils.runway_classifier import is_hard_surface, is_soft_surface, is_water_surface, is_snow_surface
+        
+        has_hard_runway = False
+        has_soft_runway = False
+        has_water_runway = False
+        has_snow_runway = False
+        has_lighted_runway = False
+        longest_runway_length = 0
+        
+        for runway in self.runways:
+            # Check for different surface types using utility functions
+            if runway.surface:
+                if is_hard_surface(runway.surface):
+                    has_hard_runway = True
+                elif is_soft_surface(runway.surface):
+                    has_soft_runway = True
+                elif is_water_surface(runway.surface):
+                    has_water_runway = True
+                elif is_snow_surface(runway.surface):
+                    has_snow_runway = True
+            
+            # Check for lighted runways
+            if runway.lighted:
+                has_lighted_runway = True
+            
+            # Track longest runway
+            if runway.length_ft and runway.length_ft > longest_runway_length:
+                longest_runway_length = runway.length_ft
+        
+        # Update airport with derived runway characteristics
+        self.has_hard_runway = has_hard_runway
+        self.has_soft_runway = has_soft_runway
+        self.has_water_runway = has_water_runway
+        self.has_snow_runway = has_snow_runway
+        self.has_lighted_runway = has_lighted_runway
+        self.longest_runway_length_ft = longest_runway_length if longest_runway_length > 0 else None
+    
+    def update_aip_derived_fields(self) -> None:
+        """
+        Update airport fields derived from AIP data.
+        
+        Currently updates:
+        - Fuel types (avgas, jet_a) from field ID 402 ("Fuel and oil types")
+        """
+        # Update fuel types from AIP field 402
+        fuel_entry = self.get_aip_entry_for_field(402)  # "Fuel and oil types"
+        if fuel_entry and fuel_entry.value:
+            fuel_value = str(fuel_entry.value).strip().upper()
+            
+            # Only process if we have non-empty fuel data
+            if fuel_value:
+                # Check for AVGAS
+                # Look for "AVGAS" or "100LL" (common AVGAS designation)
+                if 'AVGAS' in fuel_value or '100LL' in fuel_value:
+                    self.avgas = True
+                else:
+                    # We have fuel data but no AVGAS mentioned
+                    self.avgas = False
+                
+                # Check for Jet A / Jet A-1 / Jet A1
+                # Common patterns: "JET A", "JET-A", "JETA1", "JET A-1", "JET A1"
+                # Also check for "AVTUR" which is another name for Jet A-1
+                jet_patterns = ['JET A', 'JET-A', 'JETA1', 'JET A-1', 'JET A1', 'AVTUR']
+                has_jet = any(pattern in fuel_value for pattern in jet_patterns)
+                
+                if has_jet:
+                    self.jet_a = True
+                else:
+                    # We have fuel data but no Jet A mentioned
+                    self.jet_a = False
+            # If fuel_value is empty after stripping, leave fields unchanged (None)
     
     def add_source(self, source_name: str):
         """Add a source to the tracking set."""

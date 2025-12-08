@@ -629,22 +629,22 @@ class EuroAipModel:
         """
         logger.info("Updating all derived fields...")
         
-        # Update border crossing information
+        # Step 1: Update model-level derived fields (requires access to model data)
         self._update_border_crossing_airports()
         
-        # Update runway characteristics
-        self._update_runway_characteristics()
+        # Step 2: Update airport-level derived fields (delegated to Airport class)
+        updated_count = 0
+        for airport in self.airports.values():
+            airport.update_all_derived_fields()
+            updated_count += 1
         
-        # Future: Add more derived field updates here
-        # self._update_approach_precision_rankings()
-        # self._update_airport_categories()
-        # etc.
-        
+        logger.info(f"Updated {updated_count} airports with all derived fields")
         logger.info("All derived fields updated successfully")
     
     def _update_border_crossing_airports(self) -> None:
         """
         Update airport objects with border crossing information.
+        This is a model-level update that requires access to border_crossing_points.
         """
         updated_count = 0
         for entry in self.get_all_border_crossing_points():
@@ -657,55 +657,6 @@ class EuroAipModel:
                 updated_count += 1
         
         logger.info(f"Updated {updated_count} airports with border crossing information")
-    
-    def _update_runway_characteristics(self) -> None:
-        """
-        Update airport objects with runway characteristics.
-        """
-        from ..utils.runway_classifier import is_hard_surface, is_soft_surface, is_water_surface, is_snow_surface
-        
-        updated_count = 0
-        for airport in self.airports.values():
-            has_hard_runway = False
-            has_soft_runway = False
-            has_water_runway = False
-            has_snow_runway = False
-            has_lighted_runway = False
-            longest_runway_length = 0
-            
-            for runway in airport.runways:
-                # Check for different surface types using utility functions
-                if runway.surface:
-                    if is_hard_surface(runway.surface):
-                        has_hard_runway = True
-                    elif is_soft_surface(runway.surface):
-                        has_soft_runway = True
-                    elif is_water_surface(runway.surface):
-                        has_water_runway = True
-                    elif is_snow_surface(runway.surface):
-                        has_snow_runway = True
-                
-                # Check for lighted runways
-                if runway.lighted:
-                    has_lighted_runway = True
-                
-                # Track longest runway
-                if runway.length_ft and runway.length_ft > longest_runway_length:
-                    longest_runway_length = runway.length_ft
-            
-            # Update airport with derived runway characteristics
-            airport.has_hard_runway = has_hard_runway
-            airport.has_soft_runway = has_soft_runway
-            airport.has_water_runway = has_water_runway
-            airport.has_snow_runway = has_snow_runway
-            airport.has_lighted_runway = has_lighted_runway
-            airport.longest_runway_length_ft = longest_runway_length if longest_runway_length > 0 else None
-            
-            if (has_hard_runway or has_soft_runway or has_water_runway or 
-                has_snow_runway or has_lighted_runway or longest_runway_length > 0):
-                updated_count += 1
-        
-        logger.info(f"Updated {updated_count} airports with runway characteristics")
     
     def update_border_crossing_airports(self) -> None:
         """
