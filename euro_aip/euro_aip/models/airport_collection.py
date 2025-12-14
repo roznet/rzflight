@@ -467,3 +467,79 @@ class AirportCollection(QueryableCollection['Airport']):
             Dictionary mapping region codes to lists of airports
         """
         return self.group_by(lambda a: a.iso_region or 'unknown')
+
+    # Dict-style access for convenience
+
+    def __getitem__(self, key):
+        """
+        Allow both list-style and dict-style access.
+
+        Args:
+            key: Integer/slice for list-style indexing, or string ICAO code for dict-style lookup
+
+        Returns:
+            Airport object if key is string ICAO code, or list item/slice if integer/slice
+
+        Raises:
+            KeyError: If ICAO code not found
+            IndexError: If integer index out of range
+
+        Examples:
+            # Dict-style lookup by ICAO code
+            airport = airports['EGLL']
+
+            # List-style indexing
+            first = airports[0]
+            first_ten = airports[0:10]
+        """
+        if isinstance(key, str):
+            # Dict-style: lookup by ICAO code
+            for airport in self._items:
+                if airport.ident == key:
+                    return airport
+            raise KeyError(f"Airport with ICAO code '{key}' not found")
+        # List-style: use parent implementation
+        return super().__getitem__(key)
+
+    def __contains__(self, key) -> bool:
+        """
+        Check if airport exists by ICAO code.
+
+        Args:
+            key: ICAO code to check
+
+        Returns:
+            True if airport with this ICAO code exists
+
+        Examples:
+            if 'EGLL' in airports:
+                print("Heathrow found")
+        """
+        if isinstance(key, str):
+            return any(airport.ident == key for airport in self._items)
+        # For non-string keys, check item membership
+        return key in self._items
+
+    def get(self, icao: str, default: Optional['Airport'] = None) -> Optional['Airport']:
+        """
+        Get airport by ICAO code with optional default.
+
+        Args:
+            icao: ICAO code to lookup
+            default: Value to return if airport not found (default: None)
+
+        Returns:
+            Airport object if found, otherwise the default value
+
+        Examples:
+            # Safe lookup with default
+            airport = airports.get('EGLL', default=None)
+
+            # Check if found
+            if airport := airports.get('EGLL'):
+                print(f"Found {airport.name}")
+        """
+        try:
+            return self[icao]
+        except KeyError:
+            return default

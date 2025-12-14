@@ -157,8 +157,8 @@ class TestDatabaseStorage:
                 aip_entry.mapping_score = mapping['similarity_score']
             
             airport.add_aip_entry(aip_entry)
-            
-            model.airports[airport.ident] = airport
+
+            model._airports[airport.ident] = airport
             model.sources_used.add("worldairports")
             model.sources_used.add("ukeaip")
         
@@ -189,7 +189,7 @@ class TestDatabaseStorage:
         assert len(loaded_model.airports) == 2
         assert 'EBOS' in loaded_model.airports
         assert 'EGKB' in loaded_model.airports
-        
+
         # Verify airport data
         ebos = loaded_model.airports['EBOS']
         assert ebos.name == 'Oostende-Brugge International Airport'
@@ -428,7 +428,7 @@ class TestDatabaseStorageWithWorldAirports:
         assert 'EBOS' in loaded_model.airports
         assert 'EGKB' in loaded_model.airports
         assert 'EHRD' in loaded_model.airports
-        
+
         # Verify data integrity
         ebos = loaded_model.airports['EBOS']
         assert ebos.name == 'Oostende-Brugge International Airport'
@@ -492,8 +492,8 @@ class TestDatabaseStorageEdgeCases:
             iata_code=None
         )
         airport.add_source("test_source")
-        
-        model.airports['TEST'] = airport
+
+        model._airports['TEST'] = airport
         model.sources_used.add("test_source")
         
         # Should not raise an error
@@ -502,7 +502,7 @@ class TestDatabaseStorageEdgeCases:
         # Load back
         loaded_model = storage.load_model()
         assert 'TEST' in loaded_model.airports
-        
+
         test_airport = loaded_model.airports['TEST']
         assert test_airport.name == 'Test Airport'
         assert test_airport.latitude_deg is None
@@ -543,9 +543,9 @@ class TestDatabaseStorageEdgeCases:
                 closed=False
             )
             airport.add_runway(runway)
-            
-            model.airports[icao] = airport
-        
+
+            model._airports[icao] = airport
+
         model.sources_used.add("test_source")
         
         # Save and load

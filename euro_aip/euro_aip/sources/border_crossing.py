@@ -429,8 +429,8 @@ class BorderCrossingSource(CachedSource):
         # Pre-organize airports by country for faster matching
         airports_by_country = {}
         airports_by_iso = {}
-        
-        for icao, airport in model.airports.items():
+
+        for icao, airport in model._airports.items():
             if airport.name:
                 # Use iso_country field for ISO code
                 country_iso = getattr(airport, 'iso_country', None)
@@ -444,8 +444,8 @@ class BorderCrossingSource(CachedSource):
                         if country_name not in airports_by_country:
                             airports_by_country[country_name] = []
                         airports_by_country[country_name].append((icao, airport.name))
-        
-        logger.info(f"Organized {len(model.airports)} airports by country for matching")
+
+        logger.info(f"Organized {len(model._airports)} airports by country for matching")
         
         # Create BorderCrossingEntry objects
         border_crossing_points = []
@@ -459,8 +459,8 @@ class BorderCrossingSource(CachedSource):
             # First, try to use ICAO code if available
             if 'icao_code' in entry and entry['icao_code']:
                 airport_icao = entry['icao_code']
-                if airport_icao in model.airports:
-                    airport = model.airports[airport_icao]
+                if airport_icao in model._airports:
+                    airport = model._airports[airport_icao]
                     logger.debug(f"Matched border crossing entry for {airport_icao} using ICAO code")
                 else:
                     logger.debug(f"ICAO code {airport_icao} not found in model")
@@ -486,10 +486,10 @@ class BorderCrossingSource(CachedSource):
                 elif country_name and country_name in airports_by_country:
                     candidates = airports_by_country[country_name]
                     logger.debug(f"Searching {len(candidates)} airports in country {country_name}")
-                
+
                 # If still no candidates, search all airports (fallback)
                 if not candidates:
-                    candidates = [(icao, airport.name) for icao, airport in model.airports.items() if airport.name]
+                    candidates = [(icao, airport.name) for icao, airport in model._airports.items() if airport.name]
                     logger.debug(f"No country-specific candidates found, searching all {len(candidates)} airports")
                 
                 if candidates:
@@ -568,8 +568,8 @@ class BorderCrossingSource(CachedSource):
                 entries_by_name[airport_name] = border_entry
             
             # If we found a matching airport, add border crossing information
-            if matched_airport_icao and matched_airport_icao in model.airports:
-                airport = model.airports[matched_airport_icao]
+            if matched_airport_icao and matched_airport_icao in model._airports:
+                airport = model._airports[matched_airport_icao]
                 
                 # Add border crossing data to airport
                 airport.point_of_entry = True
@@ -599,12 +599,17 @@ class BorderCrossingSource(CachedSource):
         for country_iso, new_entries in new_by_country.items():
             # Remove existing entries for this country
             model.remove_border_crossing_points_by_country(country_iso)
-            
-            # Add new entries for this country
-            for entry in new_entries:
-                model.add_border_crossing_entry(entry)
-            
-            logger.info(f"Updated border crossing data for country {country_iso}: removed old entries, added {len(new_entries)} new entries")
+
+            # Add new entries for this country using transaction for atomicity
+            try:
+                with model.transaction() as txn:
+                    for entry in new_entries:
+                        txn.add_border_crossing_entry(entry)
+
+                logger.info(f"Updated border crossing data for country {country_iso}: removed old entries, added {len(new_entries)} new entries")
+            except Exception as e:
+                logger.error(f"Failed to add border crossing entries for country {country_iso}: {e}")
+                # Transaction automatically rolled back
         
         # Update airport objects with border crossing information
         model.update_border_crossing_airports()

@@ -524,12 +524,15 @@ class WorldAirportsSource(CachedSource, SourceInterface):
             how='left'
         )
         
+        # Collect all airports first for bulk add
+        airports_to_add = []
+
         # Group by airport to process each airport with its runways
         for icao, airport_group in airports_with_runways.groupby('ident'):
             try:
                 # Get the first row for airport data (all rows have same airport info)
                 airport_row = airport_group.iloc[0]
-                
+
                 # Create Airport object
                 airport = Airport(
                     ident=icao,
@@ -550,14 +553,14 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                     wikipedia_link=self._safe_get(airport_row, 'wikipedia_link'),
                     keywords=self._safe_get(airport_row, 'keywords')
                 )
-                
+
                 # Add source tracking
                 airport.add_source(self.get_source_name())
-                
+
                 # Add runways for this airport
                 # Filter out rows where runway data is NaN (airports without runways)
                 runway_rows = airport_group[airport_group['airport_ident'].notna()]
-                
+
                 for _, runway_row in runway_rows.iterrows():
                     runway = Runway(
                         airport_ident=icao,
@@ -580,15 +583,24 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                         he_displaced_threshold_ft=self._safe_get(runway_row, 'he_displaced_threshold_ft')
                     )
                     airport.add_runway(runway)
-                
-                # Add airport to model
-                model.add_airport(airport)
-                
+
+                # Add to collection for bulk add
+                airports_to_add.append(airport)
+
             except Exception as e:
                 logger.error(f"Error processing airport {icao} from WorldAirports: {e}")
                 # Continue with next airport instead of failing completely
-        
-        logger.info(f"Added {len(airports_df)} airports from WorldAirports to model")
+
+        # Bulk add all airports at once - much more efficient
+        if airports_to_add:
+            result = model.bulk_add_airports(
+                airports_to_add,
+                merge="update_existing",
+                update_derived=True
+            )
+            logger.info(f"Added {result['added']} airports, updated {result['updated']} from WorldAirports")
+        else:
+            logger.warning("No airports to add from WorldAirports")
     
     # Disabled for now, as this source as all the airports in the world,
     # so it's not useful to find available airports. Keeping the function in case later I realise we need it.

@@ -14,6 +14,9 @@ from .border_crossing_entry import BorderCrossingEntry
 from .navpoint import NavPoint
 from .airport_collection import AirportCollection
 from .procedure_collection import ProcedureCollection
+from .model_transaction import ModelTransaction
+from .airport_builder import AirportBuilder
+from .validation import ValidationResult, ModelValidationError
 
 if TYPE_CHECKING:
     from ..interp.base import BaseInterpreter, InterpretationResult
@@ -557,7 +560,7 @@ class EuroAipModel:
         if not airport:
             return {}
         return airport.get_runway_procedures_summary()
-    
+
     def get_all_runway_procedures_summary(self) -> Dict[str, Dict[str, Dict[str, List[str]]]]:
         """Get a summary of procedures by runway and type for all airports."""
         result = {}
@@ -566,8 +569,280 @@ class EuroAipModel:
             if summary:
                 result[icao] = summary
         return result
-    
+
+    # ========================================================================
+    # Modern Builder API - Transactions and Bulk Operations
+    # ========================================================================
+
+    def transaction(self, auto_update_derived: bool = True, track_changes: bool = False) -> ModelTransaction:
+        """
+        Create a transaction context for safe, atomic model updates.
+
+        The transaction provides rollback-on-error safety and automatic derived field
+        updates on success. All changes are applied atomically - if any operation fails,
+        all changes are rolled back.
+
+        Args:
+            auto_update_derived: Whether to automatically update derived fields on commit
+            track_changes: Whether to track changes for reporting
+
+        Returns:
+            ModelTransaction context manager
+
+        Examples:
+            Basic transaction:
+            >>> with model.transaction() as txn:
+            ...     txn.add_airport(airport)
+            ...     txn.add_aip_entries("EGLL", entries)
+
+            Multiple operations:
+            >>> with model.transaction() as txn:
+            ...     for airport in airports:
+            ...         txn.add_airport(airport)
+            ...     txn.remove_by_country("XX")
+
+            Bulk operations in transaction:
+            >>> with model.transaction() as txn:
+            ...     txn.bulk_add_airports(airports)
+            ...     txn.bulk_add_aip_entries(aip_data_by_icao)
+
+            Without auto-update of derived fields:
+            >>> with model.transaction(auto_update_derived=False) as txn:
+            ...     txn.bulk_add_airports(many_airports)
+            ... model.update_all_derived_fields()  # Manual update later
+
+            Track changes:
+            >>> with model.transaction(track_changes=True) as txn:
+            ...     txn.bulk_add_airports(airports)
+            ...     changes = txn.get_changes()
+        """
+        return ModelTransaction(self, auto_update_derived, track_changes)
+
+    def airport_builder(self, icao: str) -> AirportBuilder:
+        """
+        Create a builder for constructing airports with fluent API.
+
+        The airport builder provides a chainable interface for constructing
+        complete airport objects with validation before adding to the model.
+
+        Args:
+            icao: ICAO code for the airport
+
+        Returns:
+            AirportBuilder instance
+
+        Examples:
+            Basic usage:
+            >>> builder = model.airport_builder("EGLL")
+            >>> builder.with_basic_info(
+            ...     name="London Heathrow",
+            ...     latitude_deg=51.4700,
+            ...     longitude_deg=-0.4543,
+            ...     iso_country="GB"
+            ... )
+            >>> builder.with_runways([runway1, runway2])
+            >>> airport = builder.build()
+
+            Chaining:
+            >>> airport = model.airport_builder("EGLL") \\
+            ...     .with_basic_info(name="Heathrow", ...) \\
+            ...     .with_runways(runways) \\
+            ...     .with_procedures(procedures) \\
+            ...     .build()
+
+            Direct commit to model:
+            >>> model.airport_builder("EGLL") \\
+            ...     .with_basic_info(...) \\
+            ...     .with_runways(runways) \\
+            ...     .commit()  # Validates, builds, and adds to model
+        """
+        return AirportBuilder(self, icao)
+
+    def bulk_add_airports(
+        self,
+        airports: List[Airport],
+        merge: str = "update_existing",
+        validate: bool = True,
+        update_derived: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Bulk add airports efficiently with single validation and update pass.
+
+        Args:
+            airports: List of airports to add
+            merge: Merge strategy - "update_existing", "skip_existing", "replace"
+            validate: Whether to validate before adding
+            update_derived: Whether to update derived fields after
+
+        Returns:
+            Summary dictionary with added, updated, skipped counts
+
+        Raises:
+            ModelValidationError: If validation fails
+
+        Examples:
+            Simple bulk add:
+            >>> result = model.bulk_add_airports([airport1, airport2, airport3])
+            >>> print(f"Added: {result['added']}, Updated: {result['updated']}")
+
+            Skip existing:
+            >>> result = model.bulk_add_airports(
+            ...     airports,
+            ...     merge="skip_existing"
+            ... )
+
+            Without derived field update (for performance):
+            >>> result = model.bulk_add_airports(
+            ...     airports,
+            ...     update_derived=False
+            ... )
+            >>> model.update_all_derived_fields()  # Update once at end
+        """
+        added = 0
+        updated = 0
+        skipped = 0
+        errors = []
+
+        # Validate all first if requested
+        if validate:
+            for airport in airports:
+                validation = self._validate_airport(airport)
+                if not validation.is_valid:
+                    errors.append({
+                        "icao": airport.ident,
+                        "errors": validation.get_error_messages()
+                    })
+
+            if errors:
+                raise ModelValidationError(
+                    f"Validation failed for {len(errors)} airports",
+                    details=errors
+                )
+
+        # Add all airports
+        for airport in airports:
+            if merge == "skip_existing" and airport.ident in self._airports:
+                skipped += 1
+                continue
+
+            exists = airport.ident in self._airports
+            self.add_airport(airport)
+
+            if exists:
+                updated += 1
+            else:
+                added += 1
+
+        # Update derived fields once at end
+        if update_derived:
+            self.update_all_derived_fields()
+
+        logger.info(f"Bulk added airports: {added} added, {updated} updated, {skipped} skipped")
+
+        return {
+            "added": added,
+            "updated": updated,
+            "skipped": skipped,
+            "total": len(airports)
+        }
+
+    def bulk_add_aip_entries(
+        self,
+        entries_by_icao: Dict[str, List[AIPEntry]],
+        standardize: bool = True
+    ) -> Dict[str, int]:
+        """
+        Bulk add AIP entries for multiple airports.
+
+        Args:
+            entries_by_icao: Dict mapping ICAO codes to lists of AIP entries
+            standardize: Whether to standardize entries using field service
+
+        Returns:
+            Summary dictionary mapping ICAO codes to count of entries added
+
+        Examples:
+            >>> aip_data = {
+            ...     "EGLL": egll_entries,
+            ...     "LFPG": lfpg_entries,
+            ...     "EDDF": eddf_entries
+            ... }
+            >>> result = model.bulk_add_aip_entries(aip_data)
+            >>> print(f"Added {sum(result.values())} total entries")
+        """
+        summary = {}
+
+        for icao, entries in entries_by_icao.items():
+            self.add_aip_entries_to_airport(icao, entries, standardize)
+            summary[icao] = len(entries)
+
+        logger.info(f"Bulk added AIP entries to {len(summary)} airports, "
+                   f"{sum(summary.values())} total entries")
+
+        return summary
+
+    def bulk_add_procedures(
+        self,
+        procedures_by_icao: Dict[str, List[Procedure]]
+    ) -> Dict[str, int]:
+        """
+        Bulk add procedures for multiple airports.
+
+        Args:
+            procedures_by_icao: Dict mapping ICAO codes to lists of procedures
+
+        Returns:
+            Summary dictionary mapping ICAO codes to count of procedures added
+
+        Examples:
+            >>> procedures_data = {
+            ...     "EGLL": egll_procedures,
+            ...     "LFPG": lfpg_procedures
+            ... }
+            >>> result = model.bulk_add_procedures(procedures_data)
+            >>> print(f"Added procedures to {len(result)} airports")
+        """
+        summary = {}
+
+        for icao, procedures in procedures_by_icao.items():
+            if icao not in self._airports:
+                logger.warning(f"Airport {icao} not found, skipping {len(procedures)} procedures")
+                continue
+
+            airport = self._airports[icao]
+            for procedure in procedures:
+                airport.add_procedure(procedure)
+
+            summary[icao] = len(procedures)
+
+        logger.info(f"Bulk added procedures to {len(summary)} airports, "
+                   f"{sum(summary.values())} total procedures")
+
+        return summary
+
+    def _validate_airport(self, airport: Airport) -> ValidationResult:
+        """
+        Validate an airport before adding.
+
+        Args:
+            airport: Airport to validate
+
+        Returns:
+            ValidationResult with validation status and errors
+        """
+        result = ValidationResult()
+
+        # Basic validation
+        if not airport.ident or len(airport.ident) != 4:
+            result.add_error("ident", "ICAO code must be 4 characters", airport.ident)
+
+        # Add more validation rules as needed
+
+        return result
+
+    # ========================================================================
     # Border crossing methods
+    # ========================================================================
     
     def add_border_crossing_entry(self, entry: BorderCrossingEntry) -> None:
         """

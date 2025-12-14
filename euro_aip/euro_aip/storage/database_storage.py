@@ -330,10 +330,10 @@ class DatabaseStorage:
         Args:
             model: The EuroAipModel to save
         """
-        logger.info(f"Saving model with {len(model.airports)} airports to database")
-        
+        logger.info(f"Saving model with {len(model._airports)} airports to database")
+
         with self._get_connection() as conn:
-            for airport in model.airports.values():
+            for airport in model._airports.values():
                 self._save_airport(conn, airport)
             
             # Save border crossing data
@@ -794,27 +794,39 @@ class DatabaseStorage:
         logger.info("Loading model from database")
         
         model = EuroAipModel()
-        
+
         with self._get_connection() as conn:
             # Load all airports
             cursor = conn.execute('SELECT icao_code FROM airports')
             airport_codes = [row['icao_code'] for row in cursor.fetchall()]
-            
+
+            # Collect airports for bulk add
+            airports_to_load = []
             for icao in airport_codes:
                 if ignore_non_icao and not len(icao) == 4:
                     continue
                 airport = self._load_airport(conn, icao)
                 if airport:
-                    model.airports[icao] = airport
+                    airports_to_load.append(airport)
                     for source in airport.sources:
                         model.sources_used.add(source)
-            
+
+            # Bulk add all loaded airports
+            if airports_to_load:
+                result = model.bulk_add_airports(
+                    airports_to_load,
+                    merge="update_existing",
+                    validate=False,  # Data from DB is already validated
+                    update_derived=False  # We'll update once at the end
+                )
+                logger.debug(f"Loaded {result['added']} airports from database")
+
             # Load border crossing data
             border_crossing_points = self.load_border_crossing_data()
             if border_crossing_points:
                 model.add_border_crossing_points(border_crossing_points)
-        
-        logger.info(f"Loaded model with {len(model.airports)} airports and {len(model.get_all_border_crossing_points())} border crossing entries")
+
+        logger.info(f"Loaded model with {model.airports.count()} airports and {len(model.get_all_border_crossing_points())} border crossing entries")
         
         # Update all derived fields after loading
         model.update_all_derived_fields()

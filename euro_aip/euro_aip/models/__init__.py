@@ -19,6 +19,9 @@ from .airport_collection import AirportCollection
 from .procedure_collection import ProcedureCollection
 from .navpoint import NavPoint
 from .border_crossing_entry import BorderCrossingEntry
+from .validation import ValidationResult, ValidationError, ModelValidationError
+from .model_transaction import ModelTransaction
+from .airport_builder import AirportBuilder
 
 __all__ = [
     # Core models
@@ -33,4 +36,10 @@ __all__ = [
     'QueryableCollection',
     'AirportCollection',
     'ProcedureCollection',
+    # Builder API
+    'ValidationResult',
+    'ValidationError',
+    'ModelValidationError',
+    'ModelTransaction',
+    'AirportBuilder',
 ] 

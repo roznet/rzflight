@@ -321,12 +321,12 @@ class TestBorderCrossingStorage:
         from euro_aip.models.airport import Airport
         
         model = EuroAipModel()
-        model.airports["EGLL"] = Airport(
+        model._airports["EGLL"] = Airport(
             ident="EGLL",
             name="London Heathrow",
             iso_country="GB"
         )
-        model.airports["LFPG"] = Airport(
+        model._airports["LFPG"] = Airport(
             ident="LFPG",
             name="Paris Charles de Gaulle",
             iso_country="FR"

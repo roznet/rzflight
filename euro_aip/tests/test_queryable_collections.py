@@ -233,6 +233,98 @@ class TestAirportCollection:
         assert len(result) == 1
         assert result[0].ident == "PERFECT"
 
+    def test_dict_style_getitem(self):
+        """Test dict-style access by ICAO code."""
+        airports = [
+            Airport(ident="EGLL", name="Heathrow", iso_country="GB"),
+            Airport(ident="LFPG", name="Charles de Gaulle", iso_country="FR"),
+            Airport(ident="EDDF", name="Frankfurt", iso_country="DE"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # Dict-style lookup by ICAO
+        heathrow = collection['EGLL']
+        assert heathrow.ident == "EGLL"
+        assert heathrow.name == "Heathrow"
+
+        # List-style indexing still works
+        first = collection[0]
+        assert first.ident == "EGLL"
+
+        # Slicing still works
+        first_two = collection[0:2]
+        assert len(first_two) == 2
+
+    def test_dict_style_getitem_not_found(self):
+        """Test dict-style access raises KeyError for missing airport."""
+        airports = [
+            Airport(ident="EGLL", name="Heathrow", iso_country="GB"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        with pytest.raises(KeyError, match="ZZZZ"):
+            _ = collection['ZZZZ']
+
+    def test_dict_style_contains(self):
+        """Test 'in' operator for ICAO code containment check."""
+        airports = [
+            Airport(ident="EGLL", name="Heathrow", iso_country="GB"),
+            Airport(ident="LFPG", name="Charles de Gaulle", iso_country="FR"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # Check ICAO codes
+        assert 'EGLL' in collection
+        assert 'LFPG' in collection
+        assert 'ZZZZ' not in collection
+
+    def test_dict_style_get(self):
+        """Test get() method with default value."""
+        airports = [
+            Airport(ident="EGLL", name="Heathrow", iso_country="GB"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # Get existing airport
+        heathrow = collection.get('EGLL')
+        assert heathrow is not None
+        assert heathrow.ident == "EGLL"
+
+        # Get missing airport with default None
+        missing = collection.get('ZZZZ')
+        assert missing is None
+
+        # Get missing airport with custom default
+        default = Airport(ident="DEFAULT")
+        result = collection.get('ZZZZ', default=default)
+        assert result is default
+
+    def test_dict_style_with_filtering(self):
+        """Test dict-style access works on filtered collections."""
+        airports = [
+            Airport(ident="EGLL", name="Heathrow", iso_country="GB"),
+            Airport(ident="LFPG", name="Charles de Gaulle", iso_country="FR"),
+            Airport(ident="EDDF", name="Frankfurt", iso_country="DE"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # Filter then lookup
+        french = collection.by_country("FR")
+        assert 'LFPG' in french
+        assert 'EGLL' not in french
+
+        cdg = french['LFPG']
+        assert cdg.name == "Charles de Gaulle"
+
+        # KeyError on filtered collection
+        with pytest.raises(KeyError):
+            _ = french['EGLL']  # UK airport not in French filter
+
 
 class TestProcedureCollection:
     """Test ProcedureCollection domain-specific filters."""
