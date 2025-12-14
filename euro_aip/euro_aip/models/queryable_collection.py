@@ -365,11 +365,128 @@ class QueryableCollection(Generic[T]):
         return self._items[index]
 
     def __repr__(self):
-        """Return string representation."""
+        """
+        Return string representation with preview of items.
+
+        Shows class name, preview of first few items (if they have ident/name),
+        and total count.
+        """
         class_name = self.__class__.__name__
         count = len(self._items)
-        return f"{class_name}(count={count})"
+
+        if count == 0:
+            return f"{class_name}([])"
+
+        # Try to build a preview of first few items
+        preview_items = []
+        for item in self._items[:3]:  # Show first 3 items
+            # Try to get a meaningful identifier
+            if hasattr(item, 'ident'):
+                preview_items.append(repr(item.ident))
+            elif hasattr(item, 'name'):
+                preview_items.append(repr(item.name))
+            else:
+                # Fallback to type name for items without ident/name
+                preview_items.append(f"<{type(item).__name__}>")
+
+        # Add ellipsis if there are more items
+        if count > 3:
+            preview_items.append('...')
+
+        preview = '[' + ', '.join(preview_items) + ']'
+        return f"{class_name}({preview}, count={count})"
 
     def __bool__(self):
         """Return True if collection is not empty."""
         return len(self._items) > 0
+
+    def __reversed__(self):
+        """
+        Support reversed() built-in for reverse iteration.
+
+        Examples:
+            # Iterate in reverse order
+            for airport in reversed(model.airports.order_by('name')):
+                print(airport.name)  # Z to A
+        """
+        return reversed(self._items)
+
+    # Set operations for combining collections
+
+    def __or__(self, other: 'QueryableCollection[T]') -> 'QueryableCollection[T]':
+        """
+        Union operator (|) - combine two collections, removing duplicates.
+
+        Args:
+            other: Another collection to combine with
+
+        Returns:
+            New collection with items from both collections (no duplicates)
+
+        Examples:
+            # Get airports from multiple countries
+            western_europe = (
+                airports.by_country("FR") |
+                airports.by_country("DE") |
+                airports.by_country("BE")
+            )
+        """
+        # Use a set to remove duplicates, preserving order from first collection
+        seen = set()
+        result = []
+        for item in self._items:
+            item_id = id(item)
+            if item_id not in seen:
+                seen.add(item_id)
+                result.append(item)
+        for item in other._items:
+            item_id = id(item)
+            if item_id not in seen:
+                seen.add(item_id)
+                result.append(item)
+        return self.__class__(result)
+
+    def __and__(self, other: 'QueryableCollection[T]') -> 'QueryableCollection[T]':
+        """
+        Intersection operator (&) - items present in both collections.
+
+        Args:
+            other: Another collection to intersect with
+
+        Returns:
+            New collection with items present in both collections
+
+        Examples:
+            # Airports with both hard runways AND fuel
+            premium = (
+                airports.with_hard_runway() &
+                airports.with_fuel(avgas=True, jet_a=True)
+            )
+        """
+        other_ids = {id(item) for item in other._items}
+        result = [item for item in self._items if id(item) in other_ids]
+        return self.__class__(result)
+
+    def __sub__(self, other: 'QueryableCollection[T]') -> 'QueryableCollection[T]':
+        """
+        Difference operator (-) - items in first collection but not in second.
+
+        Args:
+            other: Collection of items to exclude
+
+        Returns:
+            New collection with items from self that are not in other
+
+        Examples:
+            # Airports with runways but no procedures
+            basic = airports.with_runways() - airports.with_procedures()
+
+            # French airports excluding Paris area
+            paris_area = airports.by_country("FR").filter(
+                lambda a: a.name and 'Paris' in a.name
+            )
+            provincial = airports.by_country("FR") - paris_area
+        """
+        other_ids = {id(item) for item in other._items}
+        result = [item for item in self._items if id(item) not in other_ids]
+        return self.__class__(result)

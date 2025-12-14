@@ -325,6 +325,150 @@ class TestAirportCollection:
         with pytest.raises(KeyError):
             _ = french['EGLL']  # UK airport not in French filter
 
+    def test_set_union_operator(self):
+        """Test union operator (|) for combining collections."""
+        airports_fr = [
+            Airport(ident="LFPG", name="CDG", iso_country="FR"),
+            Airport(ident="LFPO", name="Orly", iso_country="FR"),
+        ]
+        airports_de = [
+            Airport(ident="EDDF", name="Frankfurt", iso_country="DE"),
+            Airport(ident="EDDM", name="Munich", iso_country="DE"),
+        ]
+        airports_be = [
+            Airport(ident="EBBR", name="Brussels", iso_country="BE"),
+        ]
+
+        fr = AirportCollection(airports_fr)
+        de = AirportCollection(airports_de)
+        be = AirportCollection(airports_be)
+
+        # Union of two collections
+        fr_de = fr | de
+        assert fr_de.count() == 4
+        assert 'LFPG' in fr_de
+        assert 'EDDF' in fr_de
+
+        # Union of three collections
+        western_europe = fr | de | be
+        assert western_europe.count() == 5
+        assert 'EBBR' in western_europe
+
+        # Union removes duplicates
+        duplicate = fr | fr
+        assert duplicate.count() == 2  # Not 4
+
+    def test_set_intersection_operator(self):
+        """Test intersection operator (&) for common items."""
+        all_airports = [
+            Airport(ident="LFPG", name="CDG", iso_country="FR", has_hard_runway=True),
+            Airport(ident="LFPO", name="Orly", iso_country="FR", has_hard_runway=False),
+            Airport(ident="EDDF", name="Frankfurt", iso_country="DE", has_hard_runway=True),
+        ]
+
+        collection = AirportCollection(all_airports)
+
+        # Intersection of two filters
+        french = collection.by_country("FR")
+        hard_runway = collection.where(has_hard_runway=True)
+
+        french_hard = french & hard_runway
+        assert french_hard.count() == 1
+        assert french_hard.first().ident == "LFPG"
+
+    def test_set_difference_operator(self):
+        """Test difference operator (-) for exclusion."""
+        all_airports = [
+            Airport(ident="LFPG", name="CDG", iso_country="FR"),
+            Airport(ident="LFPO", name="Orly", iso_country="FR"),
+            Airport(ident="LFLL", name="Lyon", iso_country="FR"),
+        ]
+
+        collection = AirportCollection(all_airports)
+
+        # Difference - exclude Paris airports
+        paris = collection.filter(lambda a: 'Paris' in a.name or a.name in ['CDG', 'Orly'])
+        provincial = collection - paris
+
+        assert provincial.count() == 1
+        assert provincial.first().ident == "LFLL"
+
+    def test_set_operations_chaining(self):
+        """Test complex set operations with chaining."""
+        airports = [
+            Airport(ident="A", iso_country="FR", has_hard_runway=True),
+            Airport(ident="B", iso_country="FR", has_hard_runway=False),
+            Airport(ident="C", iso_country="DE", has_hard_runway=True),
+            Airport(ident="D", iso_country="BE", has_hard_runway=True),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # (FR OR DE) AND hard_runway
+        fr = collection.by_country("FR")
+        de = collection.by_country("DE")
+        hard = collection.where(has_hard_runway=True)
+
+        result = (fr | de) & hard
+        assert result.count() == 2
+        assert 'A' in result
+        assert 'C' in result
+
+    def test_reversed_support(self):
+        """Test reversed() built-in support."""
+        airports = [
+            Airport(ident="LFPG", name="CDG"),
+            Airport(ident="LFPO", name="Orly"),
+            Airport(ident="LFLL", name="Lyon"),
+        ]
+
+        collection = AirportCollection(airports)
+
+        # Collect items in reverse
+        reversed_items = list(reversed(collection))
+        assert len(reversed_items) == 3
+        assert reversed_items[0].ident == "LFLL"
+        assert reversed_items[1].ident == "LFPO"
+        assert reversed_items[2].ident == "LFPG"
+
+        # Works with ordering
+        ordered = collection.order_by(lambda a: a.name)
+        reversed_ordered = list(reversed(ordered))
+        # Order: CDG, Lyon, Orly -> reversed: Orly, Lyon, CDG
+        assert reversed_ordered[0].name == "Orly"
+        assert reversed_ordered[2].name == "CDG"
+
+    def test_improved_repr(self):
+        """Test improved __repr__ with preview."""
+        # Empty collection
+        empty = AirportCollection([])
+        assert repr(empty) == "AirportCollection([])"
+
+        # Single item
+        single = AirportCollection([Airport(ident="LFPG", name="CDG")])
+        assert "LFPG" in repr(single)
+        assert "count=1" in repr(single)
+
+        # Multiple items (shows preview)
+        multiple = AirportCollection([
+            Airport(ident="LFPG", name="CDG"),
+            Airport(ident="LFPO", name="Orly"),
+            Airport(ident="LFLL", name="Lyon"),
+        ])
+        repr_str = repr(multiple)
+        assert "LFPG" in repr_str
+        assert "LFPO" in repr_str
+        assert "LFLL" in repr_str
+        assert "count=3" in repr_str
+
+        # Many items (shows ... for truncation)
+        many = AirportCollection([
+            Airport(ident=f"AP{i:02d}") for i in range(10)
+        ])
+        repr_str = repr(many)
+        assert "..." in repr_str
+        assert "count=10" in repr_str
+
 
 class TestProcedureCollection:
     """Test ProcedureCollection domain-specific filters."""
