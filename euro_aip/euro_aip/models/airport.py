@@ -1,10 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Set, Any
+from typing import Optional, List, Dict, Set, Any, TYPE_CHECKING
 from datetime import datetime
 from euro_aip.models.runway import Runway
 from euro_aip.models.aip_entry import AIPEntry
 from euro_aip.models.procedure import Procedure
 from euro_aip.models.navpoint import NavPoint
+
+if TYPE_CHECKING:
+    from euro_aip.models.procedure_collection import ProcedureCollection
 
 # Shared constants for approach precision
 APPROACH_PRECISION_ORDER = ['ILS', 'RNP', 'RNAV', 'LOC', 'LDA', 'SDF', 'VOR', 'NDB']
@@ -75,7 +78,34 @@ class Airport:
         if value:
             self.latitude_deg = value.latitude
             self.longitude_deg = value.longitude
-    
+
+    @property
+    def procedures_query(self) -> 'ProcedureCollection':
+        """
+        Get queryable collection of this airport's procedures.
+
+        Returns a ProcedureCollection that provides domain-specific filters
+        for querying this airport's approaches, departures, and arrivals.
+
+        Returns:
+            ProcedureCollection with this airport's procedures
+
+        Examples:
+            # Get all approaches
+            approaches = airport.procedures_query.approaches().all()
+
+            # Get ILS approaches
+            ils = airport.procedures_query.approaches().by_type("ILS").all()
+
+            # Get most precise approach for a runway
+            best = airport.procedures_query.approaches().by_runway("09L").most_precise()
+
+            # Get all departures for a runway
+            sids = airport.procedures_query.departures().by_runway("09L").all()
+        """
+        from euro_aip.models.procedure_collection import ProcedureCollection
+        return ProcedureCollection(self.procedures)
+
     def get_authority(self) -> str:
         """Get the authority for the airport."""
         # get the authority from the ICAO code first 2 letters

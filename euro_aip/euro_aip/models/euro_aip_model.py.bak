@@ -93,7 +93,7 @@ class EuroAipModel:
             count = model.airports.with_runways().count()
             has_ils = model.airports.with_approach_type("ILS").exists()
         """
-        return AirportCollection(list(self._airports.values()))
+        return AirportCollection(list(self.airports.values()))
 
     @property
     def procedures(self) -> ProcedureCollection:
@@ -131,7 +131,7 @@ class EuroAipModel:
             by_runway = model.procedures.approaches().group_by_runway()
         """
         all_procedures = []
-        for airport in self._airports.values():
+        for airport in self.airports.values():
             all_procedures.extend(airport.procedures)
         return ProcedureCollection(all_procedures)
 
@@ -146,9 +146,9 @@ class EuroAipModel:
         Args:
             airport: Airport object to add or update
         """
-        if airport.ident in self._airports:
+        if airport.ident in self.airports:
             # Update existing airport
-            existing = self._airports[airport.ident]
+            existing = self.airports[airport.ident]
             
             # Update basic fields if new data is available
             for field_name, value in airport.__dict__.items():
@@ -176,7 +176,7 @@ class EuroAipModel:
             logger.debug(f"Updated airport {airport.ident} with data from {list(airport.sources)}")
         else:
             # Add new airport
-            self._airports[airport.ident] = airport
+            self.airports[airport.ident] = airport
             for source in airport.sources:
                 self.sources_used.add(source)
             logger.debug(f"Added new airport {airport.ident} with data from {list(airport.sources)}")
@@ -192,12 +192,12 @@ class EuroAipModel:
             entries: List of AIPEntry objects to add
             standardize: Whether to standardize the entries using field service
         """
-        if icao not in self._airports:
+        if icao not in self.airports:
             logger.warning(f"Airport {icao} not found in model, creating new airport")
             airport = Airport(ident=icao)
-            self._airports[icao] = airport
+            self.airports[icao] = airport
         
-        airport = self._airports[icao]
+        airport = self.airports[icao]
         
         if standardize and self.field_service:
             entries = self.field_service.standardize_aip_entries(entries)
@@ -212,7 +212,7 @@ class EuroAipModel:
         Returns:
             List of airports with standardized AIP data
         """
-        return [airport for airport in self._airports.values() 
+        return [airport for airport in self.airports.values() 
                 if airport.get_standardized_entries()]
     
     def get_field_mapping_statistics(self) -> Dict[str, Any]:
@@ -223,7 +223,7 @@ class EuroAipModel:
             Dictionary with field mapping statistics
         """
         all_entries = []
-        for airport in self._airports.values():
+        for airport in self.airports.values():
             all_entries.extend(airport.aip_entries)
         
         if self.field_service:
@@ -241,56 +241,26 @@ class EuroAipModel:
     def get_airport(self, icao: str) -> Optional[Airport]:
         """
         Get an airport by ICAO code.
-
-        .. deprecated::
-            Use :meth:`model.airports.where(ident=icao).first()` instead.
-
-            This method is maintained for backward compatibility but will be removed
-            in a future version. The new collection API provides more powerful
-            query capabilities.
-
+        
         Args:
             icao: ICAO airport code
-
+            
         Returns:
             Airport object or None if not found
-
-        Examples:
-            # Old way
-            airport = model.get_airport("EGLL")
-
-            # New way (preferred)
-            airport = model.airports.where(ident="EGLL").first()
         """
-        return self._airports.get(icao)
+        return self.airports.get(icao)
     
     def get_airports_by_country(self, country_code: str) -> List[Airport]:
         """
         Get all airports in a specific country.
-
-        .. deprecated::
-            Use :meth:`model.airports.by_country(code).all()` instead.
-
+        
         Args:
             country_code: ISO country code
-
+            
         Returns:
             List of airports in the country
-
-        Examples:
-            # Old way
-            french = model.get_airports_by_country("FR")
-
-            # New way (preferred)
-            french = model.airports.by_country("FR").all()
         """
-        warnings.warn(
-            "get_airports_by_country() is deprecated. "
-            "Use model.airports.by_country(code).all() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return [airport for airport in self._airports.values()
+        return [airport for airport in self.airports.values() 
                 if airport.iso_country == country_code]
     
     def remove_airports_by_country(self, country_code: str) -> None:
@@ -302,14 +272,14 @@ class EuroAipModel:
         """
         # Find all airports for this country
         airports_to_remove = [
-            icao for icao, airport in self._airports.items()
+            icao for icao, airport in self.airports.items()
             if airport.iso_country == country_code
         ]
         
         if airports_to_remove:
             removed_count = len(airports_to_remove)
             for icao in airports_to_remove:
-                del self._airports[icao]
+                del self.airports[icao]
             self.updated_at = datetime.now()
             logger.info(f"Removed {removed_count} airports for country {country_code}")
         else:
@@ -318,58 +288,31 @@ class EuroAipModel:
     def get_airports_by_source(self, source_name: str) -> List[Airport]:
         """
         Get all airports that have data from a specific source.
-
-        .. deprecated::
-            Use :meth:`model.airports.by_source(source).all()` instead.
-
+        
         Args:
             source_name: Name of the source
-
+            
         Returns:
             List of airports with data from the source
-
-        Examples:
-            # New way (preferred)
-            uk_airports = model.airports.by_source("uk_eaip").all()
         """
-        warnings.warn(
-            "get_airports_by_source() is deprecated. "
-            "Use model.airports.by_source(source).all() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
-        return [airport for airport in self._airports.values()
+        return [airport for airport in self.airports.values() 
                 if source_name in airport.sources]
     
     def get_airports_with_procedures(self, procedure_type: Optional[str] = None) -> List[Airport]:
         """
         Get all airports that have procedures.
-
-        .. deprecated::
-            Use :meth:`model.airports.with_procedures(type).all()` instead.
-
+        
         Args:
             procedure_type: Optional procedure type filter
-
+            
         Returns:
             List of airports with procedures
-
-        Examples:
-            # New way (preferred)
-            with_procedures = model.airports.with_procedures().all()
-            with_approaches = model.airports.with_procedures("approach").all()
         """
-        warnings.warn(
-            "get_airports_with_procedures() is deprecated. "
-            "Use model.airports.with_procedures(type).all() instead.",
-            DeprecationWarning,
-            stacklevel=2
-        )
         if procedure_type:
-            return [airport for airport in self._airports.values()
+            return [airport for airport in self.airports.values() 
                     if airport.get_procedures_by_type(procedure_type)]
         else:
-            return [airport for airport in self._airports.values()
+            return [airport for airport in self.airports.values() 
                     if airport.procedures]
     
     def get_airports_with_runways(self) -> List[Airport]:
@@ -379,7 +322,7 @@ class EuroAipModel:
         Returns:
             List of airports with runways
         """
-        return [airport for airport in self._airports.values() 
+        return [airport for airport in self.airports.values() 
                 if airport.runways]
     
     def get_airports_with_aip_data(self) -> List[Airport]:
@@ -389,7 +332,7 @@ class EuroAipModel:
         Returns:
             List of airports with AIP data
         """
-        return [airport for airport in self._airports.values() 
+        return [airport for airport in self.airports.values() 
                 if airport.aip_entries]
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -399,20 +342,20 @@ class EuroAipModel:
         Returns:
             Dictionary with model statistics
         """
-        total_airports = len(self._airports)
+        total_airports = len(self.airports)
         airports_with_runways = len(self.get_airports_with_runways())
         airports_with_procedures = len(self.get_airports_with_procedures())
         airports_with_aip_data = len(self.get_airports_with_aip_data())
         airports_with_border_crossing = len(self.get_border_crossing_airports())
         
-        total_runways = sum(len(airport.runways) for airport in self._airports.values())
-        total_procedures = sum(len(airport.procedures) for airport in self._airports.values())
-        total_aip_entries = sum(len(airport.aip_entries) for airport in self._airports.values())
+        total_runways = sum(len(airport.runways) for airport in self.airports.values())
+        total_procedures = sum(len(airport.procedures) for airport in self.airports.values())
+        total_aip_entries = sum(len(airport.aip_entries) for airport in self.airports.values())
         total_border_crossing_points = len(self.get_all_border_crossing_points())
         
         # Count procedures by type
         procedure_types = {}
-        for airport in self._airports.values():
+        for airport in self.airports.values():
             for procedure in airport.procedures:
                 proc_type = procedure.procedure_type.lower()
                 procedure_types[proc_type] = procedure_types.get(proc_type, 0) + 1
@@ -446,7 +389,7 @@ class EuroAipModel:
             Dictionary representation of the model
         """
         return {
-            'airports': {icao: airport.to_dict() for icao, airport in self._airports.items()},
+            'airports': {icao: airport.to_dict() for icao, airport in self.airports.items()},
             'border_crossing_points': {
                 country_iso: {
                     icao_code: entry.to_dict() 
@@ -460,7 +403,7 @@ class EuroAipModel:
     
     
     def __repr__(self):
-        return f"EuroAipModel(airports={len(self._airports)}, sources={list(self.sources_used)})"
+        return f"EuroAipModel(airports={len(self.airports)}, sources={list(self.sources_used)})"
     
     def __str__(self):
         stats = self.get_statistics()
@@ -509,7 +452,7 @@ class EuroAipModel:
     def get_all_approaches(self) -> Dict[str, List['Procedure']]:
         """Get all approach procedures across all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             approaches = airport.get_approaches()
             if approaches:
                 result[icao] = approaches
@@ -518,7 +461,7 @@ class EuroAipModel:
     def get_all_departures(self) -> Dict[str, List['Procedure']]:
         """Get all departure procedures across all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             departures = airport.get_departures()
             if departures:
                 result[icao] = departures
@@ -527,7 +470,7 @@ class EuroAipModel:
     def get_all_arrivals(self) -> Dict[str, List['Procedure']]:
         """Get all arrival procedures across all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             arrivals = airport.get_arrivals()
             if arrivals:
                 result[icao] = arrivals
@@ -536,7 +479,7 @@ class EuroAipModel:
     def get_procedures_by_source(self, source: str) -> Dict[str, List['Procedure']]:
         """Get all procedures from a specific source across all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             procedures = airport.get_procedures_by_source(source)
             if procedures:
                 result[icao] = procedures
@@ -545,7 +488,7 @@ class EuroAipModel:
     def get_procedures_by_authority(self, authority: str) -> Dict[str, List['Procedure']]:
         """Get all procedures from a specific authority across all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             procedures = airport.get_procedures_by_authority(authority)
             if procedures:
                 result[icao] = procedures
@@ -561,7 +504,7 @@ class EuroAipModel:
     def get_all_runway_procedures_summary(self) -> Dict[str, Dict[str, Dict[str, List[str]]]]:
         """Get a summary of procedures by runway and type for all airports."""
         result = {}
-        for icao, airport in self._airports.items():
+        for icao, airport in self.airports.items():
             summary = airport.get_runway_procedures_summary()
             if summary:
                 result[icao] = summary
@@ -589,7 +532,7 @@ class EuroAipModel:
             return
 
         # Only add border crossing entries for airports that are in the model
-        if icao_code not in self._airports:
+        if icao_code not in self.airports:
             return
         if country_iso not in self.border_crossing_points:
             self.border_crossing_points[country_iso] = {}
@@ -763,8 +706,8 @@ class EuroAipModel:
         """
         border_airports = []
         for entry in self.get_all_border_crossing_points():
-            if entry.icao_code in self._airports:
-                border_airports.append(self._airports[entry.icao_code])
+            if entry.icao_code in self.airports:
+                border_airports.append(self.airports[entry.icao_code])
         
         return border_airports
     
@@ -781,7 +724,7 @@ class EuroAipModel:
         
         # Step 2: Update airport-level derived fields (delegated to Airport class)
         updated_count = 0
-        for airport in self._airports.values():
+        for airport in self.airports.values():
             airport.update_all_derived_fields()
             updated_count += 1
         
@@ -797,8 +740,8 @@ class EuroAipModel:
         for entry in self.get_all_border_crossing_points():
             # Use the same logic as add_border_crossing_entry
             icao_code = entry.icao_code or entry.matched_airport_icao
-            if icao_code and icao_code in self._airports:
-                airport = self._airports[icao_code]
+            if icao_code and icao_code in self.airports:
+                airport = self.airports[icao_code]
                 airport.point_of_entry = True
                 airport.add_source('border_crossing')
                 updated_count += 1
@@ -861,7 +804,7 @@ class EuroAipModel:
         # Find airports near the route
         nearby_airports = []
         
-        for airport in self._airports.values():
+        for airport in self.airports.values():
             
             airport_point = airport.navpoint
             if not airport_point:
@@ -935,12 +878,12 @@ class EuroAipModel:
         from ..interp.base import InterpretationResult
         
         # Start with all airports
-        candidate_airports = list(self._airports.keys())
+        candidate_airports = list(self.airports.keys())
         
         # Apply filters in intersection (all must pass)
         if country_filter:
             country_airports = [
-                icao for icao, airport in self._airports.items()
+                icao for icao, airport in self.airports.items()
                 if airport.iso_country == country_filter
             ]
             candidate_airports = list(set(candidate_airports) & set(country_airports))
@@ -957,7 +900,7 @@ class EuroAipModel:
         if custom_filter:
             custom_airports = [
                 icao for icao in candidate_airports
-                if custom_filter(self._airports[icao])
+                if custom_filter(self.airports[icao])
             ]
             candidate_airports = custom_airports
             logger.info(f"Custom filter: {len(candidate_airports)} airports")
@@ -980,7 +923,7 @@ class EuroAipModel:
             # Find airports with this field
             airports_with_field = []
             for icao in candidate_airports:
-                airport = self._airports[icao]
+                airport = self.airports[icao]
                 entry = airport.get_aip_entry_for_field(field_id)
                 if entry and entry.value:
                     airports_with_field.append(icao)
@@ -989,7 +932,7 @@ class EuroAipModel:
             
             # Process each airport with the field
             for icao in airports_with_field:
-                airport = self._airports[icao]
+                airport = self.airports[icao]
                 entry = airport.get_aip_entry_for_field(field_id)
                 
                 if not entry or not entry.value:
