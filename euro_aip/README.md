@@ -2,34 +2,111 @@
 
 Euro AIP is a comprehensive Python library and web application for exploring, processing, and analyzing European airport and AIP (Aeronautical Information Publication) data.
 
+**Version:** 2.0 - Modern API with queryable collections, transactions, and Pythonic operations
+
 ---
 
 ## 1. euro_aip Python Library
 
 ### Overview
 The `euro_aip` library provides:
+- **Modern Query API**: Fluent, chainable collections for powerful data queries
+- **Builder API**: Transaction-safe model building with bulk operations
 - **Data Models**: Rich Python classes for airports, runways, procedures, and AIP entries
 - **Parsers**: Tools to extract and standardize AIP data from various European sources
 - **Data Sources**: Integrations for WorldAirports, Autorouter, and more
 - **Utilities**: Geographic calculations, field standardization, fuzzy matching, and more
 
+### Key Features (v2.0)
+- 🔍 **Queryable Collections** - LINQ-style queries with method chaining
+- 📖 **Dict-Style Access** - Natural lookups: `airports['EGLL']`
+- 🔧 **Set Operations** - Combine queries with `|`, `&`, `-` operators
+- 💾 **Transactions** - Atomic updates with automatic rollback
+- ⚡ **Bulk Operations** - High-performance batch processing
+- 🏗️ **Builder Pattern** - Fluent API for constructing airports
+- 🔄 **Full Backward Compatibility** - Legacy API still supported
+
 ### What Can You Use It For?
 - **Programmatic access** to a unified, standardized database of European airports and procedures
-- **Parsing and merging** AIP data from multiple national sources
+- **Complex queries** with intuitive, chainable syntax
+- **Safe model updates** with transaction support
+- **High-performance data loading** with bulk operations
 - **Custom data analysis**: Build your own scripts to analyze, filter, or export aviation data
 - **Integration**: Use as a backend for your own aviation tools or research
 
-### Example Usage
-```python
-from euro_aip.models.airport import Airport
-from euro_aip.parsers.aip_factory import AIPParserFactory
+### Quick Examples
 
-# Load and parse AIP data for a country
-aip_parser = AIPParserFactory.create('france')
-airports = aip_parser.parse_airports()
-for airport in airports:
-    print(airport.ident, airport.name, airport.iso_country)
+#### Query API - Finding Airports
+```python
+from euro_aip.models import EuroAipModel
+from euro_aip.storage import DatabaseStorage
+
+# Load the model
+storage = DatabaseStorage('airports.db')
+model = storage.load_model()
+
+# Dict-style lookup (fastest for known ICAO)
+heathrow = model.airports['EGLL']
+print(f"{heathrow.name} - {heathrow.elevation_ft}ft")
+
+# Filter by country
+french_airports = model.airports.by_country("FR").all()
+
+# Complex filtering with method chaining
+suitable = model.airports \
+    .by_country("FR") \
+    .with_hard_runway() \
+    .with_min_runway_length(3000) \
+    .with_fuel(avgas=True, jet_a=True) \
+    .all()
+
+# Set operations for OR logic
+western_europe = (
+    model.airports.by_country("FR") |
+    model.airports.by_country("DE") |
+    model.airports.by_country("BE")
+)
+
+# Check existence
+if 'LFPG' in model.airports:
+    cdg = model.airports['LFPG']
 ```
+
+#### Builder API - Modifying Data
+```python
+# Bulk operations (high performance)
+airports_to_add = [...]  # List of Airport objects
+result = model.bulk_add_airports(
+    airports_to_add,
+    merge="update_existing",
+    update_derived=True
+)
+print(f"Added {result['added']}, updated {result['updated']}")
+
+# Transaction API (atomic updates)
+with model.transaction() as txn:
+    txn.add_airport(airport)
+    txn.bulk_add_procedures(procedures)
+    # Automatic rollback on error
+
+# Builder pattern (fluent API)
+airport = model.airport_builder("EGLL") \
+    .with_basic_info(
+        name="London Heathrow",
+        latitude_deg=51.4706,
+        longitude_deg=-0.4619
+    ) \
+    .with_runways(runways) \
+    .commit()
+```
+
+### Documentation
+
+Full documentation available in `designs/`:
+- **[Quick Start Guide](designs/QUICK_START.md)** - Get started in 5 minutes
+- **[Query API Documentation](designs/models_query_api_documentation.md)** - Complete query reference
+- **[Builder API Guide](designs/builder_api_guide.md)** - Building and modifying data
+- **[Migration Guide](designs/migration_guide.md)** - Upgrading from legacy API
 
 ---
 
