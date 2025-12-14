@@ -211,11 +211,20 @@ class EuroAipModel:
     def get_airports_with_standardized_aip_data(self) -> List[Airport]:
         """
         Get all airports that have standardized AIP data.
-        
+
+        .. deprecated::
+            Use :meth:`model.airports.with_standardized_aip_data().all()` instead.
+
         Returns:
             List of airports with standardized AIP data
         """
-        return [airport for airport in self._airports.values() 
+        warnings.warn(
+            "get_airports_with_standardized_aip_data() is deprecated. "
+            "Use model.airports.with_standardized_aip_data().all() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return [airport for airport in self._airports.values()
                 if airport.get_standardized_entries()]
     
     def get_field_mapping_statistics(self) -> Dict[str, Any]:
@@ -246,7 +255,7 @@ class EuroAipModel:
         Get an airport by ICAO code.
 
         .. deprecated::
-            Use :meth:`model.airports.where(ident=icao).first()` instead.
+            Use :meth:`model.airports['ICAO']` or :meth:`model.airports.where(ident=icao).first()` instead.
 
             This method is maintained for backward compatibility but will be removed
             in a future version. The new collection API provides more powerful
@@ -262,9 +271,18 @@ class EuroAipModel:
             # Old way
             airport = model.get_airport("EGLL")
 
-            # New way (preferred)
+            # New way (preferred - dict-style)
+            airport = model.airports['EGLL']
+
+            # Or query API
             airport = model.airports.where(ident="EGLL").first()
         """
+        warnings.warn(
+            "get_airport() is deprecated. "
+            "Use model.airports['ICAO'] or model.airports.where(ident=icao).first() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         return self._airports.get(icao)
     
     def get_airports_by_country(self, country_code: str) -> List[Airport]:
@@ -378,21 +396,39 @@ class EuroAipModel:
     def get_airports_with_runways(self) -> List[Airport]:
         """
         Get all airports that have runway information.
-        
+
+        .. deprecated::
+            Use :meth:`model.airports.with_runways().all()` instead.
+
         Returns:
             List of airports with runways
         """
-        return [airport for airport in self._airports.values() 
+        warnings.warn(
+            "get_airports_with_runways() is deprecated. "
+            "Use model.airports.with_runways().all() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return [airport for airport in self._airports.values()
                 if airport.runways]
     
     def get_airports_with_aip_data(self) -> List[Airport]:
         """
         Get all airports that have AIP data.
-        
+
+        .. deprecated::
+            Use :meth:`model.airports.with_aip_data().all()` instead.
+
         Returns:
             List of airports with AIP data
         """
-        return [airport for airport in self._airports.values() 
+        warnings.warn(
+            "get_airports_with_aip_data() is deprecated. "
+            "Use model.airports.with_aip_data().all() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        return [airport for airport in self._airports.values()
                 if airport.aip_entries]
     
     def get_statistics(self) -> Dict[str, Any]:
@@ -482,7 +518,18 @@ class EuroAipModel:
 - Updated: {stats['updated_at']}"""
     
     def get_procedures_by_runway(self, airport_icao: str, runway_ident: str) -> List['Procedure']:
-        """Get all procedures for a specific runway at an airport."""
+        """
+        Get all procedures for a specific runway at an airport.
+
+        .. deprecated::
+            Use :meth:`model.airports[icao].procedures_query.by_runway(runway).all()` instead.
+        """
+        warnings.warn(
+            "get_procedures_by_runway() is deprecated. "
+            "Use model.airports[icao].procedures_query.by_runway(runway).all() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         airport = self.get_airport(airport_icao)
         if not airport:
             return []
@@ -537,7 +584,18 @@ class EuroAipModel:
         return result
     
     def get_procedures_by_source(self, source: str) -> Dict[str, List['Procedure']]:
-        """Get all procedures from a specific source across all airports."""
+        """
+        Get all procedures from a specific source across all airports.
+
+        .. deprecated::
+            Use :meth:`model.procedures.by_source(source).all()` and group by airport instead.
+        """
+        warnings.warn(
+            "get_procedures_by_source() is deprecated. "
+            "Use model.procedures.by_source(source).all() and group by airport instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         result = {}
         for icao, airport in self._airports.items():
             procedures = airport.get_procedures_by_source(source)
@@ -546,7 +604,18 @@ class EuroAipModel:
         return result
     
     def get_procedures_by_authority(self, authority: str) -> Dict[str, List['Procedure']]:
-        """Get all procedures from a specific authority across all airports."""
+        """
+        Get all procedures from a specific authority across all airports.
+
+        .. deprecated::
+            Use custom filtering with :meth:`model.procedures.where()` instead.
+        """
+        warnings.warn(
+            "get_procedures_by_authority() is deprecated. "
+            "Use custom filtering with model.procedures.where() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         result = {}
         for icao, airport in self._airports.items():
             procedures = airport.get_procedures_by_authority(authority)
@@ -1032,15 +1101,24 @@ class EuroAipModel:
     def get_border_crossing_airports(self) -> List[Airport]:
         """
         Get all airports that are border crossing points.
-        
+
+        .. deprecated::
+            Use :meth:`model.airports.border_crossings().all()` instead.
+
         Returns:
             List of airports that are border crossing points
         """
+        warnings.warn(
+            "get_border_crossing_airports() is deprecated. "
+            "Use model.airports.border_crossings().all() instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         border_airports = []
         for entry in self.get_all_border_crossing_points():
             if entry.icao_code in self._airports:
                 border_airports.append(self._airports[entry.icao_code])
-        
+
         return border_airports
     
     def update_all_derived_fields(self) -> None:
