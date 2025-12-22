@@ -778,7 +778,7 @@ class DatabaseStorage:
         
         # Update source information
         for source in model.sources_used:
-            airports_from_source = len(model.get_airports_by_source(source))
+            airports_from_source = model.airports.by_source(source).count()
             conn.execute('''
                 INSERT OR REPLACE INTO sources (name, last_updated, record_count)
                 VALUES (?, ?, ?)

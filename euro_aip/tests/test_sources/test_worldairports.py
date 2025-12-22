@@ -165,12 +165,12 @@ class TestWorldAirportsSourceClass:
                            'LOWS', 'LSGS']
         
         for airport_code in expected_airports:
-            airport = model.get_airport(airport_code)
+            airport = model.airports[airport_code]
             assert airport is not None
             assert airport.ident == airport_code
             assert airport.name is not None
             assert airport.type is not None
-            
+
             # Check that airport has source tracking
             assert 'worldairports' in airport.sources
     
@@ -185,7 +185,7 @@ class TestWorldAirportsSourceClass:
         assert len(model.airports) == len(specific_airports)
         
         for airport_code in specific_airports:
-            airport = model.get_airport(airport_code)
+            airport = model.airports[airport_code]
             assert airport is not None
             assert airport.ident == airport_code
     
@@ -217,7 +217,7 @@ class TestWorldAirportsSourceClass:
         ]
         
         for airport_code, expected_runway_count in test_cases:
-            airport = model.get_airport(airport_code)
+            airport = model.airports[airport_code]
             assert airport is not None
             assert len(airport.runways) == expected_runway_count
             
@@ -240,7 +240,7 @@ class TestWorldAirportsSourceClass:
         ]
         
         for airport_code, expected_surface in surface_tests:
-            airport = model.get_airport(airport_code)
+            airport = model.airports[airport_code]
             assert airport is not None
             
             # Find runway with expected surface

@@ -1,38 +1,79 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "name": "Python Debugger: Autorouter LSZH",
+            "name": "Python Debugger: Python File",
             "type": "debugpy",
             "request": "launch",
-            "program": "aip.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/euro_aip"
-            },
-            "cwd": "${workspaceFolder}/euro_aip/example",
-            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
-            "args": ["autorouter", "LSZH"]
+            "program": "${file}"
         },
         {
-            "name": "Python Debugger: France eAIP LFAT",
+            "name": "Python Debugger: Example Python File with Arguments",
             "type": "debugpy",
             "request": "launch",
-            "program": "aip.py",
-            "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}/euro_aip"
-            },
-            "cwd": "${workspaceFolder}/euro_aip/example",
-            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
-            "args": ["--root-dir", "cache/eaip_17_apr_2025", "france_eaip", "LFAT"]
+            "cwd": "${workspaceFolder}/example",
+            "program": "${file}",
+            "args": "${input:FileArgs}"
         },
         {
-            "name": "Python Debugger: World Airports",
+            "name": "Python Debugger: Rebuild france web",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aipexport.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/example"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "--worldairports --uk-web --airac-date 2025-10-02 --database-storage airports2.db "
+        },
+        {
+            "name": "Python Debugger: Rebuild border crossing",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "bordercrossingexport.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/example"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "--worldairports --database-storage airports.db ../data/airfieldmap.csv cache/OJ_2023_0202.html cache/UK_BorderCrossing.html"
+        },
+        {
+            "name": "Python Debugger: Rebuild foreflight pack",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "foreflight.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": [
+                "-d",
+                "airports.db",
+                "-v",
+                "pack"
+            ]
+        },
+        {
+            "name": "Python Debugger: Rebuild Autorouter",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aipexport.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/euro_aip"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "--worldairports --worldairports-filter required --autorouter --database-storage airports.db --never-refresh"
+        },
+        {
+            "name": "Python Debugger: Analyze",
             "type": "debugpy",
             "request": "launch",
             "program": "aip.py",
@@ -40,9 +81,94 @@
             "env": {
                 "PYTHONPATH": "${workspaceFolder}/euro_aip"
             },
-            "cwd": "${workspaceFolder}/euro_aip/example",
-            "python": "${workspaceFolder}/euro_aip/example/venv/bin/python",
-            "args": ["worldairports"]
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "analyze --database airports.db --interpreters custom --format csv --country FR --include-raw-values --output test_results.csv --failed-output test_failed.csv"
+        },
+        {
+            "name": "Python Debugger: Interactive AIP",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "aip.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "cwd": "${workspaceFolder}/example",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": "${input:aipArgs}"
+        },
+        {
+            "name": "Python Debugger: Start Server",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/web/server/main.py",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}",
+                "AIRPORTS_DB": "${workspaceFolder}/example/airports.db"
+            },
+            "cwd": "${workspaceFolder}/web/server",
+            "python": "${workspaceFolder}/venv/bin/python",
+            "args": ""
+        },
+    ],
+    "inputs": [
+        {
+            "id": "FileArgs",
+            "description": "Enter arguments for aipchange.py",
+            "default": "",
+            "type": "promptString"
+        },
+        {
+            "id": "aipArgs",
+            "description": "Enter arguments for aip.py",
+            "default": "autorouter EGKB -n",
+            "type": "promptString"
+        },
+        {
+            "id": "aipChangeArgs",
+            "description": "Enter arguments for aipchange.py",
+            "default": "--source1 france_eaip --root-dir1 cache/eaip_17_apr_2025 --source2 autorouter --csv-output changes.csv LFQA",
+            "type": "promptString"
+        },
+        {
+            "id": "airports",
+            "description": "Enter airport codes (space-separated) or leave empty for all",
+            "default": "EGLL EGKK",
+            "type": "promptString"
+        },
+        {
+            "id": "source1",
+            "description": "Select source 1 type",
+            "default": "france_eaip",
+            "type": "pickString",
+            "options": ["france_eaip", "uk_eaip", "autorouter", "worldairports", "pointdepassage"]
+        },
+        {
+            "id": "source2",
+            "description": "Select source 2 type",
+            "default": "autorouter",
+            "type": "pickString",
+            "options": ["france_eaip", "uk_eaip", "autorouter", "worldairports", "pointdepassage"]
+        },
+        {
+            "id": "source1Args",
+            "description": "Enter source 1 arguments (e.g., --root-dir1 /path/to/data --force-refresh1)",
+            "default": "--root-dir1 /path/to/france/data",
+            "type": "promptString"
+        },
+        {
+            "id": "source2Args",
+            "description": "Enter source 2 arguments (e.g., --username2 user --password2 pass)",
+            "default": "--username2 user --password2 pass",
+            "type": "promptString"
+        },
+        {
+            "id": "additionalArgs",
+            "description": "Enter additional arguments (e.g., --fields airport_name,icao_code --verbose --output results.json)",
+            "default": "--verbose",
+            "type": "promptString"
         }
     ]
 }

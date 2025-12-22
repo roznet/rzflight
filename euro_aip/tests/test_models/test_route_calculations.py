@@ -167,9 +167,9 @@ def test_distance_boundary_conditions():
     assert 'LFRN' in found_idents_5
     
     # Test that distance calculations are working
-    egll = model.get_airport('EGLL')
-    lfrn = model.get_airport('LFRN')
-    test1 = model.get_airport('TEST1')
+    egll = model.airports['EGLL']
+    lfrn = model.airports['LFRN']
+    test1 = model.airports['TEST1']
     
     # Calculate distance manually to verify
     from euro_aip.models.navpoint import NavPoint

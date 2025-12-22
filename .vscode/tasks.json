@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "prompt-aip-args",
+            "type": "shell",
+            "command": "echo",
+            "args": ["Arguments will be prompted by VS Code"],
+            "presentation": {
+                "echo": false,
+                "reveal": "never",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "group": "build"
+        },
+        {
+            "label": "prompt-aip-change-args",
+            "type": "shell",
+            "command": "echo",
+            "args": ["Arguments will be prompted by VS Code"],
+            "presentation": {
+                "echo": false,
+                "reveal": "never",
+                "focus": false,
+                "panel": "shared",
+                "showReuseMessage": false,
+                "clear": false
+            },
+            "group": "build"
+        }
+    ]
+} 

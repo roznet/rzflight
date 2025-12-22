@@ -46,7 +46,7 @@ def test_aip_parser_parse_airports(test_pdfs):
     """Test that the AIP parser can parse all test PDF files."""
     assert test_pdfs, "No test PDF files found"
     skip_list = ['ESMS', 'EKAH']
-    debug_list = []
+    debug_list = ['EDSB']
     
     # Track field coverage across authorities
     field_coverage = defaultdict(lambda: defaultdict(dict))  # field_name -> authority -> defs

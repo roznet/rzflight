@@ -1,0 +1,6 @@
+---
+alwaysApply: true
+---
+
+- always run python commands after source venv/bin/activate
+- write and read all ai reviews and code design in designs/ directory at the root

@@ -439,10 +439,10 @@ class EuroAipModel:
             Dictionary with model statistics
         """
         total_airports = len(self._airports)
-        airports_with_runways = len(self.get_airports_with_runways())
-        airports_with_procedures = len(self.get_airports_with_procedures())
-        airports_with_aip_data = len(self.get_airports_with_aip_data())
-        airports_with_border_crossing = len(self.get_border_crossing_airports())
+        airports_with_runways = self.airports.with_runways().count()
+        airports_with_procedures = self.airports.with_procedures().count()
+        airports_with_aip_data = self.airports.with_aip_data().count()
+        airports_with_border_crossing = self.airports.border_crossings().count()
         
         total_runways = sum(len(airport.runways) for airport in self._airports.values())
         total_procedures = sum(len(airport.procedures) for airport in self._airports.values())
@@ -1194,7 +1194,7 @@ class EuroAipModel:
                 continue
             # Assume string ICAO
             icao = str(item).upper()
-            airport = self.get_airport(icao)
+            airport = self._airports.get(icao)
             if not airport or not airport.latitude_deg or not airport.longitude_deg:
                 logger.warning(f"Airport {icao} not found or missing coordinates, skipping")
                 continue

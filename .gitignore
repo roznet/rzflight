@@ -11,3 +11,5 @@ apptest
 .build
 dist
 tmp
+
+t.*

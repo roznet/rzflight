@@ -1,0 +1,25 @@
+{
+    // Python interpreter configuration - use local venv
+    "python.defaultInterpreterPath": "${workspaceFolder}/euro_aip/venv/bin/python",
+    
+    // Python test configuration
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.cwd": "${workspaceFolder}/euro_aip",
+    "python.testing.pytestPath": "${workspaceFolder}/euro_aip/venv/bin/pytest",
+    
+    // Swift test configuration
+    // The Swift extension will automatically discover Swift Package Manager tests
+    // when it detects Package.swift. Ensure the Swift extension is installed.
+    // No additional configuration needed - tests will appear in Test Explorer automatically.
+    
+    // Workspace settings
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.pytest_cache": true
+    }
+}
