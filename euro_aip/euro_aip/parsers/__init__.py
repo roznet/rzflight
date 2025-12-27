@@ -8,6 +8,7 @@ from .aip_lic import LICAIPParser
 from .aip_lkc import LKCAIPParser
 from .aip_ekc import EKCAIPParser
 from .aip_egc import EGCAIPParser
+from .aip_enc import ENCAIPParser
 from .aip_dual import DualFormatAIPParser
 from .bordercrossing import BorderCrossingParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
@@ -30,10 +31,15 @@ AIPParserFactory.register_pdf_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
 AIPParserFactory.register_html_parser('EGC', EGCAIPParser)
 AIPParserFactory.register_pdf_parser('EGC', DefaultAIPParser)
 
+# Register HTML parser for ENC (Norway) - same Eurocontrol format as UK
+AIPParserFactory.register_html_parser('ENC', ENCAIPParser)
+AIPParserFactory.register_pdf_parser('ENC', DefaultAIPParser)
+
 # Register the procedure parsers
 ProcedureParserFactory.register_parser(PROCEDURE_DEFAULT_AUTHORITY, DefaultProcedureParser)
 ProcedureParserFactory.register_parser('LFC', LFCProcedureParser)
 ProcedureParserFactory.register_parser('EGC', EGCProcedureParser)
+ProcedureParserFactory.register_parser('ENC', EGCProcedureParser)  # Norway uses same format as UK
 
 __all__ = [
     'AIPParserFactory',
@@ -47,6 +53,7 @@ __all__ = [
     'LKCAIPParser',
     'EKCAIPParser',
     'EGCAIPParser',
+    'ENCAIPParser',
     'DualFormatAIPParser',
     'BorderCrossingParser',
     'ProcedureParserFactory',
