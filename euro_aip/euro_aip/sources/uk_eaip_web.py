@@ -27,7 +27,12 @@ class UKEAIPWebSource(CachedSource, SourceInterface):
     """
 
     AIRPORT_LINK_PATTERN = re.compile(r"EG-AD-2\.(EG[A-Z]{2})-en-GB\.html")
-    
+    SUPPORTED_PREFIXES = ["EG"]
+
+    def supported_icao_prefixes(self) -> List[str]:
+        """UK eAIP only handles EG* airports."""
+        return self.SUPPORTED_PREFIXES
+
     # Base URL components
     BASE_URL = "https://www.aurora.nats.co.uk/htmlAIP/Publications"
 
@@ -230,6 +235,9 @@ class UKEAIPWebSource(CachedSource, SourceInterface):
 
         field_service = FieldStandardizationService()
         procedure_parser = ProcedureParserFactory.get_parser('EGC')
+
+        # Filter to only airports this source can handle
+        airports = self.filter_airports(airports)
 
         if airports is None:
             airports = self.find_available_airports()

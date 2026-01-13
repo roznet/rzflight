@@ -6,11 +6,43 @@ import re
 class SourceInterface(ABC):
     """
     Base interface for all data sources.
-    
+
     This interface defines the contract that all sources must implement
     to be compatible with the EuroAipModel architecture.
     """
-    
+
+    def supported_icao_prefixes(self) -> List[str]:
+        """
+        Return list of ICAO prefixes this source can handle.
+
+        Override in subclasses to restrict which airports this source processes.
+        For example, France eAIP returns ['LF'], UK eAIP returns ['EG'].
+
+        Returns:
+            List of ICAO prefixes (e.g., ['LF', 'EG']) or empty list for all airports
+        """
+        return []
+
+    def filter_airports(self, airports: Optional[List[str]]) -> Optional[List[str]]:
+        """
+        Filter airports to only those this source can handle.
+
+        Args:
+            airports: List of ICAO codes or None
+
+        Returns:
+            Filtered list or None if input was None
+        """
+        if airports is None:
+            return None
+
+        prefixes = self.supported_icao_prefixes()
+        if not prefixes:
+            return airports  # No filtering - source handles all airports
+
+        filtered = [icao for icao in airports if any(icao.startswith(p) for p in prefixes)]
+        return filtered
+
     @abstractmethod
     def update_model(self, model: EuroAipModel, airports: Optional[List[str]] = None) -> None:
         """

@@ -27,7 +27,12 @@ class FranceEAIPWebSource(CachedSource, SourceInterface):
     """
 
     AIRPORT_LINK_PATTERN = re.compile(r"FR-AD-2\.(LF[A-Z]{2})-fr-FR\.html")
-    
+    SUPPORTED_PREFIXES = ["LF"]
+
+    def supported_icao_prefixes(self) -> List[str]:
+        """France eAIP only handles LF* airports."""
+        return self.SUPPORTED_PREFIXES
+
     # Base URL components
     BASE_URL = "https://www.sia.aviation-civile.gouv.fr/media/dvd"
     FRANCE_PATH = "FRANCE"
@@ -317,6 +322,9 @@ class FranceEAIPWebSource(CachedSource, SourceInterface):
 
         field_service = FieldStandardizationService()
         procedure_parser = ProcedureParserFactory.get_parser('LFC')
+
+        # Filter to only airports this source can handle
+        airports = self.filter_airports(airports)
 
         if airports is None:
             airports = self.find_available_airports()

@@ -32,6 +32,11 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
 
     # Norwegian airports start with EN
     AIRPORT_LINK_PATTERN = re.compile(r"EN-AD-2\.(EN[A-Z]{2})-en-GB\.html")
+    SUPPORTED_PREFIXES = ["EN"]
+
+    def supported_icao_prefixes(self) -> List[str]:
+        """Norway eAIP only handles EN* airports."""
+        return self.SUPPORTED_PREFIXES
 
     # Base URL for Norway AIM
     BASE_URL = "https://aim-prod.avinor.no/no/AIP/View/Index/147"
@@ -217,11 +222,11 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         field_service = FieldStandardizationService()
         procedure_parser = ProcedureParserFactory.get_parser('ENC')
 
+        # Filter to only airports this source can handle
+        airports = self.filter_airports(airports)
+
         if airports is None:
             airports = self.find_available_airports()
-        else:
-            # Filter to only Norwegian airports (EN* prefix)
-            airports = [a for a in airports if a.startswith('EN')]
         if not airports:
             logger.warning("No Norwegian airports found via web index")
             return
