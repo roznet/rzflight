@@ -622,7 +622,27 @@ public struct Airport : Codable {
         }
         return aipEntries.first { $0.field == fieldName }
     }
-    
+
+    // MARK: - Fuel Availability
+
+    /// Check if airport has AVGAS fuel (from AIP entries)
+    /// Looks for "AVGAS" or "100LL" mentions in fuel-related AIP entries
+    public var hasAvgas: Bool {
+        aipEntries.contains { entry in
+            let v = entry.value.uppercased()
+            return v.contains("AVGAS") || v.contains("100LL")
+        }
+    }
+
+    /// Check if airport has Jet-A fuel
+    /// Looks for "JET" or "JETA1" mentions in fuel-related AIP entries
+    public var hasJetA: Bool {
+        aipEntries.contains { entry in
+            let v = entry.value.uppercased()
+            return v.contains("JET") || v.contains("JETA1")
+        }
+    }
+
     // MARK: - Border Crossing / Point of Entry
     
     /// Check if this airport is a border crossing point (requires database context)
@@ -665,33 +685,47 @@ extension CLLocationCoordinate2D {
     ///   - bearing: Bearing in degrees (0-360, where 0/360 is North, 90 is East, etc.)
     ///   - distanceNm: Distance in nautical miles
     /// - Returns: A new CLLocationCoordinate2D at the calculated position
-    /// 
+    ///
     /// Uses the great circle calculation for accurate navigation distances.
     /// Earth radius: 3440.065 nautical miles (matching Python NavPoint implementation)
     func pointFromBearingDistance(bearing: Double, distanceNm: Double) -> CLLocationCoordinate2D {
         let earthRadiusNm: Double = 3440.065 // Earth's radius in nautical miles
-        
+
         // Convert to radians
         let lat1 = latitude * .pi / 180.0
         let lon1 = longitude * .pi / 180.0
         let bearingRad = bearing * .pi / 180.0
-        
+
         // Calculate new latitude
         let lat2 = asin(
             sin(lat1) * cos(distanceNm / earthRadiusNm) +
             cos(lat1) * sin(distanceNm / earthRadiusNm) * cos(bearingRad)
         )
-        
+
         // Calculate new longitude
         let lon2 = lon1 + atan2(
             sin(bearingRad) * sin(distanceNm / earthRadiusNm) * cos(lat1),
             cos(distanceNm / earthRadiusNm) - sin(lat1) * sin(lat2)
         )
-        
+
         return CLLocationCoordinate2D(
             latitude: lat2 * 180.0 / .pi,
             longitude: lon2 * 180.0 / .pi
         )
+    }
+}
+
+// MARK: - Airport Collection Fuel Filters
+
+extension Array where Element == Airport {
+    /// Filter airports to only those with AVGAS fuel
+    public func withAvgas() -> [Airport] {
+        filter { $0.hasAvgas }
+    }
+
+    /// Filter airports to only those with Jet-A fuel
+    public func withJetA() -> [Airport] {
+        filter { $0.hasJetA }
     }
 }
 
