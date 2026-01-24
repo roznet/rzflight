@@ -7,9 +7,12 @@ Install: `pip install euro-aip` (Python) or Swift Package Manager (Swift)
 ## Modules
 
 ### RZFlight Swift Package
-Aviation calculations, airport data management, and flight planning for iOS/macOS. Wind calculations, runway selection, METAR integration, and spatial airport queries.
-Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `AVWX`
-→ Full doc: swift_package.md
+Aviation calculations, airport data management, and flight planning for iOS/macOS. Wind calculations, runway selection, METAR integration, spatial airport queries, and briefing/NOTAM support.
+Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `Briefing`, `Notam`
+
+**Documentation:**
+- `swift_package.md` - Package overview, quick start
+- `swift_briefing.md` - Briefing/NOTAM models (loads Python JSON)
 
 ### Python Euro AIP Query API
 Fluent, chainable collections for querying airports, procedures, and AIP data. Supports dict-style access, set operations (`|`, `&`, `-`), and filtering.
@@ -43,3 +46,4 @@ Key exports: `Briefing`, `NotamCollection`, `ForeFlightSource`, `CategorizationP
 - `briefing_models.md` - Data model field reference (Notam, Route, Briefing)
 - `briefing_filtering.md` - NotamCollection API and categorization pipeline
 - `briefing_parsing.md` - Source/parser separation, adding new sources
+- `swift_briefing.md` - Swift models for iOS/macOS (loads Python JSON)

@@ -30,7 +30,11 @@ RZFlight
 │   ├── Runway           # Runway geometry and configuration
 │   ├── Procedure        # Approaches, departures, arrivals
 │   ├── AIPEntry         # Aeronautical Information Publication entries
-│   └── Metar            # Weather data structure
+│   ├── Metar            # Weather data structure
+│   └── Briefing/        # Flight briefings and NOTAMs (from Python JSON)
+│       ├── Briefing     # Container with route and NOTAMs
+│       ├── Notam        # NOTAM data model
+│       └── Route        # Flight route with coordinates
 ├── Calculation Models
 │   ├── RunwayWindModel  # Wind calculations and component analysis
 │   ├── Heading          # Compass heading arithmetic
@@ -58,6 +62,7 @@ RZFlight
 - **Procedure Data** - Approach types, precision categories, runway matching
 - **AIP Integration** - Standardized field catalog, fuel availability, border crossings
 - **METAR Support** - AVWX API integration, wind model updates
+- **Briefing & NOTAMs** - Load Python-generated briefings, filter NOTAMs by location/time/category
 - **iOS Extras** - Text-to-speech clearances, SF Symbol direction indicators
 
 ## Quick Start
