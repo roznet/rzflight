@@ -33,3 +33,13 @@ Key exports: `model.transaction()`, `bulk_add_airports`, `airport_builder`
 ### Python Euro AIP Web Sources
 Documentation for European AIP web sources and data retrieval.
 → Full doc: AIP_WEB_SOURCES.md
+
+### Python Euro AIP Briefing
+Flight briefing data extraction and NOTAM filtering. Parse ForeFlight PDFs, extract METARs/TAFs/NOTAMs, and filter with fluent API.
+Key exports: `Briefing`, `NotamCollection`, `ForeFlightSource`, `CategorizationPipeline`
+
+**Documentation (load in order of need):**
+- `briefing.md` - Overview, architecture, usage examples (read FIRST)
+- `briefing_models.md` - Data model field reference (Notam, Route, Briefing)
+- `briefing_filtering.md` - NotamCollection API and categorization pipeline
+- `briefing_parsing.md` - Source/parser separation, adding new sources
