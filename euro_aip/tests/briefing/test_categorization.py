@@ -112,54 +112,61 @@ class TestQCodeCategorizer:
     def test_categorize_ils_unserviceable(self):
         """Test categorizing ILS unserviceable Q-code."""
         categorizer = QCodeCategorizer()
-        notam = create_notam(q_code="QNIAS")
+        # IC = ILS, AS = Unserviceable
+        notam = create_notam(q_code="QICAS")
 
         result = categorizer.categorize(notam)
 
         assert result.primary_category == "navaid"
         assert "ils" in result.tags
+        assert "unserviceable" in result.tags
 
     def test_categorize_approach_procedure_changed(self):
         """Test categorizing approach procedure changed Q-code."""
         categorizer = QCodeCategorizer()
+        # PI = Instrument approach procedure, CH = Changed
         notam = create_notam(q_code="QPICH")
 
         result = categorizer.categorize(notam)
 
         assert result.primary_category == "procedure"
-        assert "approach" in result.tags
+        assert "instr_apch_proc" in result.tags  # From JSON phrase
         assert "changed" in result.tags
 
-    def test_categorize_crane_erected(self):
-        """Test categorizing crane erected Q-code."""
+    def test_categorize_obstacle(self):
+        """Test categorizing obstacle Q-code."""
         categorizer = QCodeCategorizer()
-        notam = create_notam(q_code="QOBCE")
+        # OB = Obstacle, CA = Activated (obstacle erected/active)
+        notam = create_notam(q_code="QOBCA")
 
         result = categorizer.categorize(notam)
 
         assert result.primary_category == "obstacle"
-        assert "crane" in result.tags
+        assert "obst" in result.tags  # From JSON phrase
+        assert "active" in result.tags or "activated" in result.tags
 
     def test_categorize_restricted_area_active(self):
         """Test categorizing restricted area active Q-code."""
         categorizer = QCodeCategorizer()
-        notam = create_notam(q_code="QARAU")
+        # RR = Restricted area, CA = Activated
+        notam = create_notam(q_code="QRRCA")
 
         result = categorizer.categorize(notam)
 
         assert result.primary_category == "airspace"
-        assert "restricted" in result.tags
-        assert "active" in result.tags
+        assert "r_area" in result.tags  # From JSON phrase
+        assert "active" in result.tags or "activated" in result.tags
 
     def test_categorize_parachuting(self):
         """Test categorizing parachuting warning Q-code."""
         categorizer = QCodeCategorizer()
-        notam = create_notam(q_code="QWPLW")
+        # WP = Parachute jumping/Hang gliding, CA = Activated
+        notam = create_notam(q_code="QWPCA")
 
         result = categorizer.categorize(notam)
 
         assert result.primary_category == "warning"
-        assert "parachuting" in result.tags
+        assert "pje/paragliding" in result.tags  # From JSON phrase
 
     def test_categorize_no_qcode(self):
         """Test categorizing NOTAM without Q-code."""
