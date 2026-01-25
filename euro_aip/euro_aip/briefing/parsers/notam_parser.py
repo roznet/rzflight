@@ -459,28 +459,40 @@ class NotamParser:
             upper_limit = q_data['upper_fl'] * 100
 
         # F) line - lower limit
-        match = re.search(r'F\)\s*(\d+)\s*(FT|M|FL)?', text, re.IGNORECASE)
+        match = re.search(r'F\)\s*(SFC|GND|FL\s*(\d+)|(\d+)\s*(FT|M)?)', text, re.IGNORECASE)
         if match:
-            value = int(match.group(1))
-            unit = (match.group(2) or '').upper()
-            if unit == 'FL':
-                lower_limit = value * 100
-            elif unit == 'M':
-                lower_limit = int(value * 3.28084)
+            full_match = match.group(1).upper()
+            if full_match in ('SFC', 'GND'):
+                lower_limit = 0
+            elif full_match.startswith('FL'):
+                fl_value = match.group(2)
+                if fl_value:
+                    lower_limit = int(fl_value) * 100
             else:
-                lower_limit = value
+                value = int(match.group(3))
+                unit = (match.group(4) or '').upper()
+                if unit == 'M':
+                    lower_limit = int(value * 3.28084)
+                else:
+                    lower_limit = value
 
         # G) line - upper limit
-        match = re.search(r'G\)\s*(\d+)\s*(FT|M|FL)?', text, re.IGNORECASE)
+        match = re.search(r'G\)\s*(UNL|FL\s*(\d+)|(\d+)\s*(FT|M)?)', text, re.IGNORECASE)
         if match:
-            value = int(match.group(1))
-            unit = (match.group(2) or '').upper()
-            if unit == 'FL':
-                upper_limit = value * 100
-            elif unit == 'M':
-                upper_limit = int(value * 3.28084)
+            full_match = match.group(1).upper()
+            if full_match == 'UNL':
+                upper_limit = 99999  # Unlimited
+            elif full_match.startswith('FL'):
+                fl_value = match.group(2)
+                if fl_value:
+                    upper_limit = int(fl_value) * 100
             else:
-                upper_limit = value
+                value = int(match.group(3))
+                unit = (match.group(4) or '').upper()
+                if unit == 'M':
+                    upper_limit = int(value * 3.28084)
+                else:
+                    upper_limit = value
 
         return lower_limit, upper_limit
 
