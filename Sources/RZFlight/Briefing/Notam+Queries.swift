@@ -8,6 +8,7 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 
 // MARK: - Location Filters
 
@@ -400,5 +401,221 @@ extension Array where Element == Notam {
             result[category, default: []].append(notam)
         }
         return result
+    }
+}
+
+// MARK: - Route Corridor Filters
+
+extension Array where Element == Notam {
+
+    /// Filter NOTAMs within a corridor along a flight route
+    ///
+    /// Uses perpendicular distance to route segments for NOTAMs with coordinates.
+    /// Falls back to airport matching for NOTAMs without coordinates.
+    ///
+    /// - Parameters:
+    ///   - route: Flight route with waypoint coordinates
+    ///   - corridorWidthNm: Corridor half-width in nautical miles (e.g., 25nm = 50nm total width)
+    /// - Returns: NOTAMs within the corridor or affecting route airports
+    ///
+    /// Example:
+    /// ```swift
+    /// let routeNotams = briefing.notams.alongRoute(briefing.route!, withinNm: 25)
+    /// ```
+    public func alongRoute(_ route: Route, withinNm corridorWidthNm: Double) -> [Notam] {
+        let routePoints = route.allCoordinates
+        guard !routePoints.isEmpty else { return [] }
+
+        // Collect all route airport ICAOs for fallback matching
+        var routeAirports: Set<String> = []
+        routeAirports.insert(route.departure.uppercased())
+        routeAirports.insert(route.destination.uppercased())
+        for alt in route.alternates {
+            routeAirports.insert(alt.uppercased())
+        }
+
+        return filter { notam in
+            // First check: NOTAM location matches a route airport
+            if routeAirports.contains(notam.location.uppercased()) {
+                return true
+            }
+
+            // Second check: Any affected location matches route airports
+            for affected in notam.affectedLocations {
+                if routeAirports.contains(affected.uppercased()) {
+                    return true
+                }
+            }
+
+            // Third check: Spatial distance for NOTAMs with coordinates
+            guard let notamCoord = notam.coordinate else {
+                return false
+            }
+
+            // Calculate minimum distance to route (including NOTAM radius)
+            let notamRadiusNm = notam.radiusNm ?? 0
+            let effectiveCorridor = corridorWidthNm + notamRadiusNm
+
+            let minDistance = minimumDistanceToRoute(
+                from: notamCoord,
+                routePoints: routePoints
+            )
+
+            return minDistance <= effectiveCorridor
+        }
+    }
+
+    /// Filter NOTAMs along a route defined by ICAO codes
+    ///
+    /// Convenience method when you have airport codes but need coordinates.
+    ///
+    /// - Parameters:
+    ///   - icaoCodes: Space or comma-separated ICAO codes (e.g., "LFPG EGLL" or "LFPG,EGLL")
+    ///   - corridorWidthNm: Corridor half-width in nautical miles
+    ///   - airportCoordinates: Dictionary mapping ICAO codes to coordinates
+    /// - Returns: NOTAMs within the corridor
+    public func alongRoute(
+        icaoCodes: String,
+        withinNm corridorWidthNm: Double,
+        airportCoordinates: [String: CLLocationCoordinate2D]
+    ) -> [Notam] {
+        // Parse ICAO codes (space or comma separated)
+        let codes = icaoCodes
+            .uppercased()
+            .components(separatedBy: CharacterSet(charactersIn: " ,"))
+            .filter { !$0.isEmpty }
+
+        guard !codes.isEmpty else { return [] }
+
+        // Build route points from coordinates
+        let routePoints = codes.compactMap { airportCoordinates[$0] }
+
+        guard !routePoints.isEmpty else {
+            // Fall back to airport matching only
+            return forAirports(codes)
+        }
+
+        let routeAirportsSet = Set(codes)
+
+        return filter { notam in
+            // Airport matching
+            if routeAirportsSet.contains(notam.location.uppercased()) {
+                return true
+            }
+
+            for affected in notam.affectedLocations {
+                if routeAirportsSet.contains(affected.uppercased()) {
+                    return true
+                }
+            }
+
+            // Spatial check
+            guard let notamCoord = notam.coordinate else {
+                return false
+            }
+
+            let notamRadiusNm = notam.radiusNm ?? 0
+            let effectiveCorridor = corridorWidthNm + notamRadiusNm
+
+            let minDistance = minimumDistanceToRoute(
+                from: notamCoord,
+                routePoints: routePoints
+            )
+
+            return minDistance <= effectiveCorridor
+        }
+    }
+
+    /// Calculate minimum distance from a point to a route (series of segments)
+    ///
+    /// - Parameters:
+    ///   - point: The point to measure from
+    ///   - routePoints: Ordered array of route waypoints
+    /// - Returns: Minimum distance in nautical miles
+    private func minimumDistanceToRoute(
+        from point: CLLocationCoordinate2D,
+        routePoints: [CLLocationCoordinate2D]
+    ) -> Double {
+        guard !routePoints.isEmpty else { return .infinity }
+
+        if routePoints.count == 1 {
+            // Single point - direct distance
+            return directDistanceNm(from: point, to: routePoints[0])
+        }
+
+        var minDistance = Double.infinity
+
+        // Check distance to each segment
+        for i in 0..<(routePoints.count - 1) {
+            let segmentStart = routePoints[i]
+            let segmentEnd = routePoints[i + 1]
+
+            let dist = perpendicularDistanceNm(
+                from: point,
+                toSegmentStart: segmentStart,
+                segmentEnd: segmentEnd
+            )
+            minDistance = Swift.min(minDistance, dist)
+        }
+
+        return minDistance
+    }
+
+    /// Calculate perpendicular distance from a point to a line segment
+    ///
+    /// - Parameters:
+    ///   - point: The point to measure from
+    ///   - start: Segment start coordinate
+    ///   - end: Segment end coordinate
+    /// - Returns: Distance in nautical miles
+    private func perpendicularDistanceNm(
+        from point: CLLocationCoordinate2D,
+        toSegmentStart start: CLLocationCoordinate2D,
+        segmentEnd end: CLLocationCoordinate2D
+    ) -> Double {
+        // Vector math to find closest point on segment
+        let A = point.latitude - start.latitude
+        let B = point.longitude - start.longitude
+        let C = end.latitude - start.latitude
+        let D = end.longitude - start.longitude
+
+        let dot = A * C + B * D
+        let lenSq = C * C + D * D
+        let param = lenSq > 0 ? dot / lenSq : -1
+
+        var closestLat: Double
+        var closestLon: Double
+
+        if param < 0 {
+            // Closest point is segment start
+            closestLat = start.latitude
+            closestLon = start.longitude
+        } else if param > 1 {
+            // Closest point is segment end
+            closestLat = end.latitude
+            closestLon = end.longitude
+        } else {
+            // Closest point is on the segment
+            closestLat = start.latitude + param * C
+            closestLon = start.longitude + param * D
+        }
+
+        // Calculate distance using MapKit for accuracy
+        let pointMap = MKMapPoint(point)
+        let closestMap = MKMapPoint(CLLocationCoordinate2D(latitude: closestLat, longitude: closestLon))
+
+        return pointMap.distance(to: closestMap) / 1852.0
+    }
+
+    /// Calculate direct distance between two coordinates
+    ///
+    /// - Returns: Distance in nautical miles
+    private func directDistanceNm(
+        from point1: CLLocationCoordinate2D,
+        to point2: CLLocationCoordinate2D
+    ) -> Double {
+        let loc1 = CLLocation(latitude: point1.latitude, longitude: point1.longitude)
+        let loc2 = CLLocation(latitude: point2.latitude, longitude: point2.longitude)
+        return loc1.distance(from: loc2) / 1852.0
     }
 }
