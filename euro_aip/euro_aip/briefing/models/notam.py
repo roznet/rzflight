@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Set, Tuple, List, Any
+from typing import Optional, Set, Tuple, List, Any, Dict
 
 
 class NotamCategory(Enum):
@@ -100,6 +100,12 @@ class Notam:
         Returns:
             Dictionary representation suitable for JSON serialization.
         """
+        # Parse Q-code info if available (lazy import to avoid circular dependency)
+        q_code_info: Optional[Dict] = None
+        if self.q_code:
+            from euro_aip.briefing.categorization.q_code import parse_q_code
+            q_code_info = parse_q_code(self.q_code).to_dict()
+
         return {
             'id': self.id,
             'location': self.location,
@@ -111,6 +117,7 @@ class Notam:
             'fir': self.fir,
             'affected_locations': self.affected_locations,
             'q_code': self.q_code,
+            'q_code_info': q_code_info,
             'traffic_type': self.traffic_type,
             'purpose': self.purpose,
             'scope': self.scope,
