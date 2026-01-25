@@ -88,6 +88,28 @@ class TestNotamParser:
         assert notam.effective_to is not None
         assert notam.effective_to.hour == 18
 
+    def test_parse_qline_with_whitespace(self):
+        """Test parsing Q-line with whitespace before slashes."""
+        # Real-world example: 'M /' instead of 'M/'
+        text = """
+        W1833/25 NOTAMN
+        Q) LFFF/QWBLW/IV/M /AW/013/055/4936N00343E005
+        A) LFAF B) 2508250600 C) 2508311700
+        D) 0600-1000 1200-1700
+        E) AEROBATICS ACTIVITY
+        F) 1300FT AMSL G) FL055
+        """
+
+        notam = NotamParser.parse(text)
+
+        assert notam is not None
+        assert notam.id == "W1833/25"
+        assert notam.coordinates is not None
+        lat, lon = notam.coordinates
+        assert 49.5 < lat < 49.7  # 4936N = 49.6
+        assert 3.7 < lon < 3.8    # 00343E = 3.716...
+        assert notam.radius_nm == 5
+
     def test_parse_notam_without_qline(self):
         """Test parsing NOTAM without Q-line."""
         text = """

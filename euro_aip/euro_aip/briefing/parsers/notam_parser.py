@@ -40,17 +40,18 @@ class NotamParser:
     )
 
     # Q-line pattern: FIR/QCODE/TRAFFIC/PURPOSE/SCOPE/LOWER/UPPER/COORDS
+    # Note: \s* before each / to handle occasional whitespace in Q-lines
     Q_LINE_PATTERN = re.compile(
         r'Q\)\s*'
-        r'([A-Z]{4})/'           # FIR (4 letters)
-        r'Q([A-Z]{2,5})/'        # Q-code (2-5 letters after Q)
-        r'([IVK]+)/'             # Traffic type
-        r'([NBOMK]+)/'           # Purpose
-        r'([AEW]+)/'             # Scope
-        r'(\d{3})/'              # Lower limit (FL)
-        r'(\d{3})/'              # Upper limit (FL)
-        r'(\d{4}[NS]\d{5}[EW])'  # Coordinates
-        r'(\d{3})?',             # Radius (optional)
+        r'([A-Z]{4})\s*/'           # FIR (4 letters)
+        r'Q([A-Z]{2,5})\s*/'        # Q-code (2-5 letters after Q)
+        r'([IVK]+)\s*/'             # Traffic type
+        r'([NBOMK]+)\s*/'           # Purpose
+        r'([AEW]+)\s*/'             # Scope
+        r'(\d{3})\s*/'              # Lower limit (FL)
+        r'(\d{3})\s*/'              # Upper limit (FL)
+        r'(\d{4}[NS]\d{5}[EW])'     # Coordinates
+        r'(\d{3})?',                # Radius (optional)
         re.IGNORECASE
     )
 
