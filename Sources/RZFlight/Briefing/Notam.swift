@@ -9,6 +9,67 @@
 import Foundation
 import CoreLocation
 
+/// Parsed Q-code information from ICAO standard structure.
+///
+/// Q-code format: Q + Subject(2) + Condition(2)
+/// Example: QMRLC = Q + MR (Runway) + LC (Closed)
+public struct QCodeInfo: Codable, Sendable, Hashable {
+    /// Raw Q-code (e.g., "QMRLC")
+    public let qCode: String
+
+    /// Subject code (2 letters, e.g., "MR")
+    public let subjectCode: String
+
+    /// Subject meaning (e.g., "Runway")
+    public let subjectMeaning: String
+
+    /// Subject phrase for short display (e.g., "rwy")
+    public let subjectPhrase: String
+
+    /// Subject category (e.g., "AGA Movement Area")
+    public let subjectCategory: String
+
+    /// Condition code (2 letters, e.g., "LC")
+    public let conditionCode: String
+
+    /// Condition meaning (e.g., "Closed")
+    public let conditionMeaning: String
+
+    /// Condition phrase for short display (e.g., "clsd")
+    public let conditionPhrase: String
+
+    /// Condition category (e.g., "Limitations")
+    public let conditionCategory: String
+
+    /// Human-readable display text (e.g., "Runway: Closed")
+    public let displayText: String
+
+    /// Short display text (e.g., "RWY CLSD")
+    public let shortText: String
+
+    /// True if this is a checklist NOTAM (QKKKK)
+    public let isChecklist: Bool
+
+    /// True if plain language follows (XX code)
+    public let isPlainLanguage: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case qCode = "q_code"
+        case subjectCode = "subject_code"
+        case subjectMeaning = "subject_meaning"
+        case subjectPhrase = "subject_phrase"
+        case subjectCategory = "subject_category"
+        case conditionCode = "condition_code"
+        case conditionMeaning = "condition_meaning"
+        case conditionPhrase = "condition_phrase"
+        case conditionCategory = "condition_category"
+        case displayText = "display_text"
+        case shortText = "short_text"
+        case isChecklist = "is_checklist"
+        case isPlainLanguage = "is_plain_language"
+    }
+}
+
 /// NOTAM (Notice to Airmen) data model.
 ///
 /// Represents a parsed NOTAM with all extracted fields. Designed to decode
@@ -85,6 +146,9 @@ public struct Notam: Codable, Sendable {
 
     /// Subcategory string
     public let subcategory: String?
+
+    /// Parsed Q-code information (subject, condition, display text)
+    public let qCodeInfo: QCodeInfo?
 
     // MARK: - Schedule
 
@@ -183,6 +247,7 @@ public struct Notam: Codable, Sendable {
         case coordinates
         case category
         case subcategory
+        case qCodeInfo = "q_code_info"
         case effectiveFrom = "effective_from"
         case effectiveTo = "effective_to"
         case isPermanent = "is_permanent"
@@ -230,6 +295,7 @@ public struct Notam: Codable, Sendable {
         // Category
         self.category = try container.decodeIfPresent(NotamCategory.self, forKey: .category)
         self.subcategory = try container.decodeIfPresent(String.self, forKey: .subcategory)
+        self.qCodeInfo = try container.decodeIfPresent(QCodeInfo.self, forKey: .qCodeInfo)
 
         // Schedule
         self.effectiveFrom = try container.decodeIfPresent(Date.self, forKey: .effectiveFrom)
