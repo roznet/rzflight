@@ -158,7 +158,7 @@ class NotamCollection(QueryableCollection[Notam]):
         """
         return self._new_collection([
             n for n in self._items
-            if n.category in (NotamCategory.RUNWAY, NotamCategory.LIGHTING)
+            if n.category in (NotamCategory.AGA_MOVEMENT, NotamCategory.AGA_LIGHTING)
             or (n.q_code and n.q_code.upper().startswith(('QMR', 'QLR')))
             or (n.primary_category and 'runway' in n.primary_category.lower())
         ])
@@ -167,15 +167,15 @@ class NotamCollection(QueryableCollection[Notam]):
         """Filter NOTAMs related to navigation aids."""
         return self._new_collection([
             n for n in self._items
-            if n.category == NotamCategory.NAVIGATION
-            or (n.q_code and n.q_code.upper().startswith('QN'))
+            if n.category in (NotamCategory.NAVIGATION, NotamCategory.CNS_ILS, NotamCategory.CNS_GNSS)
+            or (n.q_code and n.q_code.upper().startswith(('QN', 'QI', 'QG')))
         ])
 
     def airspace_related(self) -> 'NotamCollection':
         """Filter NOTAMs related to airspace restrictions."""
         return self._new_collection([
             n for n in self._items
-            if n.category == NotamCategory.AIRSPACE
+            if n.category in (NotamCategory.ATM_AIRSPACE, NotamCategory.AIRSPACE_RESTRICTIONS)
             or (n.q_code and n.q_code.upper().startswith(('QA', 'QR', 'QW')))
         ])
 
@@ -183,7 +183,7 @@ class NotamCollection(QueryableCollection[Notam]):
         """Filter NOTAMs related to instrument procedures."""
         return self._new_collection([
             n for n in self._items
-            if n.category == NotamCategory.PROCEDURE
+            if n.category == NotamCategory.ATM_PROCEDURES
             or (n.q_code and n.q_code.upper().startswith('QP'))
         ])
 
@@ -191,7 +191,7 @@ class NotamCollection(QueryableCollection[Notam]):
         """Filter NOTAMs related to obstacles."""
         return self._new_collection([
             n for n in self._items
-            if n.category == NotamCategory.OBSTACLE
+            if n.category == NotamCategory.OTHER_INFO
             or (n.q_code and n.q_code.upper().startswith('QO'))
         ])
 

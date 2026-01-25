@@ -70,14 +70,19 @@ class NotamParser:
         re.IGNORECASE
     )
 
-    # Q-code to category mapping
+    # Q-code to category mapping (based on ICAO Q-code subject first letter)
+    # The category is determined by the first letter of the 2-letter subject code
+    # This mapping is for legacy compatibility; prefer NotamCategory.from_q_code()
     Q_CODE_CATEGORIES: Dict[str, NotamCategory] = {
-        'MR': NotamCategory.RUNWAY,
-        'MX': NotamCategory.MOVEMENT_AREA,
-        'MA': NotamCategory.MOVEMENT_AREA,
-        'LR': NotamCategory.LIGHTING,
-        'LL': NotamCategory.LIGHTING,
-        'LX': NotamCategory.LIGHTING,
+        # M* - AGA Movement Area (runway, taxiway, apron)
+        'MR': NotamCategory.AGA_MOVEMENT,
+        'MX': NotamCategory.AGA_MOVEMENT,
+        'MA': NotamCategory.AGA_MOVEMENT,
+        # L* - AGA Lighting
+        'LR': NotamCategory.AGA_LIGHTING,
+        'LL': NotamCategory.AGA_LIGHTING,
+        'LX': NotamCategory.AGA_LIGHTING,
+        # N* - Navigation facilities (VOR, DME, NDB)
         'NA': NotamCategory.NAVIGATION,
         'NV': NotamCategory.NAVIGATION,
         'ND': NotamCategory.NAVIGATION,
@@ -85,33 +90,40 @@ class NotamParser:
         'NL': NotamCategory.NAVIGATION,
         'NM': NotamCategory.NAVIGATION,
         'NB': NotamCategory.NAVIGATION,
-        'CO': NotamCategory.COMMUNICATION,
-        'FA': NotamCategory.AIRSPACE,
-        'AR': NotamCategory.AIRSPACE,
-        'AH': NotamCategory.AIRSPACE,
-        'AL': NotamCategory.AIRSPACE,
-        'AT': NotamCategory.AIRSPACE,
-        'AX': NotamCategory.AIRSPACE,
-        'RD': NotamCategory.AIRSPACE,
-        'RT': NotamCategory.AIRSPACE,
-        'OB': NotamCategory.OBSTACLE,
-        'OL': NotamCategory.OBSTACLE,
-        'PI': NotamCategory.PROCEDURE,
-        'PA': NotamCategory.PROCEDURE,
-        'PD': NotamCategory.PROCEDURE,
-        'PS': NotamCategory.PROCEDURE,
-        'PT': NotamCategory.PROCEDURE,
-        'SE': NotamCategory.SERVICES,
-        'SA': NotamCategory.SERVICES,
-        'SN': NotamCategory.SERVICES,
-        'SV': NotamCategory.SERVICES,
-        'WA': NotamCategory.WARNING,
-        'WE': NotamCategory.WARNING,
-        'WM': NotamCategory.WARNING,
-        'WP': NotamCategory.WARNING,
-        'WU': NotamCategory.WARNING,
-        'WV': NotamCategory.WARNING,
-        'WZ': NotamCategory.WARNING,
+        # C* - CNS Communications
+        'CO': NotamCategory.CNS_COMMUNICATIONS,
+        # A* - ATM Airspace
+        'FA': NotamCategory.AGA_FACILITIES,  # F* is facilities, not airspace
+        'AR': NotamCategory.ATM_AIRSPACE,
+        'AH': NotamCategory.ATM_AIRSPACE,
+        'AL': NotamCategory.ATM_AIRSPACE,
+        'AT': NotamCategory.ATM_AIRSPACE,
+        'AX': NotamCategory.ATM_AIRSPACE,
+        # R* - Airspace Restrictions
+        'RD': NotamCategory.AIRSPACE_RESTRICTIONS,
+        'RT': NotamCategory.AIRSPACE_RESTRICTIONS,
+        # O* - Other Info (obstacles)
+        'OB': NotamCategory.OTHER_INFO,
+        'OL': NotamCategory.OTHER_INFO,
+        # P* - ATM Procedures (SID, STAR, approaches)
+        'PI': NotamCategory.ATM_PROCEDURES,
+        'PA': NotamCategory.ATM_PROCEDURES,
+        'PD': NotamCategory.ATM_PROCEDURES,
+        'PS': NotamCategory.ATM_PROCEDURES,
+        'PT': NotamCategory.ATM_PROCEDURES,
+        # S* - ATM Services
+        'SE': NotamCategory.ATM_SERVICES,
+        'SA': NotamCategory.ATM_SERVICES,
+        'SN': NotamCategory.ATM_SERVICES,
+        'SV': NotamCategory.ATM_SERVICES,
+        # W* codes - map to OTHER_INFO (warnings not in ICAO category list)
+        'WA': NotamCategory.OTHER_INFO,
+        'WE': NotamCategory.OTHER_INFO,
+        'WM': NotamCategory.OTHER_INFO,
+        'WP': NotamCategory.OTHER_INFO,
+        'WU': NotamCategory.OTHER_INFO,
+        'WV': NotamCategory.OTHER_INFO,
+        'WZ': NotamCategory.OTHER_INFO,
     }
 
     @classmethod
@@ -510,7 +522,7 @@ class NotamParser:
 
         # Check first 2 letters
         prefix = code[:2] if len(code) >= 2 else code
-        return cls.Q_CODE_CATEGORIES.get(prefix, NotamCategory.OTHER)
+        return cls.Q_CODE_CATEGORIES.get(prefix, NotamCategory.OTHER_INFO)
 
     @classmethod
     def parse_q_code(cls, q_code: str) -> Dict[str, Any]:
@@ -537,7 +549,7 @@ class NotamParser:
 
         if len(code) >= 2:
             prefix = code[:2]
-            result['category'] = cls.Q_CODE_CATEGORIES.get(prefix, NotamCategory.OTHER)
+            result['category'] = cls.Q_CODE_CATEGORIES.get(prefix, NotamCategory.OTHER_INFO)
             result['prefix'] = prefix
 
         # Common suffixes

@@ -188,6 +188,21 @@ public struct Notam: Codable, Sendable {
 
     // MARK: - Computed Properties
 
+    /// 2-letter Q-code subject (e.g., "MR" for runway, "OB" for obstacle)
+    /// Extracted from Q-code format: Q + subject(2) + condition(2)
+    public var qCodeSubject: String? {
+        guard let qCode = qCode, qCode.count >= 3 else { return nil }
+        let startIndex = qCode.index(qCode.startIndex, offsetBy: 1)
+        let endIndex = qCode.index(startIndex, offsetBy: 2)
+        return String(qCode[startIndex..<endIndex]).uppercased()
+    }
+
+    /// ICAO category derived from Q-code subject first letter
+    public var icaoCategory: NotamCategory? {
+        guard let qCode = qCode else { return category }
+        return NotamCategory.from(qCode: qCode) ?? category
+    }
+
     /// Coordinates as CLLocationCoordinate2D (nil if not available)
     public var coordinate: CLLocationCoordinate2D? {
         guard let coords = coordinates, coords.count == 2 else { return nil }

@@ -8,21 +8,62 @@ from typing import Optional, Set, Tuple, List, Any, Dict
 
 class NotamCategory(Enum):
     """
-    NOTAM categories based on Q-code first two letters.
+    ICAO NOTAM categories based on Q-code subject first letter.
 
-    These are standard ICAO categories derived from the Q-code.
+    These are standard ICAO categories matching q_codes.json.
+    The first letter of the 2-letter subject code determines the category.
+
+    Example: QMRLC → subject "MR" → first letter "M" → ATM_MOVEMENT
     """
-    MOVEMENT_AREA = "MX"    # Taxiway, apron, movement area
-    LIGHTING = "LX"         # Lighting systems
-    NAVIGATION = "NA"       # Navigation aids
-    COMMUNICATION = "CO"    # Communication facilities
-    AIRSPACE = "AR"         # Airspace restrictions
-    RUNWAY = "RW"           # Runway related
-    OBSTACLE = "OB"         # Obstacles
-    PROCEDURE = "PI"        # Instrument procedures
-    SERVICES = "SE"         # Services
-    WARNING = "WA"          # Warnings
-    OTHER = "XX"            # Other/unknown
+    ATM_AIRSPACE = "A"          # ATM Airspace Organization (FIR, TMA, CTR, ATS routes)
+    CNS_COMMUNICATIONS = "C"    # CNS Communications and Surveillance (Radar, ADS-B)
+    AGA_FACILITIES = "F"        # AGA Facilities and Services (Aerodrome, fuel, helicopter)
+    CNS_GNSS = "G"              # CNS GNSS Services
+    CNS_ILS = "I"               # CNS ILS/MLS (ILS, localizer, glide path)
+    AGA_LIGHTING = "L"          # AGA Lighting (ALS, PAPI, VASIS, runway lights)
+    AGA_MOVEMENT = "M"          # AGA Movement Area (Runway, taxiway, apron)
+    NAVIGATION = "N"            # Navigation Facilities (VOR, DME, NDB, TACAN)
+    OTHER_INFO = "O"            # Other Information (Obstacles, AIS)
+    ATM_PROCEDURES = "P"        # ATM Procedures (SID, STAR, approaches)
+    AIRSPACE_RESTRICTIONS = "R" # Airspace Restrictions (D/P/R areas, TRA)
+    ATM_SERVICES = "S"          # ATM Services (ATIS, ACC, TWR)
+
+    @classmethod
+    def from_q_code(cls, q_code: str) -> Optional['NotamCategory']:
+        """
+        Create category from Q-code.
+
+        Args:
+            q_code: 5-letter Q-code (e.g., "QMRLC")
+
+        Returns:
+            NotamCategory based on subject first letter, or None if invalid
+        """
+        if not q_code or len(q_code) < 3:
+            return None
+        subject_first = q_code[1].upper()
+        try:
+            return cls(subject_first)
+        except ValueError:
+            return None
+
+    @classmethod
+    def from_subject(cls, subject: str) -> Optional['NotamCategory']:
+        """
+        Create category from Q-code subject.
+
+        Args:
+            subject: 2-letter subject code (e.g., "MR")
+
+        Returns:
+            NotamCategory based on first letter, or None if invalid
+        """
+        if not subject:
+            return None
+        try:
+            return cls(subject[0].upper())
+        except ValueError:
+            return None
 
 
 @dataclass

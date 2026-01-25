@@ -122,33 +122,43 @@ extension Array where Element == Notam {
         return filter { $0.category == category }
     }
 
-    /// Filter runway-related NOTAMs
+    /// Filter runway-related NOTAMs (movement area + lighting)
     public func runwayRelated() -> [Notam] {
         return filter { notam in
-            notam.category == .runway ||
-            notam.category == .lighting ||
+            notam.icaoCategory == .agaMovement ||
+            notam.icaoCategory == .agaLighting ||
             notam.qCode?.hasPrefix("QMR") == true
         }
     }
 
     /// Filter navigation-related NOTAMs (VOR, ILS, DME, etc.)
     public func navigationRelated() -> [Notam] {
-        return filter { $0.category == .navigation }
+        return filter {
+            $0.icaoCategory == .navigation ||
+            $0.icaoCategory == .cnsILS ||
+            $0.icaoCategory == .cnsGNSS
+        }
     }
 
     /// Filter airspace-related NOTAMs (TFRs, restricted areas)
     public func airspaceRelated() -> [Notam] {
-        return filter { $0.category == .airspace }
+        return filter {
+            $0.icaoCategory == .airspaceRestrictions ||
+            $0.icaoCategory == .atmAirspace
+        }
     }
 
     /// Filter procedure-related NOTAMs (SID, STAR, approaches)
     public func procedureRelated() -> [Notam] {
-        return filter { $0.category == .procedure }
+        return filter { $0.icaoCategory == .atmProcedures }
     }
 
     /// Filter obstacle NOTAMs (cranes, towers)
+    /// Obstacles are in "Other Information" category with subject codes OB, OL
     public func obstacleRelated() -> [Notam] {
-        return filter { $0.category == .obstacle }
+        return filter { notam in
+            notam.qCodeSubject == "OB" || notam.qCodeSubject == "OL"
+        }
     }
 }
 
@@ -385,7 +395,7 @@ extension Array where Element == Notam {
     public func groupedByCategory() -> [NotamCategory: [Notam]] {
         var result: [NotamCategory: [Notam]] = [:]
         for notam in self {
-            let category = notam.category ?? .other
+            let category = notam.icaoCategory ?? .otherInfo
             result[category, default: []].append(notam)
         }
         return result

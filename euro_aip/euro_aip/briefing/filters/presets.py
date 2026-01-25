@@ -50,9 +50,9 @@ class NotamFilterPresets:
 
         critical_categories = (
             collection.runway_related() |
-            collection.by_category(NotamCategory.MOVEMENT_AREA) |
-            collection.by_category(NotamCategory.LIGHTING) |
-            collection.by_category(NotamCategory.OBSTACLE) |
+            collection.by_category(NotamCategory.AGA_MOVEMENT) |
+            collection.by_category(NotamCategory.AGA_LIGHTING) |
+            collection.by_category(NotamCategory.OTHER_INFO) |
             collection.procedure_related()
         )
 
@@ -81,7 +81,7 @@ class NotamFilterPresets:
             collection.runway_related() |
             collection.navigation_related() |
             collection.procedure_related() |
-            collection.by_category(NotamCategory.LIGHTING)
+            collection.by_category(NotamCategory.AGA_LIGHTING)
         )
 
         return airport_notams & critical_categories
@@ -137,7 +137,7 @@ class NotamFilterPresets:
         vfr_categories = (
             collection.runway_related() |
             collection.airspace_related() |
-            collection.by_category(NotamCategory.OBSTACLE) |
+            collection.by_category(NotamCategory.OTHER_INFO) |
             collection.by_custom_category('wildlife')
         )
 
@@ -169,8 +169,8 @@ class NotamFilterPresets:
             collection.runway_related() |
             collection.navigation_related() |
             collection.procedure_related() |
-            collection.by_category(NotamCategory.LIGHTING) |
-            collection.by_category(NotamCategory.COMMUNICATION)
+            collection.by_category(NotamCategory.AGA_LIGHTING) |
+            collection.by_category(NotamCategory.CNS_COMMUNICATIONS)
         )
 
         return airport_notams & ifr_categories
@@ -279,7 +279,7 @@ class NotamFilterPresets:
             collection
             .for_airport(icao)
             .active_now()
-            .by_category(NotamCategory.SERVICES)
+            .by_category(NotamCategory.ATM_SERVICES)
         )
 
     @staticmethod
@@ -301,5 +301,5 @@ class NotamFilterPresets:
             collection
             .for_airport(icao)
             .active_now()
-            .by_category(NotamCategory.COMMUNICATION)
+            .by_category(NotamCategory.CNS_COMMUNICATIONS)
         )
