@@ -191,6 +191,41 @@ public struct Route: Codable, Sendable {
     }
 }
 
+// MARK: - Memberwise Initializer
+
+extension Route {
+    /// Create a Route with all fields specified
+    public init(
+        departure: String,
+        destination: String,
+        alternates: [String] = [],
+        waypoints: [String] = [],
+        departureCoords: [Double]? = nil,
+        destinationCoords: [Double]? = nil,
+        alternateCoords: [String: [Double]]? = nil,
+        waypointCoords: [RoutePoint] = [],
+        aircraftType: String? = nil,
+        departureTime: Date? = nil,
+        arrivalTime: Date? = nil,
+        flightLevel: Int? = nil,
+        cruiseAltitudeFt: Int? = nil
+    ) {
+        self.departure = departure
+        self.destination = destination
+        self.alternates = alternates
+        self.waypoints = waypoints
+        self.departureCoords = departureCoords
+        self.destinationCoords = destinationCoords
+        self.alternateCoords = alternateCoords
+        self.waypointCoords = waypointCoords
+        self.aircraftType = aircraftType
+        self.departureTime = departureTime
+        self.arrivalTime = arrivalTime
+        self.flightLevel = flightLevel
+        self.cruiseAltitudeFt = cruiseAltitudeFt
+    }
+}
+
 // MARK: - Protocol Conformances
 
 extension Route: CustomStringConvertible {
@@ -201,4 +236,14 @@ extension Route: CustomStringConvertible {
 
 extension RoutePoint: Hashable, Equatable, Identifiable {
     public var id: String { name }
+}
+
+extension RoutePoint {
+    /// Create a RoutePoint with all fields specified
+    public init(name: String, latitude: Double, longitude: Double, pointType: String = "waypoint") {
+        self.name = name
+        self.latitude = latitude
+        self.longitude = longitude
+        self.pointType = pointType
+    }
 }

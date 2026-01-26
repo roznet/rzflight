@@ -154,6 +154,29 @@ public struct Briefing: Codable, Sendable {
     }
 }
 
+// MARK: - Memberwise Initializer
+
+extension Briefing {
+    /// Create a Briefing with all fields specified
+    public init(
+        id: String = UUID().uuidString,
+        createdAt: Date = Date(),
+        source: String,
+        route: Route? = nil,
+        notams: [Notam] = [],
+        validFrom: Date? = nil,
+        validTo: Date? = nil
+    ) {
+        self.id = id
+        self.createdAt = createdAt
+        self.source = source
+        self.route = route
+        self.notams = notams
+        self.validFrom = validFrom
+        self.validTo = validTo
+    }
+}
+
 // MARK: - Protocol Conformances
 
 extension Briefing: Identifiable {}

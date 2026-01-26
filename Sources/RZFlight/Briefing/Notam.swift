@@ -317,6 +317,75 @@ public struct Notam: Codable, Sendable {
 
 // MARK: - Protocol Conformances
 
+// MARK: - Memberwise Initializer
+
+extension Notam {
+    /// Create a NOTAM with all fields specified
+    public init(
+        id: String,
+        location: String,
+        rawText: String = "",
+        message: String = "",
+        series: String? = nil,
+        number: Int? = nil,
+        year: Int? = nil,
+        fir: String? = nil,
+        affectedLocations: [String] = [],
+        qCode: String? = nil,
+        trafficType: String? = nil,
+        purpose: String? = nil,
+        scope: String? = nil,
+        lowerLimit: Int? = nil,
+        upperLimit: Int? = nil,
+        radiusNm: Double? = nil,
+        coordinates: [Double]? = nil,
+        category: NotamCategory? = nil,
+        subcategory: String? = nil,
+        qCodeInfo: QCodeInfo? = nil,
+        effectiveFrom: Date? = nil,
+        effectiveTo: Date? = nil,
+        isPermanent: Bool = false,
+        scheduleText: String? = nil,
+        source: String? = nil,
+        parsedAt: Date = Date(),
+        parseConfidence: Double = 1.0,
+        primaryCategory: String? = nil,
+        customCategories: [String] = [],
+        customTags: [String] = []
+    ) {
+        self.id = id
+        self.location = location
+        self.rawText = rawText
+        self.message = message
+        self.series = series
+        self.number = number
+        self.year = year
+        self.fir = fir
+        self.affectedLocations = affectedLocations
+        self.qCode = qCode
+        self.trafficType = trafficType
+        self.purpose = purpose
+        self.scope = scope
+        self.lowerLimit = lowerLimit
+        self.upperLimit = upperLimit
+        self.radiusNm = radiusNm
+        self.coordinates = coordinates
+        self.category = category
+        self.subcategory = subcategory
+        self.qCodeInfo = qCodeInfo
+        self.effectiveFrom = effectiveFrom
+        self.effectiveTo = effectiveTo
+        self.isPermanent = isPermanent
+        self.scheduleText = scheduleText
+        self.source = source
+        self.parsedAt = parsedAt
+        self.parseConfidence = parseConfidence
+        self.primaryCategory = primaryCategory
+        self.customCategories = customCategories
+        self.customTags = customTags
+    }
+}
+
 extension Notam: Hashable, Equatable, Identifiable {
     public static func == (lhs: Notam, rhs: Notam) -> Bool {
         return lhs.id == rhs.id && lhs.location == rhs.location
