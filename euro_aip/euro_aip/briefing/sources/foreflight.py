@@ -293,128 +293,22 @@ class ForeFlightSource:
         """
         Extract NOTAMs from briefing text.
 
-        Handles various ForeFlight NOTAM section formats.
+        Simple approach: split text into NOTAM chunks and parse each one.
+        Each NOTAM contains its own location in the A-line, no need for section detection.
         """
+        # Split text into individual NOTAMs
+        notam_chunks = self._split_notam_section(text)
+
         notams = []
-
-        # Find NOTAM sections
-        notam_sections = self._find_notam_sections(text)
-
-        for section_text, location in notam_sections:
-            # Parse NOTAMs from this section
-            section_notams = self._parse_notam_section(section_text, location)
-            notams.extend(section_notams)
-
-        # Deduplicate by NOTAM ID
         seen_ids = set()
-        unique_notams = []
-        for notam in notams:
-            if notam.id not in seen_ids:
-                seen_ids.add(notam.id)
-                unique_notams.append(notam)
-
-        return unique_notams
-
-    def _find_notam_sections(self, text: str) -> List[tuple]:
-        """
-        Find NOTAM sections in the briefing text.
-
-        Returns:
-            List of (section_text, location) tuples
-        """
-        sections = []
-
-        # Common English 4-letter words that aren't ICAO codes
-        # These can match the pattern but aren't valid airport codes
-        invalid_locations = {
-            'THIS', 'THAT', 'WITH', 'FROM', 'WILL', 'HAVE', 'BEEN',
-            'WERE', 'SOME', 'THEM', 'THEN', 'THAN', 'EACH', 'WHEN',
-            'YOUR', 'ONLY', 'ALSO', 'AREA', 'NEAR', 'MORE', 'MUST',
-        }
-
-        # Pattern 1: "LFPG NOTAMs" or "NOTAMs for LFPG"
-        pattern1 = re.compile(
-            r'(?:([A-Z]{4})\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?([A-Z]{4}))\s*[:\n](.+?)(?=(?:[A-Z]{4}\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?[A-Z]{4}|\Z))',
-            re.IGNORECASE | re.DOTALL
-        )
-
-        for match in pattern1.finditer(text):
-            location = (match.group(1) or match.group(2)).upper()
-            # Skip invalid locations (common English words)
-            if location in invalid_locations:
-                continue
-            section_text = match.group(3)
-            sections.append((section_text, location))
-
-        # Pattern 2: Section headers with ICAO
-        pattern2 = re.compile(
-            r'^\s*([A-Z]{4})\s*$\s*\n((?:(?![A-Z]{4}\s*$).)+)',
-            re.MULTILINE | re.DOTALL
-        )
-
-        for match in pattern2.finditer(text):
-            location = match.group(1).upper()
-            if location in invalid_locations:
-                continue
-            section_text = match.group(2)
-            # Only add if contains NOTAM-like content
-            if re.search(r'[A-Z]\d{4}/\d{2}|NOTAM', section_text, re.IGNORECASE):
-                sections.append((section_text, location))
-
-        # Pattern 3: FDC NOTAMs section
-        fdc_match = re.search(
-            r'FDC\s+NOTAMs?\s*[:\n](.+?)(?=\n\n[A-Z]|\Z)',
-            text,
-            re.IGNORECASE | re.DOTALL
-        )
-        if fdc_match:
-            sections.append((fdc_match.group(1), 'FDC'))
-
-        # Count total NOTAM IDs in text to verify sections captured enough
-        total_ids = len(re.findall(r'[A-Z]\d{4}/\d{2}', text))
-        section_ids = sum(
-            len(re.findall(r'[A-Z]\d{4}/\d{2}', sec_text))
-            for sec_text, _ in sections
-        )
-
-        # If no sections found OR sections captured less than 50% of NOTAMs,
-        # fall back to parsing the entire text
-        if not sections or (total_ids > 10 and section_ids < total_ids * 0.5):
-            # Look for NOTAM content anywhere
-            if re.search(r'[A-Z]\d{4}/\d{2}', text):
-                logger.debug(
-                    f"Section detection captured {section_ids}/{total_ids} NOTAMs, "
-                    f"falling back to full text parsing"
-                )
-                sections = [(text, 'UNKNOWN')]
-
-        return sections
-
-    def _parse_notam_section(self, section_text: str, location: str) -> List[Notam]:
-        """
-        Parse NOTAMs from a section of text.
-
-        Args:
-            section_text: Text containing NOTAMs
-            location: Default location for NOTAMs in this section
-
-        Returns:
-            List of parsed Notam objects
-        """
-        notams = []
-
-        # Split section into individual NOTAMs
-        notam_chunks = self._split_notam_section(section_text)
 
         for chunk in notam_chunks:
             notam = NotamParser.parse(chunk, source='foreflight')
             if notam:
-                # Use section location if NOTAM location is unknown
-                if notam.location == 'ZZZZ' and location != 'UNKNOWN':
-                    notam.location = location
-                    if location not in notam.affected_locations:
-                        notam.affected_locations.append(location)
-                notams.append(notam)
+                # Deduplicate by NOTAM ID
+                if notam.id not in seen_ids:
+                    seen_ids.add(notam.id)
+                    notams.append(notam)
 
         return notams
 

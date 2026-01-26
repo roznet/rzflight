@@ -395,206 +395,27 @@ public final class ForeFlightParser: Sendable {
     // MARK: - NOTAM Extraction
 
     private func extractNotams(from text: String) -> [Notam] {
+        // Simple approach: split text into NOTAM chunks and parse each one
+        // Each NOTAM contains its own location in the A-line, no need for section detection
+        let chunks = splitNotamSection(text)
+
         var notams: [Notam] = []
-
-        // Find NOTAM sections
-        let notamSections = findNotamSections(in: text)
-
-        for (sectionText, location) in notamSections {
-            let sectionNotams = parseNotamSection(sectionText, location: location)
-            notams.append(contentsOf: sectionNotams)
-        }
-
-        // Deduplicate by NOTAM ID
         var seenIds = Set<String>()
-        var uniqueNotams: [Notam] = []
-        for notam in notams {
-            if !seenIds.contains(notam.id) {
-                seenIds.insert(notam.id)
-                uniqueNotams.append(notam)
-            }
-        }
 
-        return uniqueNotams
-    }
-
-    /// Common English 4-letter words that aren't ICAO codes
-    /// These can match the pattern but aren't valid airport codes
-    private static let invalidLocations: Set<String> = [
-        "THIS", "THAT", "WITH", "FROM", "WILL", "HAVE", "BEEN",
-        "WERE", "SOME", "THEM", "THEN", "THAN", "EACH", "WHEN",
-        "YOUR", "ONLY", "ALSO", "AREA", "NEAR", "MORE", "MUST",
-    ]
-
-    /// Find NOTAM sections in the briefing text.
-    ///
-    /// - Returns: Array of (sectionText, location) tuples
-    private func findNotamSections(in text: String) -> [(String, String)] {
-        var sections: [(String, String)] = []
-
-        let idPattern = try! NSRegularExpression(
-            pattern: #"[A-Z]\d{4}/\d{2}"#,
-            options: []
-        )
-
-        // Pattern 1: "LFPG NOTAMs" or "NOTAMs for LFPG"
-        let pattern1 = try! NSRegularExpression(
-            pattern: #"(?:([A-Z]{4})\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?([A-Z]{4}))\s*[:\n](.+?)(?=(?:[A-Z]{4}\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?[A-Z]{4}|\z))"#,
-            options: [.caseInsensitive, .dotMatchesLineSeparators]
-        )
-
-        for match in pattern1.matches(
-            in: text,
-            range: NSRange(text.startIndex..., in: text)
-        ) {
-            var location: String?
-            if match.range(at: 1).location != NSNotFound,
-               let locRange = Range(match.range(at: 1), in: text) {
-                location = String(text[locRange]).uppercased()
-            } else if match.range(at: 2).location != NSNotFound,
-                      let locRange = Range(match.range(at: 2), in: text) {
-                location = String(text[locRange]).uppercased()
-            }
-
-            // Skip invalid locations (common English words)
-            if let loc = location,
-               !Self.invalidLocations.contains(loc),
-               let sectionRange = Range(match.range(at: 3), in: text) {
-                let sectionText = String(text[sectionRange])
-                sections.append((sectionText, loc))
-            }
-        }
-
-        // Pattern 2: Section headers with ICAO
-        let pattern2 = try! NSRegularExpression(
-            pattern: #"^\s*([A-Z]{4})\s*$\s*\n((?:(?![A-Z]{4}\s*$).)+)"#,
-            options: [.anchorsMatchLines, .dotMatchesLineSeparators]
-        )
-
-        let notamContentPattern = try! NSRegularExpression(
-            pattern: #"[A-Z]\d{4}/\d{2}|NOTAM"#,
-            options: [.caseInsensitive]
-        )
-
-        for match in pattern2.matches(
-            in: text,
-            range: NSRange(text.startIndex..., in: text)
-        ) {
-            if let locRange = Range(match.range(at: 1), in: text),
-               let sectionRange = Range(match.range(at: 2), in: text) {
-                let location = String(text[locRange]).uppercased()
-
-                // Skip invalid locations
-                if Self.invalidLocations.contains(location) {
-                    continue
+        for chunk in chunks {
+            if let notam = NotamParser.parse(chunk, source: "foreflight") {
+                // Deduplicate by NOTAM ID
+                if !seenIds.contains(notam.id) {
+                    seenIds.insert(notam.id)
+                    notams.append(notam)
                 }
-
-                let sectionText = String(text[sectionRange])
-
-                // Only add if contains NOTAM-like content
-                if notamContentPattern.firstMatch(
-                    in: sectionText,
-                    range: NSRange(sectionText.startIndex..., in: sectionText)
-                ) != nil {
-                    sections.append((sectionText, location))
-                }
-            }
-        }
-
-        // Pattern 3: FDC NOTAMs section
-        let fdcPattern = try! NSRegularExpression(
-            pattern: #"FDC\s+NOTAMs?\s*[:\n](.+?)(?=\n\n[A-Z]|\z)"#,
-            options: [.caseInsensitive, .dotMatchesLineSeparators]
-        )
-
-        if let match = fdcPattern.firstMatch(
-            in: text,
-            range: NSRange(text.startIndex..., in: text)
-        ),
-           let sectionRange = Range(match.range(at: 1), in: text) {
-            sections.append((String(text[sectionRange]), "FDC"))
-        }
-
-        // Count total NOTAM IDs in text
-        let totalIds = idPattern.numberOfMatches(
-            in: text,
-            range: NSRange(text.startIndex..., in: text)
-        )
-
-        // Count IDs in found sections
-        let sectionIds = sections.reduce(0) { count, section in
-            count + idPattern.numberOfMatches(
-                in: section.0,
-                range: NSRange(section.0.startIndex..., in: section.0)
-            )
-        }
-
-        // If no sections found OR sections captured less than 50% of NOTAMs,
-        // fall back to parsing the entire text
-        if sections.isEmpty || (totalIds > 10 && sectionIds < totalIds / 2) {
-            if idPattern.firstMatch(
-                in: text,
-                range: NSRange(text.startIndex..., in: text)
-            ) != nil {
-                sections = [(text, "UNKNOWN")]
-            }
-        }
-
-        return sections
-    }
-
-    /// Parse NOTAMs from a section of text.
-    private func parseNotamSection(_ sectionText: String, location: String) -> [Notam] {
-        var notams: [Notam] = []
-
-        // Split section into individual NOTAMs
-        let notamChunks = splitNotamSection(sectionText)
-
-        for chunk in notamChunks {
-            if var notam = NotamParser.parse(chunk, source: "foreflight") {
-                // Use section location if NOTAM location is unknown
-                if notam.location == "ZZZZ" && location != "UNKNOWN" {
-                    notam = Notam(
-                        id: notam.id,
-                        location: location,
-                        rawText: notam.rawText,
-                        message: notam.message,
-                        series: notam.series,
-                        number: notam.number,
-                        year: notam.year,
-                        fir: notam.fir,
-                        affectedLocations: notam.affectedLocations.isEmpty ? [location] : notam.affectedLocations,
-                        qCode: notam.qCode,
-                        trafficType: notam.trafficType,
-                        purpose: notam.purpose,
-                        scope: notam.scope,
-                        lowerLimit: notam.lowerLimit,
-                        upperLimit: notam.upperLimit,
-                        radiusNm: notam.radiusNm,
-                        coordinates: notam.coordinate.map { [$0.latitude, $0.longitude] },
-                        category: notam.category,
-                        subcategory: notam.subcategory,
-                        qCodeInfo: notam.qCodeInfo,
-                        effectiveFrom: notam.effectiveFrom,
-                        effectiveTo: notam.effectiveTo,
-                        isPermanent: notam.isPermanent,
-                        scheduleText: notam.scheduleText,
-                        source: notam.source,
-                        parsedAt: notam.parsedAt,
-                        parseConfidence: notam.parseConfidence,
-                        primaryCategory: notam.primaryCategory,
-                        customCategories: notam.customCategories,
-                        customTags: notam.customTags
-                    )
-                }
-                notams.append(notam)
             }
         }
 
         return notams
     }
 
-    /// Split a NOTAM section into individual NOTAM texts.
+    /// Split text into individual NOTAM chunks.
     ///
     /// Only splits on NOTAM IDs that start a new NOTAM (followed by NOTAM[NRC]),
     /// not on IDs that appear as references (after NOTAMR/NOTAMC).
