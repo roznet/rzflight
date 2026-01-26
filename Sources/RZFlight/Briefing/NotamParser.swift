@@ -63,14 +63,19 @@ public enum NotamParser {
         options: []
     )
 
-    /// Q-code to category mapping
+    /// Q-code to category mapping using ICAO-aligned categories.
+    /// Maps 2-letter Q-code subjects to NotamCategory enum values.
+    /// For codes not in this mapping, NotamCategory.from(qCodeSubject:) provides fallback.
     private static let qCodeCategories: [String: NotamCategory] = [
-        "MR": .runway,
-        "MX": .movementArea,
-        "MA": .movementArea,
-        "LR": .lighting,
-        "LL": .lighting,
-        "LX": .lighting,
+        // M* - Movement Area (includes runway, taxiway, apron)
+        "MR": .agaMovement,
+        "MX": .agaMovement,
+        "MA": .agaMovement,
+        // L* - Lighting
+        "LR": .agaLighting,
+        "LL": .agaLighting,
+        "LX": .agaLighting,
+        // N* - Navigation facilities
         "NA": .navigation,
         "NV": .navigation,
         "ND": .navigation,
@@ -78,33 +83,40 @@ public enum NotamParser {
         "NL": .navigation,
         "NM": .navigation,
         "NB": .navigation,
-        "CO": .communication,
-        "FA": .airspace,
-        "AR": .airspace,
-        "AH": .airspace,
-        "AL": .airspace,
-        "AT": .airspace,
-        "AX": .airspace,
-        "RD": .airspace,
-        "RT": .airspace,
-        "OB": .obstacle,
-        "OL": .obstacle,
-        "PI": .procedure,
-        "PA": .procedure,
-        "PD": .procedure,
-        "PS": .procedure,
-        "PT": .procedure,
-        "SE": .services,
-        "SA": .services,
-        "SN": .services,
-        "SV": .services,
-        "WA": .warning,
-        "WE": .warning,
-        "WM": .warning,
-        "WP": .warning,
-        "WU": .warning,
-        "WV": .warning,
-        "WZ": .warning,
+        // C* - Communications
+        "CO": .cnsCommunications,
+        // A* - ATM Airspace (FIR, TMA, CTR, routes)
+        "FA": .atmAirspace,
+        "AR": .atmAirspace,
+        "AH": .atmAirspace,
+        "AL": .atmAirspace,
+        "AT": .atmAirspace,
+        "AX": .atmAirspace,
+        // R* - Airspace Restrictions (danger, prohibited, restricted areas)
+        "RD": .airspaceRestrictions,
+        "RT": .airspaceRestrictions,
+        // O* - Other (obstacles, AIS)
+        "OB": .otherInfo,
+        "OL": .otherInfo,
+        // P* - Procedures (SID, STAR, approaches)
+        "PI": .atmProcedures,
+        "PA": .atmProcedures,
+        "PD": .atmProcedures,
+        "PS": .atmProcedures,
+        "PT": .atmProcedures,
+        // S* - ATM Services (ATIS, TWR, APP)
+        "SE": .atmServices,
+        "SA": .atmServices,
+        "SN": .atmServices,
+        "SV": .atmServices,
+        // W* - Warnings (non-standard, map to restrictions)
+        "WA": .airspaceRestrictions,
+        "WE": .airspaceRestrictions,
+        "WM": .airspaceRestrictions,
+        "WP": .airspaceRestrictions,
+        "WU": .airspaceRestrictions,
+        "WV": .airspaceRestrictions,
+        "WZ": .airspaceRestrictions,
     ]
 
     // MARK: - Public Interface
@@ -593,9 +605,14 @@ public enum NotamParser {
             code = String(code.dropFirst())
         }
 
-        // Check first 2 letters
+        // Check first 2 letters against explicit mapping
         let prefix = String(code.prefix(2))
-        return qCodeCategories[prefix] ?? .other
+        if let category = qCodeCategories[prefix] {
+            return category
+        }
+
+        // Fallback: use ICAO standard first-letter detection
+        return NotamCategory.from(qCodeSubject: prefix) ?? .otherInfo
     }
 
     /// Deterministic hash function (DJB2) for generating stable fallback IDs.
