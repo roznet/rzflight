@@ -57,6 +57,12 @@ public enum NotamParser {
         options: [.caseInsensitive]
     )
 
+    /// Pattern to detect NOTAM references (NOTAMR/NOTAMC followed by ID)
+    private static let notamRefPattern = try! NSRegularExpression(
+        pattern: #"NOTAM[RC]\s*$"#,
+        options: []
+    )
+
     /// Q-code to category mapping
     private static let qCodeCategories: [String: NotamCategory] = [
         "MR": .runway,
@@ -115,7 +121,7 @@ public enum NotamParser {
 
         // Extract NOTAM ID
         let (notamId, series, number, year) = parseNotamId(text)
-        let finalId = notamId ?? "X\(String(format: "%04d", abs(text.hashValue) % 10000))/00"
+        let finalId = notamId ?? "X\(String(format: "%04d", stableHash(text) % 10000))/00"
 
         // Parse Q-line
         let qData = parseQLine(text)
@@ -592,8 +598,58 @@ public enum NotamParser {
         return qCodeCategories[prefix] ?? .other
     }
 
+    /// Deterministic hash function (DJB2) for generating stable fallback IDs.
+    ///
+    /// Unlike Swift's `hashValue` which is randomized per app launch,
+    /// this produces consistent results across sessions.
+    private static func stableHash(_ string: String) -> Int {
+        var hash: UInt64 = 5381
+        for byte in string.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(byte)
+        }
+        return Int(hash & 0x7FFFFFFF)  // Ensure positive
+    }
+
+    /// Split text containing multiple NOTAMs into individual NOTAM chunks.
+    ///
+    /// Filters out NOTAM IDs that appear as references (after NOTAMR/NOTAMC),
+    /// only splitting on IDs that start a new NOTAM.
     private static func splitNotams(_ text: String) -> [String] {
-        // Find all NOTAM ID positions
+        // First try: look for NOTAM IDs followed by NOTAM[NRC] (most reliable)
+        let startPattern = try! NSRegularExpression(
+            pattern: #"([A-Z]\d{4}/\d{2})\s*NOTAM[NRC]"#,
+            options: []
+        )
+        let startMatches = startPattern.matches(
+            in: text,
+            range: NSRange(text.startIndex..., in: text)
+        )
+
+        if !startMatches.isEmpty {
+            var chunks: [String] = []
+            for (i, match) in startMatches.enumerated() {
+                guard let startRange = Range(match.range, in: text) else { continue }
+                let start = startRange.lowerBound
+
+                let end: String.Index
+                if i + 1 < startMatches.count,
+                   let nextRange = Range(startMatches[i + 1].range, in: text) {
+                    end = nextRange.lowerBound
+                } else {
+                    end = text.endIndex
+                }
+
+                let chunk = String(text[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !chunk.isEmpty {
+                    chunks.append(chunk)
+                }
+            }
+            if !chunks.isEmpty {
+                return chunks
+            }
+        }
+
+        // Fallback: find all NOTAM ID positions
         let idPattern = try! NSRegularExpression(
             pattern: #"[A-Z]\d{4}/\d{2}"#,
             options: []
@@ -616,15 +672,43 @@ public enum NotamParser {
             return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? [] : [text]
         }
 
-        // Extract text from each NOTAM ID to the next
+        // Filter out IDs that appear after NOTAMR/NOTAMC (these are references, not new NOTAMs)
+        var validStarts: [NSTextCheckingResult] = []
+        for match in matches {
+            // Check what comes before this ID (look back up to 10 chars)
+            let prefixStart = max(0, match.range.location - 10)
+            let prefixLength = match.range.location - prefixStart
+            let prefixRange = NSRange(location: prefixStart, length: prefixLength)
+
+            if let prefixStringRange = Range(prefixRange, in: text) {
+                let prefix = String(text[prefixStringRange])
+                // Only include if NOT preceded by NOTAMR or NOTAMC
+                if notamRefPattern.firstMatch(
+                    in: prefix,
+                    range: NSRange(prefix.startIndex..., in: prefix)
+                ) == nil {
+                    validStarts.append(match)
+                }
+            } else {
+                validStarts.append(match)
+            }
+        }
+
+        if validStarts.isEmpty {
+            // All IDs were references - treat entire text as one chunk
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? [] : [trimmed]
+        }
+
+        // Extract text from each valid NOTAM ID to the next
         var chunks: [String] = []
-        for (i, match) in matches.enumerated() {
+        for (i, match) in validStarts.enumerated() {
             guard let startRange = Range(match.range, in: text) else { continue }
             let start = startRange.lowerBound
 
             let end: String.Index
-            if i + 1 < matches.count,
-               let nextRange = Range(matches[i + 1].range, in: text) {
+            if i + 1 < validStarts.count,
+               let nextRange = Range(validStarts[i + 1].range, in: text) {
                 end = nextRange.lowerBound
             } else {
                 end = text.endIndex
