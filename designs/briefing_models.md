@@ -75,6 +75,39 @@ class NotamCategory(Enum):
     OTHER = "XX"
 ```
 
+### Q-Code Info
+
+Parsed from `q_codes.json`, provides human-readable meanings:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `q_code` | `str` | Raw Q-code (e.g., "QMRLC") |
+| `subject_code` | `str` | 2-letter subject (e.g., "MR") |
+| `subject_meaning` | `str` | Subject meaning (e.g., "Runway") |
+| `condition_code` | `str` | 2-letter condition (e.g., "LC") |
+| `condition_meaning` | `str` | Condition meaning (e.g., "Closed") |
+| `display_text` | `str` | Combined text (e.g., "Runway: Closed") |
+| `short_text` | `str` | Short form (e.g., "RWY CLSD") |
+
+### Document References
+
+References to external documents (AIP supplements) extracted from NOTAM text:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `document_references` | `List[DocumentReference]` | Extracted document links |
+
+Each `DocumentReference` contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `str` | Document type (e.g., "aip_supplement") |
+| `identifier` | `str` | Reference ID (e.g., "SUP 059/2025") |
+| `provider` | `str` | Provider ID (e.g., "uk_nats") |
+| `provider_name` | `str` | Human name (e.g., "UK NATS AIP Supplements") |
+| `search_url` | `str?` | Generic search/browse page |
+| `document_urls` | `List[str]` | Direct PDF links |
+
 ### Parsing Metadata
 
 | Field | Type | Description |

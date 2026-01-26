@@ -1,43 +1,73 @@
 # Swift Briefing Module
 
-> Native Swift models for flight briefings, loaded from Python-generated JSON
+> Native Swift parsing and models for flight briefings
 
 ## Intent
 
-Provide Swift models that:
-- Decode JSON from Python's `euro_aip.briefing` module
-- Enable native NOTAM filtering in iOS/macOS apps
-- Follow existing RZFlight patterns (Codable, Array extensions)
+Provide Swift capabilities for:
+- **Native PDF parsing** - Parse ForeFlight PDFs directly in iOS/macOS (no server needed)
+- **JSON loading** - Decode briefings from Python's `euro_aip.briefing` module
+- **NOTAM filtering** - Chainable filter extensions matching Python's API
+- **Cross-platform consistency** - Same parsing logic as Python, same JSON format
 
-**What should NOT change**: Python handles parsing and categorization. Swift is read-only consumer of that JSON.
+## Cross-Platform Consistency
+
+**CRITICAL**: Swift and Python parsers MUST produce identical output.
+
+Both implementations share:
+- `q_codes.json` - Q-code meanings
+- `document_references.json` - AIP supplement URL patterns
+
+When modifying parsing:
+1. Update BOTH `NotamParser.swift` AND `notam_parser.py`
+2. Update BOTH `DocumentReferenceExtractor` implementations
+3. Ensure JSON output matches
 
 ## Architecture
 
 ```
 Sources/RZFlight/Briefing/
-├── Notam.swift           # Core NOTAM model (Codable)
-├── NotamCategory.swift   # Category enum matching Python
-├── Route.swift           # Route + RoutePoint models
-├── Briefing.swift        # Container with load() methods
-└── Notam+Queries.swift   # [Notam] filtering extensions
+├── ForeFlightParser.swift        # Native PDF parsing (PDFKit)
+├── NotamParser.swift             # NOTAM text parsing
+├── QCodeLookup.swift             # Q-code meanings from JSON
+├── DocumentReferenceExtractor.swift  # AIP supplement links
+├── DocumentReference.swift       # Reference model
+├── Notam.swift                   # Core NOTAM model (Codable)
+├── NotamCategory.swift           # Category enum matching Python
+├── Route.swift                   # Route + RoutePoint models
+├── Briefing.swift                # Container with load/parse methods
+└── Notam+Queries.swift           # [Notam] filtering extensions
+
+Resources/
+├── q_codes.json                  # Shared with Python
+└── document_references.json      # Shared with Python
 ```
 
-**Data flow:**
+**Two data paths:**
 ```
-Python                          Swift
-──────                          ─────
-ForeFlightSource.parse(pdf)
-        │
-        ▼
-CategorizationPipeline()
-        │
-        ▼
-briefing.to_json()  ─────────▶  Briefing.load(from: url)
-                                        │
-                                        ▼
-                                briefing.notams
-                                   .forAirport("LFPG")
-                                   .runwayRelated()
+Option 1: Native Parsing (iOS/macOS)
+────────────────────────────────────
+ForeFlight PDF
+      │
+      ▼
+ForeFlightParser.parse(url:)
+      │
+      ├─▶ NotamParser (Q-line, dates, location)
+      ├─▶ QCodeLookup (human-readable meanings)
+      └─▶ DocumentReferenceExtractor (AIP supplement links)
+      │
+      ▼
+Briefing with [Notam]
+
+Option 2: Load from Python JSON
+───────────────────────────────
+Python ForeFlightSource.parse()
+      │
+      ▼
+briefing.to_json()
+      │
+      ▼
+Briefing.load(from: jsonURL)
 ```
 
 ## Usage Examples
@@ -103,12 +133,33 @@ let terminal = briefing.notams.nearAirports(["LFPG", "EGLL"], radiusNm: 30, coor
 | `location` | `String` | Primary ICAO |
 | `message` | `String` | E) line content |
 | `qCode` | `String?` | 5-letter Q-code |
+| `qCodeInfo` | `QCodeInfo?` | Parsed Q-code meanings |
 | `category` | `NotamCategory?` | ICAO category enum |
 | `effectiveFrom/To` | `Date?` | Validity window |
 | `isPermanent` | `Bool` | No end date |
 | `coordinate` | `CLLocationCoordinate2D?` | Location (computed) |
-| `customCategories` | `[String]` | From Python pipeline |
-| `customTags` | `[String]` | From Python pipeline |
+| `customCategories` | `[String]` | From categorization pipeline |
+| `customTags` | `[String]` | From categorization pipeline |
+| `documentReferences` | `[DocumentReference]` | AIP supplement links |
+
+### QCodeInfo
+| Field | Type | Description |
+|-------|------|-------------|
+| `qCode` | `String` | Raw Q-code (e.g., "QMRLC") |
+| `subjectMeaning` | `String` | Subject meaning (e.g., "Runway") |
+| `conditionMeaning` | `String` | Condition meaning (e.g., "Closed") |
+| `displayText` | `String` | Combined (e.g., "Runway: Closed") |
+| `shortText` | `String` | Short form (e.g., "RWY CLSD") |
+
+### DocumentReference
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `String` | Document type (e.g., "aip_supplement") |
+| `identifier` | `String` | Reference ID (e.g., "SUP 059/2025") |
+| `provider` | `String` | Provider ID (e.g., "uk_nats") |
+| `providerName` | `String` | Human name |
+| `searchURL` | `URL?` | Generic search page |
+| `documentURLs` | `[URL]` | Direct PDF links |
 
 ### Route
 | Field | Type | Description |
@@ -149,11 +200,12 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
 
 | Decision | Rationale |
 |----------|-----------|
+| Native PDF parsing | iOS apps can work offline without server |
+| Shared JSON configs | `q_codes.json`, `document_references.json` ensure consistency |
 | Array extensions not wrapper class | Matches Airport+Fuel pattern, chainable |
 | ISO8601 date decoding | Matches Python `.isoformat()` output |
 | Coordinates as `CLLocationCoordinate2D` | Native iOS integration |
-| `load(from:)` static methods | Convenient JSON loading |
-| Categories/tags come from JSON | No Swift-side categorization needed |
+| `load(from:)` and `parse(url:)` methods | Support both JSON and PDF input |
 
 ## Patterns
 
@@ -161,13 +213,15 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
 - **Optional defaults**: Arrays default to `[]`, strings to `""`
 - **Computed CLLocationCoordinate2D**: From `[lat, lon]` arrays
 - **Chainable filters**: All return `[Notam]`, can chain further
+- **Bundle.module resources**: Load JSON configs from package bundle
 
 ## Gotchas
 
+- **Keep parsers in sync**: Swift NotamParser must match Python NotamParser output
+- **Shared config files**: `q_codes.json` and `document_references.json` must be identical
 - **Dates require ISO8601**: Python uses `.isoformat()`, Swift needs `.iso8601` decoder
 - **Coordinates can be nil**: Many NOTAMs lack coords, spatial filters skip them
 - **Category enum must match Python**: `NotamCategory` raw values match Python's
-- **No parsing in Swift**: All NOTAM text processing happens in Python
 
 ## References
 
