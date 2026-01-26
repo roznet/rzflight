@@ -324,6 +324,14 @@ class ForeFlightSource:
         """
         sections = []
 
+        # Common English 4-letter words that aren't ICAO codes
+        # These can match the pattern but aren't valid airport codes
+        invalid_locations = {
+            'THIS', 'THAT', 'WITH', 'FROM', 'WILL', 'HAVE', 'BEEN',
+            'WERE', 'SOME', 'THEM', 'THEN', 'THAN', 'EACH', 'WHEN',
+            'YOUR', 'ONLY', 'ALSO', 'AREA', 'NEAR', 'MORE', 'MUST',
+        }
+
         # Pattern 1: "LFPG NOTAMs" or "NOTAMs for LFPG"
         pattern1 = re.compile(
             r'(?:([A-Z]{4})\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?([A-Z]{4}))\s*[:\n](.+?)(?=(?:[A-Z]{4}\s+NOTAMs?|NOTAMs?\s+(?:for\s+)?[A-Z]{4}|\Z))',
@@ -332,6 +340,9 @@ class ForeFlightSource:
 
         for match in pattern1.finditer(text):
             location = (match.group(1) or match.group(2)).upper()
+            # Skip invalid locations (common English words)
+            if location in invalid_locations:
+                continue
             section_text = match.group(3)
             sections.append((section_text, location))
 
@@ -343,6 +354,8 @@ class ForeFlightSource:
 
         for match in pattern2.finditer(text):
             location = match.group(1).upper()
+            if location in invalid_locations:
+                continue
             section_text = match.group(2)
             # Only add if contains NOTAM-like content
             if re.search(r'[A-Z]\d{4}/\d{2}|NOTAM', section_text, re.IGNORECASE):
@@ -357,11 +370,23 @@ class ForeFlightSource:
         if fdc_match:
             sections.append((fdc_match.group(1), 'FDC'))
 
-        # If no sections found, try to find NOTAMs in the entire text
-        if not sections:
+        # Count total NOTAM IDs in text to verify sections captured enough
+        total_ids = len(re.findall(r'[A-Z]\d{4}/\d{2}', text))
+        section_ids = sum(
+            len(re.findall(r'[A-Z]\d{4}/\d{2}', sec_text))
+            for sec_text, _ in sections
+        )
+
+        # If no sections found OR sections captured less than 50% of NOTAMs,
+        # fall back to parsing the entire text
+        if not sections or (total_ids > 10 and section_ids < total_ids * 0.5):
             # Look for NOTAM content anywhere
             if re.search(r'[A-Z]\d{4}/\d{2}', text):
-                sections.append((text, 'UNKNOWN'))
+                logger.debug(
+                    f"Section detection captured {section_ids}/{total_ids} NOTAMs, "
+                    f"falling back to full text parsing"
+                )
+                sections = [(text, 'UNKNOWN')]
 
         return sections
 

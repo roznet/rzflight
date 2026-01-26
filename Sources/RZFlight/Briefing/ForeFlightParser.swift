@@ -418,11 +418,24 @@ public final class ForeFlightParser: Sendable {
         return uniqueNotams
     }
 
+    /// Common English 4-letter words that aren't ICAO codes
+    /// These can match the pattern but aren't valid airport codes
+    private static let invalidLocations: Set<String> = [
+        "THIS", "THAT", "WITH", "FROM", "WILL", "HAVE", "BEEN",
+        "WERE", "SOME", "THEM", "THEN", "THAN", "EACH", "WHEN",
+        "YOUR", "ONLY", "ALSO", "AREA", "NEAR", "MORE", "MUST",
+    ]
+
     /// Find NOTAM sections in the briefing text.
     ///
     /// - Returns: Array of (sectionText, location) tuples
     private func findNotamSections(in text: String) -> [(String, String)] {
         var sections: [(String, String)] = []
+
+        let idPattern = try! NSRegularExpression(
+            pattern: #"[A-Z]\d{4}/\d{2}"#,
+            options: []
+        )
 
         // Pattern 1: "LFPG NOTAMs" or "NOTAMs for LFPG"
         let pattern1 = try! NSRegularExpression(
@@ -443,7 +456,9 @@ public final class ForeFlightParser: Sendable {
                 location = String(text[locRange]).uppercased()
             }
 
+            // Skip invalid locations (common English words)
             if let loc = location,
+               !Self.invalidLocations.contains(loc),
                let sectionRange = Range(match.range(at: 3), in: text) {
                 let sectionText = String(text[sectionRange])
                 sections.append((sectionText, loc))
@@ -468,6 +483,12 @@ public final class ForeFlightParser: Sendable {
             if let locRange = Range(match.range(at: 1), in: text),
                let sectionRange = Range(match.range(at: 2), in: text) {
                 let location = String(text[locRange]).uppercased()
+
+                // Skip invalid locations
+                if Self.invalidLocations.contains(location) {
+                    continue
+                }
+
                 let sectionText = String(text[sectionRange])
 
                 // Only add if contains NOTAM-like content
@@ -494,17 +515,28 @@ public final class ForeFlightParser: Sendable {
             sections.append((String(text[sectionRange]), "FDC"))
         }
 
-        // If no sections found, try to find NOTAMs in the entire text
-        if sections.isEmpty {
-            let idPattern = try! NSRegularExpression(
-                pattern: #"[A-Z]\d{4}/\d{2}"#,
-                options: []
+        // Count total NOTAM IDs in text
+        let totalIds = idPattern.numberOfMatches(
+            in: text,
+            range: NSRange(text.startIndex..., in: text)
+        )
+
+        // Count IDs in found sections
+        let sectionIds = sections.reduce(0) { count, section in
+            count + idPattern.numberOfMatches(
+                in: section.0,
+                range: NSRange(section.0.startIndex..., in: section.0)
             )
+        }
+
+        // If no sections found OR sections captured less than 50% of NOTAMs,
+        // fall back to parsing the entire text
+        if sections.isEmpty || (totalIds > 10 && sectionIds < totalIds / 2) {
             if idPattern.firstMatch(
                 in: text,
                 range: NSRange(text.startIndex..., in: text)
             ) != nil {
-                sections.append((text, "UNKNOWN"))
+                sections = [(text, "UNKNOWN")]
             }
         }
 
