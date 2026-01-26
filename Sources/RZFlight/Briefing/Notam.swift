@@ -217,6 +217,11 @@ public struct Notam: Codable, Sendable {
     /// Granular tags from pipeline (e.g., "crane", "closed", "ils")
     public let customTags: [String]
 
+    // MARK: - Document References
+
+    /// References to external documents (AIP supplements, etc.)
+    public let documentReferences: [DocumentReference]
+
     // MARK: - Computed Properties
 
     /// 2-letter Q-code subject (e.g., "MR" for runway, "OB" for obstacle)
@@ -304,6 +309,7 @@ public struct Notam: Codable, Sendable {
         case primaryCategory = "primary_category"
         case customCategories = "custom_categories"
         case customTags = "custom_tags"
+        case documentReferences = "document_references"
     }
 
     // MARK: - Decoding
@@ -358,6 +364,9 @@ public struct Notam: Codable, Sendable {
         self.primaryCategory = try container.decodeIfPresent(String.self, forKey: .primaryCategory)
         self.customCategories = try container.decodeIfPresent([String].self, forKey: .customCategories) ?? []
         self.customTags = try container.decodeIfPresent([String].self, forKey: .customTags) ?? []
+
+        // Document references
+        self.documentReferences = try container.decodeIfPresent([DocumentReference].self, forKey: .documentReferences) ?? []
     }
 }
 
@@ -397,7 +406,8 @@ extension Notam {
         parseConfidence: Double = 1.0,
         primaryCategory: String? = nil,
         customCategories: [String] = [],
-        customTags: [String] = []
+        customTags: [String] = [],
+        documentReferences: [DocumentReference] = []
     ) {
         self.id = id
         self.location = location
@@ -429,6 +439,7 @@ extension Notam {
         self.primaryCategory = primaryCategory
         self.customCategories = customCategories
         self.customTags = customTags
+        self.documentReferences = documentReferences
     }
 }
 

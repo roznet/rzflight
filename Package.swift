@@ -34,7 +34,8 @@ let package = Package(
             ],
             resources: [
                 .process("Resources/aip_fields.csv"),
-                .process("Resources/q_codes.json")
+                .process("Resources/q_codes.json"),
+                .process("Resources/document_references.json")
             ]
         ),
         .testTarget(

@@ -166,6 +166,9 @@ public enum NotamParser {
         // Look up Q-code meanings
         let qCodeInfo = QCodeLookup.lookup(qData.qCode)
 
+        // Extract document references (AIP supplements, etc.)
+        let documentReferences = DocumentReferenceExtractor.extract(from: text)
+
         return Notam(
             id: finalId,
             location: finalLocation,
@@ -196,7 +199,8 @@ public enum NotamParser {
             parseConfidence: 1.0,
             primaryCategory: nil,
             customCategories: [],
-            customTags: []
+            customTags: [],
+            documentReferences: documentReferences
         )
     }
 

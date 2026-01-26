@@ -122,4 +122,53 @@ struct ForeFlightParserTests {
         #expect(notam.qCodeInfo?.displayText == "Runway: Closed")
         #expect(notam.qCodeInfo?.shortText == "RWY CLSD")
     }
+
+    @Test("Document reference extraction for UK NATS")
+    func testDocumentReferenceExtractionUKNATS() {
+        let notamText = """
+        E0123/24 NOTAMN
+        Q) EGTT/QOBAXX/IV/M/AE/000/055/5130N00005W005
+        A) EGLL B) 2401150800 C) 2501150800
+        E) TEMPORARY CRANE. SEE AIC OR SUP 059/2025 AT WWW.NATS.AERO/AIS
+        """
+
+        guard let notam = NotamParser.parse(notamText, source: "test") else {
+            Issue.record("Failed to parse NOTAM")
+            return
+        }
+
+        #expect(!notam.documentReferences.isEmpty, "Expected document references")
+        if let ref = notam.documentReferences.first {
+            #expect(ref.identifier == "SUP 059/2025")
+            #expect(ref.provider == "uk_nats")
+            #expect(ref.documentURLs.count == 1)
+            #expect(ref.documentURLs.first?.absoluteString.contains("EG_Sup_2025_059") == true)
+        }
+    }
+
+    @Test("Document reference extraction for France SIA")
+    func testDocumentReferenceExtractionFranceSIA() {
+        let notamText = """
+        A4567/24 NOTAMN
+        Q) LFFF/QOBAXX/IV/M/AE/000/055/4901N00225E005
+        A) LFPG B) 2401150800 C) 2501150800
+        E) CRANE ERECTED. REF SUP 009/26 WWW.SIA.AVIATION-CIVILE.GOUV.FR
+        """
+
+        guard let notam = NotamParser.parse(notamText, source: "test") else {
+            Issue.record("Failed to parse NOTAM")
+            return
+        }
+
+        #expect(!notam.documentReferences.isEmpty, "Expected document references")
+        if let ref = notam.documentReferences.first {
+            #expect(ref.identifier == "SUP 009/2026")
+            #expect(ref.provider == "france_sia")
+            #expect(ref.documentURLs.count == 2, "Expected FR and EN document URLs")
+            // Check both French and English URLs are present
+            let urlStrings = ref.documentURLs.map { $0.absoluteString }
+            #expect(urlStrings.contains { $0.contains("lf_sup_2026_009_fr.pdf") })
+            #expect(urlStrings.contains { $0.contains("lf_sup_2026_009_en.pdf") })
+        }
+    }
 }

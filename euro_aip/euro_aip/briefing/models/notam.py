@@ -3,7 +3,10 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Set, Tuple, List, Any, Dict
+from typing import Optional, Set, Tuple, List, Any, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from euro_aip.briefing.models.document_reference import DocumentReference
 
 
 class NotamCategory(Enum):
@@ -134,6 +137,9 @@ class Notam:
     custom_categories: Set[str] = field(default_factory=set)
     custom_tags: Set[str] = field(default_factory=set)
 
+    # Document references (AIP supplements, etc.)
+    document_references: List[Any] = field(default_factory=list)  # List[DocumentReference]
+
     def to_dict(self) -> dict:
         """
         Serialize to dictionary for JSON export.
@@ -178,6 +184,7 @@ class Notam:
             'primary_category': self.primary_category,
             'custom_categories': list(self.custom_categories),
             'custom_tags': list(self.custom_tags),
+            'document_references': [ref.to_dict() for ref in self.document_references],
         }
 
     @classmethod
@@ -247,7 +254,14 @@ class Notam:
             primary_category=data.get('primary_category'),
             custom_categories=set(data.get('custom_categories', [])),
             custom_tags=set(data.get('custom_tags', [])),
+            document_references=cls._parse_document_references(data.get('document_references', [])),
         )
+
+    @staticmethod
+    def _parse_document_references(refs_data: List[dict]) -> List[Any]:
+        """Parse document references from dictionary data."""
+        from euro_aip.briefing.models.document_reference import DocumentReference
+        return [DocumentReference.from_dict(ref) for ref in refs_data]
 
     def __repr__(self) -> str:
         return f"Notam(id={self.id!r}, location={self.location!r})"

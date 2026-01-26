@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any, Tuple
 
 from euro_aip.briefing.models.notam import Notam, NotamCategory
+from euro_aip.briefing.parsers.document_reference_extractor import extract_document_references
 
 
 class NotamParser:
@@ -177,6 +178,9 @@ class NotamParser:
         # Determine category from Q-code
         category = cls._determine_category(q_data.get('q_code'))
 
+        # Extract document references (AIP supplements, etc.)
+        document_references = extract_document_references(text)
+
         return Notam(
             id=notam_id,
             series=series,
@@ -202,6 +206,7 @@ class NotamParser:
             message=message,
             source=source,
             parsed_at=datetime.now(),
+            document_references=document_references,
         )
 
     @classmethod
