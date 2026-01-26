@@ -68,6 +68,37 @@ public struct QCodeInfo: Codable, Sendable, Hashable {
         case isChecklist = "is_checklist"
         case isPlainLanguage = "is_plain_language"
     }
+
+    /// Create QCodeInfo with all fields
+    public init(
+        qCode: String,
+        subjectCode: String,
+        subjectMeaning: String,
+        subjectPhrase: String,
+        subjectCategory: String,
+        conditionCode: String,
+        conditionMeaning: String,
+        conditionPhrase: String,
+        conditionCategory: String,
+        displayText: String,
+        shortText: String,
+        isChecklist: Bool,
+        isPlainLanguage: Bool
+    ) {
+        self.qCode = qCode
+        self.subjectCode = subjectCode
+        self.subjectMeaning = subjectMeaning
+        self.subjectPhrase = subjectPhrase
+        self.subjectCategory = subjectCategory
+        self.conditionCode = conditionCode
+        self.conditionMeaning = conditionMeaning
+        self.conditionPhrase = conditionPhrase
+        self.conditionCategory = conditionCategory
+        self.displayText = displayText
+        self.shortText = shortText
+        self.isChecklist = isChecklist
+        self.isPlainLanguage = isPlainLanguage
+    }
 }
 
 /// NOTAM (Notice to Airmen) data model.

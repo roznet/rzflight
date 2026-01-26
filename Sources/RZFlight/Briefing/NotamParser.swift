@@ -163,6 +163,9 @@ public enum NotamParser {
         // Determine category from Q-code
         let category = determineCategory(qData.qCode)
 
+        // Look up Q-code meanings
+        let qCodeInfo = QCodeLookup.lookup(qData.qCode)
+
         return Notam(
             id: finalId,
             location: finalLocation,
@@ -183,7 +186,7 @@ public enum NotamParser {
             coordinates: qData.coordinates,
             category: category,
             subcategory: nil,
-            qCodeInfo: nil,
+            qCodeInfo: qCodeInfo,
             effectiveFrom: effectiveFrom,
             effectiveTo: effectiveTo,
             isPermanent: isPermanent,

@@ -33,7 +33,8 @@ let package = Package(
                 .product(name: "FMDB", package: "FMDB")
             ],
             resources: [
-                .process("Resources/aip_fields.csv")
+                .process("Resources/aip_fields.csv"),
+                .process("Resources/q_codes.json")
             ]
         ),
         .testTarget(
