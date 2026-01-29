@@ -221,6 +221,13 @@ public struct NotamRouteClassification {
     /// Distance along route from origin (nm), nil if not applicable
     public let alongRouteDistanceNm: Double?
 
+    /// Public initializer for external use (e.g., FlightContext classification)
+    public init(segment: RouteSegment, perpendicularDistanceNm: Double?, alongRouteDistanceNm: Double?) {
+        self.segment = segment
+        self.perpendicularDistanceNm = perpendicularDistanceNm
+        self.alongRouteDistanceNm = alongRouteDistanceNm
+    }
+
     /// Route segment types
     public enum RouteSegment: Int, CaseIterable, Sendable {
         case departure = 0
