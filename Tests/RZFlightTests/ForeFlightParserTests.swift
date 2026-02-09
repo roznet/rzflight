@@ -171,4 +171,29 @@ struct ForeFlightParserTests {
             #expect(urlStrings.contains { $0.contains("lf_sup_2026_009_en.pdf") })
         }
     }
+
+    @Test("Document reference extraction for UK AIC")
+    func testDocumentReferenceExtractionUKAIC() {
+        let notamText = """
+        E9876/25 NOTAMN
+        Q) EGTT/QRDCA/IV/BO/W/000/060/5055N00020E015
+        A) EGTT B) 2501270600 C) 2501271800
+        E) TEMPO DANGER AREA (TDA) EGD098D ACTIVATED. BEYOND VISUAL LINE OF SIGHT UAS OPS.
+        AIC Y 148/2025 REFERS.
+        """
+
+        guard let notam = NotamParser.parse(notamText, source: "test") else {
+            Issue.record("Failed to parse NOTAM")
+            return
+        }
+
+        #expect(!notam.documentReferences.isEmpty, "Expected AIC document reference")
+        if let ref = notam.documentReferences.first {
+            #expect(ref.identifier == "AIC Y 148/2025")
+            #expect(ref.provider == "uk_nats_aic")
+            #expect(ref.type == "aic")
+            #expect(ref.documentURLs.count == 1)
+            #expect(ref.documentURLs.first?.absoluteString == "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/aip-supplements/EG_Circ_2025_Y_148_en.pdf")
+        }
+    }
 }

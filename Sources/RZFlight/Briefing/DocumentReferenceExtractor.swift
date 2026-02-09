@@ -36,6 +36,8 @@ public enum DocumentReferenceExtractor {
         let countryCode: String?
         let triggerPatterns: [String]
         let referencePattern: String
+        let identifierFormat: String?
+        let type: String?
         let searchUrl: String?
         let documentUrlTemplates: [String]
         let yearFormat: String?
@@ -47,6 +49,8 @@ public enum DocumentReferenceExtractor {
             case countryCode = "country_code"
             case triggerPatterns = "trigger_patterns"
             case referencePattern = "reference_pattern"
+            case identifierFormat = "identifier_format"
+            case type
             case searchUrl = "search_url"
             case documentUrlTemplates = "document_url_templates"
             case yearFormat = "year_format"
@@ -136,14 +140,29 @@ public enum DocumentReferenceExtractor {
         let matches = regex.matches(in: text, range: range)
 
         for match in matches {
-            guard match.numberOfRanges >= 3,
-                  let numberRange = Range(match.range(at: 1), in: text),
-                  let yearRange = Range(match.range(at: 2), in: text) else {
+            // Handle both 2-group (number, year) and 3-group (series, number, year) patterns
+            let series: String?
+            let numberStr: String
+            let yearStr: String
+
+            if match.numberOfRanges >= 4,
+               let seriesRange = Range(match.range(at: 1), in: text),
+               let numRange = Range(match.range(at: 2), in: text),
+               let yrRange = Range(match.range(at: 3), in: text) {
+                // 3 capture groups: series, number, year (e.g., AIC pattern)
+                series = String(text[seriesRange])
+                numberStr = String(text[numRange])
+                yearStr = String(text[yrRange])
+            } else if match.numberOfRanges >= 3,
+                      let numRange = Range(match.range(at: 1), in: text),
+                      let yrRange = Range(match.range(at: 2), in: text) {
+                // 2 capture groups: number, year (e.g., SUP pattern)
+                series = nil
+                numberStr = String(text[numRange])
+                yearStr = String(text[yrRange])
+            } else {
                 continue
             }
-
-            let numberStr = String(text[numberRange])
-            let yearStr = String(text[yearRange])
 
             // Normalize year to 4 digits
             let year = normalizeYear(yearStr)
@@ -152,19 +171,28 @@ public enum DocumentReferenceExtractor {
             let numberPadding = provider.numberPadding ?? 3
             let paddedNumber = String(repeating: "0", count: max(0, numberPadding - numberStr.count)) + numberStr
 
-            // Build identifier
-            let identifier = "SUP \(paddedNumber)/\(year)"
+            // Build identifier using format string or default
+            let identifier: String
+            if let format = provider.identifierFormat {
+                identifier = format
+                    .replacingOccurrences(of: "{series}", with: series ?? "")
+                    .replacingOccurrences(of: "{number}", with: paddedNumber)
+                    .replacingOccurrences(of: "{year}", with: year)
+            } else {
+                identifier = "SUP \(paddedNumber)/\(year)"
+            }
 
             // Generate URLs
             let searchURL = provider.searchUrl.flatMap { URL(string: $0) }
             let documentURLs = generateDocumentURLs(
                 templates: provider.documentUrlTemplates,
                 year: year,
-                number: paddedNumber
+                number: paddedNumber,
+                series: series
             )
 
             let ref = DocumentReference(
-                type: "aip_supplement",
+                type: provider.type ?? "aip_supplement",
                 identifier: identifier,
                 provider: provider.id,
                 providerName: provider.name,
@@ -192,14 +220,19 @@ public enum DocumentReferenceExtractor {
     private static func generateDocumentURLs(
         templates: [String],
         year: String,
-        number: String
+        number: String,
+        series: String? = nil
     ) -> [URL] {
         var urls: [URL] = []
 
         for template in templates {
-            let urlString = template
+            var urlString = template
                 .replacingOccurrences(of: "{year}", with: year)
                 .replacingOccurrences(of: "{number}", with: number)
+
+            if let series = series {
+                urlString = urlString.replacingOccurrences(of: "{series}", with: series)
+            }
 
             if let url = URL(string: urlString) {
                 urls.append(url)

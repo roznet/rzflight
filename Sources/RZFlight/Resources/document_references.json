@@ -14,6 +14,21 @@
       "number_padding": 3
     },
     {
+      "id": "uk_nats_aic",
+      "name": "UK NATS AIC",
+      "country_code": "EG",
+      "trigger_patterns": ["AIC Y", "AIC W", "AIC P"],
+      "reference_pattern": "AIC\\s+([A-Z])\\s*(\\d{1,3})/(\\d{2,4})",
+      "identifier_format": "AIC {series} {number}/{year}",
+      "type": "aic",
+      "search_url": "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/aip-supplements/",
+      "document_url_templates": [
+        "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/aip-supplements/EG_Circ_{year}_{series}_{number}_en.pdf"
+      ],
+      "year_format": "4digit",
+      "number_padding": 3
+    },
+    {
       "id": "france_sia",
       "name": "France SIA AIP Supplements",
       "country_code": "LF",
