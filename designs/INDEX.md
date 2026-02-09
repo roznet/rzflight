@@ -9,7 +9,7 @@ Install: `pip install euro-aip` (Python) or Swift Package Manager (Swift)
 The briefing/NOTAM parsing system has **parallel implementations in Python and Swift** that must produce identical output. Both share configuration files:
 
 - `q_codes.json` - Q-code subject/condition meanings
-- `document_references.json` - AIP supplement URL patterns
+- `document_references.json` - AIP supplement and AIC URL patterns
 
 When modifying parsing logic, update BOTH implementations and run tests on both platforms.
 

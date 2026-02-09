@@ -121,11 +121,11 @@ The parsers handle the hard work - your source just extracts text.
 
 ## Document Reference Extraction
 
-NOTAMs often reference external documents like AIP Supplements. The `DocumentReferenceExtractor` extracts these references and generates direct URLs.
+NOTAMs often reference external documents like AIP Supplements and AICs. The `DocumentReferenceExtractor` extracts these references and generates direct URLs.
 
 ### Configuration-Driven Providers
 
-Providers are defined in `document_references.json`:
+Providers are defined in `document_references.json`. Supports both 2-group patterns (number, year) and 3-group patterns (series, number, year):
 
 ```json
 {
@@ -135,36 +135,50 @@ Providers are defined in `document_references.json`:
       "name": "UK NATS AIP Supplements",
       "trigger_patterns": ["WWW.NATS.AERO/AIS"],
       "reference_pattern": "SUP\\s*(\\d{3})/(\\d{2,4})",
-      "search_url": "https://nats-uk.ead-it.com/.../aip-supplements/",
-      "document_url_templates": [
-        "https://nats-uk.ead-it.com/.../EG_Sup_{year}_{number}_en.pdf"
-      ],
+      "document_url_templates": ["...EG_Sup_{year}_{number}_en.pdf"],
       "year_format": "4digit",
       "number_padding": 3
+    },
+    {
+      "id": "uk_nats_aic",
+      "name": "UK NATS AIC",
+      "trigger_patterns": ["AIC Y", "AIC W", "AIC P"],
+      "reference_pattern": "AIC\\s+([A-Z])\\s*(\\d{1,3})/(\\d{2,4})",
+      "identifier_format": "AIC {series} {number}/{year}",
+      "type": "aic",
+      "document_url_templates": ["...EG_Circ_{year}_{series}_{number}_en.pdf"]
     }
   ]
 }
 ```
 
+**Optional provider fields:**
+- `identifier_format` - Template with `{series}`, `{number}`, `{year}` placeholders (default: `"SUP {number}/{year}"`)
+- `type` - Document type string (default: `"aip_supplement"`)
+
 ### How It Works
 
 1. Check if NOTAM text contains any `trigger_patterns`
-2. If matched, extract SUP numbers using `reference_pattern` regex
+2. If matched, extract references using `reference_pattern` regex (2 or 3 capture groups)
 3. Normalize year (2-digit → 4-digit) and pad number
-4. Generate URLs from `document_url_templates`
+4. Build identifier from `identifier_format` template (or default)
+5. Generate URLs from `document_url_templates` with `{year}`, `{number}`, `{series}` substitution
 
 ### Supported Providers
 
-| Provider | Trigger | Example | Output URLs |
-|----------|---------|---------|-------------|
-| UK NATS | `WWW.NATS.AERO/AIS` | `SUP 059/2025` | `EG_Sup_2025_059_en.pdf` |
-| France SIA | `WWW.SIA.AVIATION-CIVILE.GOUV.FR` | `SUP 009/26` | `lf_sup_2026_009_fr.pdf`, `_en.pdf` |
+| Provider | Type | Trigger | Example | Output URLs |
+|----------|------|---------|---------|-------------|
+| UK NATS SUP | `aip_supplement` | `WWW.NATS.AERO/AIS` | `SUP 059/2025` | `EG_Sup_2025_059_en.pdf` |
+| UK NATS AIC | `aic` | `AIC Y`, `AIC W`, `AIC P` | `AIC Y 148/2025` | `EG_Circ_2025_Y_148_en.pdf` |
+| France SIA | `aip_supplement` | `WWW.SIA.AVIATION-CIVILE.GOUV.FR` | `SUP 009/26` | `lf_sup_2026_009_fr.pdf`, `_en.pdf` |
 
 ### Adding New Providers
 
 1. Add entry to `document_references.json` (in BOTH `Resources/` and `data/`)
-2. No code changes needed - both parsers read the config
-3. Test with sample NOTAM text
+2. Use `identifier_format` and `type` for non-SUP document types
+3. Use 3 capture groups in `reference_pattern` if the document has a series letter
+4. No code changes needed - both parsers read the config
+5. Test with sample NOTAM text
 
 ### Usage
 

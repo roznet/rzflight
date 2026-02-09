@@ -30,7 +30,7 @@ Sources/RZFlight/Briefing/
 ├── ForeFlightParser.swift        # Native PDF parsing (PDFKit)
 ├── NotamParser.swift             # NOTAM text parsing
 ├── QCodeLookup.swift             # Q-code meanings from JSON
-├── DocumentReferenceExtractor.swift  # AIP supplement links
+├── DocumentReferenceExtractor.swift  # AIP supplement & AIC links
 ├── DocumentReference.swift       # Reference model
 ├── Notam.swift                   # Core NOTAM model (Codable)
 ├── NotamCategory.swift           # Category enum matching Python
@@ -54,7 +54,7 @@ ForeFlightParser.parse(url:)
       │
       ├─▶ NotamParser (Q-line, dates, location)
       ├─▶ QCodeLookup (human-readable meanings)
-      └─▶ DocumentReferenceExtractor (AIP supplement links)
+      └─▶ DocumentReferenceExtractor (AIP supplement & AIC links)
       │
       ▼
 Briefing with [Notam]
@@ -154,9 +154,9 @@ let terminal = briefing.notams.nearAirports(["LFPG", "EGLL"], radiusNm: 30, coor
 ### DocumentReference
 | Field | Type | Description |
 |-------|------|-------------|
-| `type` | `String` | Document type (e.g., "aip_supplement") |
-| `identifier` | `String` | Reference ID (e.g., "SUP 059/2025") |
-| `provider` | `String` | Provider ID (e.g., "uk_nats") |
+| `type` | `String` | Document type: `"aip_supplement"`, `"aic"`, etc. |
+| `identifier` | `String` | Reference ID (e.g., "SUP 059/2025", "AIC Y 148/2025") |
+| `provider` | `String` | Provider ID (e.g., "uk_nats", "uk_nats_aic") |
 | `providerName` | `String` | Human name |
 | `searchURL` | `URL?` | Generic search page |
 | `documentURLs` | `[URL]` | Direct PDF links |
