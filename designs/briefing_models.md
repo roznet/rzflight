@@ -53,7 +53,7 @@ Set by parser (from Q-code) and enriched by `CategorizationPipeline`:
 
 | Field | Type | Set By | Description |
 |-------|------|--------|-------------|
-| `category` | `NotamCategory?` | Parser | Enum from Q-code (RUNWAY, LIGHTING, etc.) |
+| `category` | `NotamCategory?` | Parser | Enum from Q-code (AGA_MOVEMENT, AGA_LIGHTING, etc.) |
 | `primary_category` | `str?` | Pipeline | Best category string from categorization |
 | `custom_categories` | `Set[str]` | Pipeline | All applicable categories |
 | `custom_tags` | `Set[str]` | Pipeline | Granular tags (crane, closed, ils) |
@@ -87,10 +87,16 @@ Parsed from `q_codes.json`, provides human-readable meanings:
 | `q_code` | `str` | Raw Q-code (e.g., "QMRLC") |
 | `subject_code` | `str` | 2-letter subject (e.g., "MR") |
 | `subject_meaning` | `str` | Subject meaning (e.g., "Runway") |
+| `subject_phrase` | `str` | Short form (e.g., "rwy") |
+| `subject_category` | `str` | ICAO category (e.g., "AGA Movement Area") |
 | `condition_code` | `str` | 2-letter condition (e.g., "LC") |
 | `condition_meaning` | `str` | Condition meaning (e.g., "Closed") |
+| `condition_phrase` | `str` | Short form (e.g., "clsd") |
+| `condition_category` | `str` | Condition group (e.g., "Limitations") |
 | `display_text` | `str` | Combined text (e.g., "Runway: Closed") |
 | `short_text` | `str` | Short form (e.g., "RWY CLSD") |
+| `is_checklist` | `bool` | True if QKKKK checklist code |
+| `is_plain_language` | `bool` | True if XX (refer to Item E) |
 
 ### Document References
 

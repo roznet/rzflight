@@ -36,7 +36,8 @@ Sources/RZFlight/Briefing/
 ├── NotamCategory.swift           # Category enum matching Python
 ├── Route.swift                   # Route + RoutePoint models
 ├── Briefing.swift                # Container with load/parse methods
-└── Notam+Queries.swift           # [Notam] filtering extensions
+├── Notam+Queries.swift           # [Notam] filtering extensions
+└── Route+Geometry.swift         # Route projection & NOTAM classification
 
 Resources/
 ├── q_codes.json                  # Shared with Python
@@ -101,7 +102,7 @@ let flightNotams = briefing.flightWindowNotams
 ### Category and Tag Filtering
 ```swift
 // By ICAO category (from Q-code)
-let obstacles = briefing.notams.byCategory(.obstacle)
+let obstacles = briefing.notams.byCategory(.otherInfo)  // Obstacles fall under OTHER_INFO
 
 // By custom tags (from Python categorization pipeline)
 let cranes = briefing.notams.byCustomTag("crane")
@@ -194,7 +195,9 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
 | **Altitude** | `belowAltitude(_:)`, `aboveAltitude(_:)`, `inAltitudeRange(_:to:)` |
 | **Content** | `containing(_:)`, `matching(_:)` |
 | **Spatial** | `withinRadius(of:nm:)`, `nearAirports(_:radiusNm:coordinates:)` |
+| **Spatial** | `withinRadius(of:nm:)`, `nearAirports(_:radiusNm:coordinates:)` |
 | **Grouping** | `groupedByAirport()`, `groupedByCategory()`, `groupedByPrimaryCategory()` |
+| **Route** | `classifyForRoute(_:)`, `groupedByRouteSegment(route:)` |
 
 ## Key Choices
 

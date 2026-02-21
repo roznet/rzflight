@@ -79,6 +79,7 @@ Core fields — same structure for METARs, SPECIs, and TAF base/trends:
 | `wind_speed` | `int?` | Speed in knots |
 | `wind_gust` | `int?` | Gust speed in knots |
 | `wind_variable_from/to` | `int?` | Variable wind range |
+| `wind_unit` | `str` | Wind unit: "KT", "MPS", "KMH" (default "KT") |
 | `visibility_meters` | `int?` | Visibility in meters |
 | `visibility_sm` | `float?` | Visibility in statute miles |
 | `ceiling_ft` | `int?` | Lowest BKN/OVC layer in feet |

@@ -22,8 +22,23 @@ Sources/RZFlight/
 ├── RunwayWindModel.swift   # Wind calculation engine
 ├── Speed.swift             # Wind speed handling
 
+Briefing/
+├── Briefing.swift                # Container with load/parse methods
+├── ForeFlightParser.swift        # Native PDF parsing (PDFKit)
+├── NotamParser.swift             # NOTAM text parsing
+├── Notam.swift                   # Core NOTAM model (Codable)
+├── NotamCategory.swift           # Category enum matching Python
+├── Notam+Queries.swift           # [Notam] filtering extensions
+├── Route.swift                   # Route + RoutePoint models
+├── Route+Geometry.swift          # Route projection & NOTAM classification
+├── QCodeLookup.swift             # Q-code meanings from JSON
+├── DocumentReference.swift       # Reference model
+└── DocumentReferenceExtractor.swift  # AIP supplement & AIC links
+
 Resources/
-└── aip_fields.csv          # AIP field standardization catalog
+├── aip_fields.csv          # AIP field standardization catalog
+├── q_codes.json            # Shared Q-code meanings
+└── document_references.json # Shared AIP supplement patterns
 ```
 
 ---
@@ -464,6 +479,9 @@ AIPEntry.AIPFieldCatalog.setOverrideURL(nil)  // Reset
 | Wind calculations | `RunwayWindModel.swift`, `Heading.swift` |
 | Remote API calls | `AviationRemoteServices.swift` |
 | iOS-specific features | `*+iOS.swift` files |
+| Briefing/NOTAM parsing | `Briefing/*.swift` |
+| NOTAM filters | `Briefing/Notam+Queries.swift` |
+| Route classification | `Briefing/Route+Geometry.swift` |
 
 ---
 

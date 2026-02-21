@@ -39,8 +39,8 @@ departure_critical = (
 # Spatial: along route with 25nm corridor
 enroute = notams.along_route(route, corridor_nm=25).active_during(dep, arr)
 
-# Score and sort by relevance
-sorted_notams = notams.scored(RouteRelevanceScorer(route)).sorted_by_score()
+# Group by route segment (Swift: classifyForRoute, groupedByRouteSegment)
+by_airport = notams.group_by_airport()
 ```
 
 ## Categorization Pipeline

@@ -2,7 +2,12 @@
 
 **Version:** 1.0 Draft
 **Date:** January 2026
-**Status:** Draft
+**Status:** Historical - Superseded by implemented code
+
+> **Warning**: This is the initial design proposal. The implemented code differs significantly.
+> For current architecture, see: [briefing.md](./briefing.md), [briefing_models.md](./briefing_models.md), [briefing_weather.md](./briefing_weather.md).
+> Key differences: NotamCategory uses ICAO-standard names (AGA_MOVEMENT, ATM_AIRSPACE, etc.),
+> weather uses unified WeatherReport (not separate Metar/Taf), architecture differs.
 
 ---
 
