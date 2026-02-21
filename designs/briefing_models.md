@@ -60,19 +60,22 @@ Set by parser (from Q-code) and enriched by `CategorizationPipeline`:
 
 ### NotamCategory Enum
 
+Based on Q-code subject first letter (ICAO standard):
+
 ```python
 class NotamCategory(Enum):
-    MOVEMENT_AREA = "MX"  # Taxiway, apron
-    LIGHTING = "LX"
-    NAVIGATION = "NA"     # VOR, ILS, DME
-    COMMUNICATION = "CO"
-    AIRSPACE = "AR"       # Restricted, TFRs
-    RUNWAY = "RW"
-    OBSTACLE = "OB"       # Cranes, towers
-    PROCEDURE = "PI"      # SIDs, STARs, approaches
-    SERVICES = "SE"       # Fuel, ATC
-    WARNING = "WA"
-    OTHER = "XX"
+    ATM_AIRSPACE = "A"          # FIR, TMA, CTR, ATS routes
+    CNS_COMMUNICATIONS = "C"    # Radar, ADS-B
+    AGA_FACILITIES = "F"        # Aerodrome, fuel
+    CNS_GNSS = "G"              # GNSS Services
+    CNS_ILS = "I"               # ILS, localizer, glide path
+    AGA_LIGHTING = "L"          # ALS, PAPI, runway lights
+    AGA_MOVEMENT = "M"          # Runway, taxiway, apron
+    NAVIGATION = "N"            # VOR, DME, NDB
+    OTHER_INFO = "O"            # Obstacles, AIS
+    ATM_PROCEDURES = "P"        # SID, STAR, approaches
+    AIRSPACE_RESTRICTIONS = "R" # D/P/R areas
+    ATM_SERVICES = "S"          # ATIS, ACC, TWR
 ```
 
 ### Q-Code Info
@@ -185,6 +188,7 @@ Container for complete flight briefing.
 | `source` | `str` | "foreflight", "avwx", etc. |
 | `route` | `Route?` | Flight route |
 | `notams` | `List[Notam]` | All NOTAMs in briefing |
+| `weather_reports` | `List[WeatherReport]` | Parsed METARs/TAFs |
 | `valid_from` | `datetime?` | Briefing validity start |
 | `valid_to` | `datetime?` | Briefing validity end |
 | `raw_data` | `Dict?` | Source-specific metadata |
@@ -193,6 +197,7 @@ Container for complete flight briefing.
 
 ```python
 briefing.notams_query           # Returns NotamCollection for filtering
+briefing.weather_query          # Returns WeatherCollection for filtering
 briefing.set_model(euro_model)  # Enable coord lookup from euro_aip
 briefing.to_dict() / from_dict()
 briefing.to_json() / from_json()
@@ -238,4 +243,5 @@ if briefing.route and briefing.route.departure_time:
 
 - Main briefing doc: [briefing.md](./briefing.md)
 - Filtering: [briefing_filtering.md](./briefing_filtering.md)
-- Code: `euro_aip/briefing/models/`
+- Weather models & analysis: [briefing_weather.md](./briefing_weather.md)
+- Code: `euro_aip/briefing/models/`, `euro_aip/briefing/weather/models.py`

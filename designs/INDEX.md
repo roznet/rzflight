@@ -48,12 +48,13 @@ Documentation for European AIP web sources and data retrieval.
 → Full doc: AIP_WEB_SOURCES.md
 
 ### Python Euro AIP Briefing
-Flight briefing data extraction and NOTAM filtering. Parse ForeFlight PDFs, extract METARs/TAFs/NOTAMs, and filter with fluent API.
-Key exports: `Briefing`, `NotamCollection`, `ForeFlightSource`, `CategorizationPipeline`
+Flight briefing data extraction, NOTAM filtering, and weather analysis. Parse ForeFlight PDFs, extract METARs/TAFs/NOTAMs, and filter with fluent API.
+Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSource`, `CategorizationPipeline`, `WeatherReport`, `FlightCategory`
 
 **Documentation (load in order of need):**
 - `briefing.md` - Overview, architecture, usage examples (read FIRST)
-- `briefing_models.md` - Data model field reference (Notam, Route, Briefing)
-- `briefing_filtering.md` - NotamCollection API and categorization pipeline
+- `briefing_models.md` - Data model field reference (Notam, Route, Briefing, WeatherReport)
+- `briefing_filtering.md` - NotamCollection/WeatherCollection API and categorization pipeline
+- `briefing_weather.md` - Weather parsing, flight categories, wind components, TAF analysis
 - `briefing_parsing.md` - Source/parser separation, adding new sources
 - `swift_briefing.md` - Swift models for iOS/macOS (loads Python JSON)

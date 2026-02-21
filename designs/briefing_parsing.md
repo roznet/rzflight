@@ -9,6 +9,7 @@
 | Component | Python | Swift |
 |-----------|--------|-------|
 | NOTAM Parser | `NotamParser` | `NotamParser` |
+| Weather Parser | `WeatherParser` | — (Python only for now) |
 | Q-code Lookup | `parse_q_code()` | `QCodeLookup` |
 | Document References | `DocumentReferenceExtractor` | `DocumentReferenceExtractor` |
 | ForeFlight PDF | `ForeFlightSource` | `ForeFlightParser` |
@@ -51,13 +52,16 @@ This allows:
 Parsers are **class methods** that work on raw text - no source dependency.
 
 ```python
-from euro_aip.briefing.parsers import NotamParser, MetarParser, TafParser
+from euro_aip.briefing.parsers import NotamParser
+from euro_aip.briefing.weather import WeatherParser
 
 # Parse single item
 notam = NotamParser.parse(notam_text)
-metar = MetarParser.parse(metar_text)
+metar = WeatherParser.parse_metar(metar_text)
+taf = WeatherParser.parse_taf(taf_text)
+report = WeatherParser.parse_auto(unknown_text)  # Auto-detect METAR vs TAF
 
-# Parse multiple from a block
+# Parse multiple NOTAMs from a block
 notams = NotamParser.parse_many(text_with_many_notams)
 ```
 
@@ -74,15 +78,12 @@ Parses ICAO NOTAM format:
 Sources handle extraction only, then delegate to parsers:
 
 ```python
-class ForeFlightSource(BriefingSource):
+class ForeFlightSource:
     def parse(self, pdf_path) -> Briefing:
-        text = self._extract_text(pdf_path)  # PDF → text
-
-        # Delegate to standalone parsers
-        notams = NotamParser.parse_many(self._get_notam_section(text))
-        metars = MetarParser.parse_many(self._get_metar_section(text))
-
-        return Briefing(notams=notams, metars=metars, ...)
+        text = self._extract_text(pdf_path)        # PDF → text
+        notams = self._extract_notams(text)         # → NotamParser
+        weather = self._extract_weather(text)       # → WeatherParser
+        return Briefing(notams=notams, weather_reports=weather, ...)
 ```
 
 ## BriefingSource Interface

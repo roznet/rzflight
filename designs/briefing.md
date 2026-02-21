@@ -16,22 +16,23 @@ Allow users to:
 
 ```
 euro_aip/briefing/
-├── models/          # Briefing, Notam, Metar, Taf, Route dataclasses
-├── parsers/         # Standalone text parsers (NotamParser, MetarParser)
-├── sources/         # BriefingSource implementations (ForeFlight, AVWX)
-├── collections/     # NotamCollection, WeatherCollection (QueryableCollection)
-├── filters/         # Categorizers, scorers, presets
-└── utils/           # ICAO Q-code decoder
+├── models/          # Briefing, Notam, Route dataclasses
+├── parsers/         # Standalone text parsers (NotamParser)
+├── sources/         # BriefingSource implementations (ForeFlight)
+├── collections/     # NotamCollection (QueryableCollection)
+├── categorization/  # Q-code, text rules, pipeline
+├── weather/         # WeatherReport, WeatherParser, WeatherAnalyzer, WeatherCollection
+└── filters/         # Filter utilities
 ```
 
 **Key separation**: Sources extract raw text → Parsers convert to models → Collections filter/query
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Source    │────▶│   Parser    │────▶│ Collection  │
-│ (ForeFlight)│     │ (standalone)│     │  (fluent)   │
-└─────────────┘     └─────────────┘     └─────────────┘
-     PDF              Any text           Filter/query
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│   Source    │────▶│    Parsers       │────▶│    Collections      │
+│ (ForeFlight)│     │ NotamParser      │     │ NotamCollection     │
+└─────────────┘     │ WeatherParser    │     │ WeatherCollection   │
+     PDF            └──────────────────┘     └─────────────────────┘
 ```
 
 ## Usage Examples
@@ -62,6 +63,23 @@ enroute = briefing.notams_query.along_route(briefing.route, corridor_nm=25)
 # Active during flight window
 flight_start, flight_end = briefing.route.get_flight_window(buffer_minutes=60)
 relevant = briefing.notams_query.active_during(flight_start, flight_end)
+```
+
+### Weather Analysis
+```python
+from euro_aip.briefing import WeatherReport, FlightCategory
+
+# Parse and analyze weather
+metar = briefing.weather_query.metars().for_airport("LFPG").latest()
+print(metar.flight_category)  # FlightCategory.VFR
+
+# Wind components for runway
+wc = metar.wind_components(270, "27")
+print(f"Headwind: {wc.headwind}kt, Crosswind: {wc.crosswind}kt")
+print(f"Within limits: {wc.within_limits(max_crosswind_kt=20)}")
+
+# Find IFR or worse
+bad_wx = briefing.weather_query.at_or_worse_than(FlightCategory.IFR).all()
 ```
 
 ### Source-Agnostic Parsing
@@ -100,6 +118,7 @@ notams = NotamParser.parse_many(text_block)
 ## References
 
 - Filtering details: [briefing_filtering.md](./briefing_filtering.md)
+- Weather module: [briefing_weather.md](./briefing_weather.md)
 - Parsing architecture: [briefing_parsing.md](./briefing_parsing.md)
 - Key code: `euro_aip/briefing/`
 - Similar patterns: [query_api_architecture.md](./query_api_architecture.md)

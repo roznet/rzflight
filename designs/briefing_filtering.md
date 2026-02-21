@@ -1,11 +1,11 @@
 # Briefing: Filtering & Categorization
 
-> NotamCollection fluent API and pluggable categorization pipeline
+> NotamCollection and WeatherCollection fluent APIs, plus pluggable categorization pipeline
 
 ## Intent
 
-Provide flexible NOTAM filtering that:
-- Works on any NOTAM regardless of source
+Provide flexible NOTAM and weather filtering that:
+- Works on any NOTAM/weather report regardless of source
 - Supports spatial queries (route corridor, radius)
 - Handles time windows for flight planning
 - Allows custom categorization (rules, LLM)
@@ -82,6 +82,31 @@ cranes = briefing.notams_query.by_custom_tag("crane")
 runway_issues = briefing.notams_query.by_custom_category("runway")
 ```
 
+## WeatherCollection API
+
+Follows same `QueryableCollection` pattern. All methods return new collections.
+
+| Category | Methods | Use Case |
+|----------|---------|----------|
+| **Type** | `metars()`, `tafs()` | Split by report type (metars includes SPECI) |
+| **Location** | `for_airport()`, `for_airports()` | Filter by ICAO |
+| **Category** | `by_category()`, `worse_than()`, `at_or_worse_than()` | Flight category filtering |
+| **Time** | `latest()`, `before()`, `after()`, `between()`, `chronological()` | Time-based queries |
+| **Wind** | `crosswind_exceeds(heading, limit_kt)` | Check runway crosswind limits |
+| **Grouping** | `group_by_airport()` | Dict[icao, WeatherCollection] |
+
+### Usage Pattern
+```python
+# Get latest METAR for departure
+metar = briefing.weather_query.metars().for_airport("LFPG").latest()
+
+# Find all IFR or worse conditions
+bad_wx = briefing.weather_query.at_or_worse_than(FlightCategory.IFR).all()
+
+# Group weather by airport
+by_airport = briefing.weather_query.group_by_airport()
+```
+
 ## Key Choices
 
 | Decision | Rationale |
@@ -90,6 +115,7 @@ runway_issues = briefing.notams_query.by_custom_category("runway")
 | Categorizers are pluggable | Add LLM later without changing API |
 | Confidence scores on results | Know when to trust categorization |
 | Custom tags separate from categories | Tags are granular (crane), categories are broad (obstacle) |
+| WeatherCollection has no model ref | Weather doesn't need spatial coord lookups like NOTAMs |
 
 ## Gotchas
 
@@ -97,9 +123,11 @@ runway_issues = briefing.notams_query.by_custom_category("runway")
 - **Set operations create new collections**: `a & b` doesn't modify `a`
 - **Time overlap logic**: `active_during()` includes NOTAMs active for ANY part of window
 - **Permanent NOTAMs**: `is_permanent=True` means no end date, always included in future windows
+- **WeatherCollection.latest()**: Returns single report (not collection), based on `observation_time`
 
 ## References
 
 - Main briefing doc: [briefing.md](./briefing.md)
+- Weather module: [briefing_weather.md](./briefing_weather.md)
 - Parsing details: [briefing_parsing.md](./briefing_parsing.md)
-- Code: `euro_aip/briefing/collections/notam_collection.py`, `euro_aip/briefing/filters/`
+- Code: `euro_aip/briefing/collections/notam_collection.py`, `euro_aip/briefing/weather/collection.py`
