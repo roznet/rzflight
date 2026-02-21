@@ -35,6 +35,15 @@ from euro_aip.briefing.collections.notam_collection import NotamCollection
 from euro_aip.briefing.sources.foreflight import ForeFlightSource
 from euro_aip.briefing.parsers.notam_parser import NotamParser
 from euro_aip.briefing.categorization.pipeline import CategorizationPipeline
+from euro_aip.briefing.weather import (
+    WeatherReport,
+    FlightCategory,
+    WindComponents,
+    WeatherType,
+    WeatherParser,
+    WeatherAnalyzer,
+    WeatherCollection,
+)
 
 __all__ = [
     # Models
@@ -51,4 +60,12 @@ __all__ = [
     'NotamParser',
     # Categorization
     'CategorizationPipeline',
+    # Weather
+    'WeatherReport',
+    'FlightCategory',
+    'WindComponents',
+    'WeatherType',
+    'WeatherParser',
+    'WeatherAnalyzer',
+    'WeatherCollection',
 ]

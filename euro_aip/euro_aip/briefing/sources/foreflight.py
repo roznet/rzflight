@@ -16,6 +16,8 @@ from euro_aip.briefing.models.briefing import Briefing
 from euro_aip.briefing.models.notam import Notam
 from euro_aip.briefing.models.route import Route, RoutePoint
 from euro_aip.briefing.parsers.notam_parser import NotamParser
+from euro_aip.briefing.weather.parser import WeatherParser
+from euro_aip.briefing.weather.models import WeatherReport
 
 logger = logging.getLogger(__name__)
 
@@ -72,11 +74,15 @@ class ForeFlightSource:
         # Extract NOTAMs
         notams = self._extract_notams(text)
 
+        # Extract weather reports
+        weather_reports = self._extract_weather(text)
+
         # Create briefing
         briefing = Briefing(
             source="foreflight",
             route=route,
             notams=notams,
+            weather_reports=weather_reports,
             created_at=datetime.now(),
             raw_data={'text_length': len(text)},
         )
@@ -97,11 +103,13 @@ class ForeFlightSource:
         """
         route = self._extract_route(text)
         notams = self._extract_notams(text)
+        weather_reports = self._extract_weather(text)
 
         return Briefing(
             source="foreflight",
             route=route,
             notams=notams,
+            weather_reports=weather_reports,
             created_at=datetime.now(),
         )
 
@@ -384,6 +392,48 @@ class ForeFlightSource:
             chunks = [section_text.strip()]
 
         return chunks
+
+    def _extract_weather(self, text: str) -> List[WeatherReport]:
+        """
+        Extract METAR and TAF reports from briefing text.
+
+        Looks for standard METAR/SPECI/TAF patterns in the text.
+        ForeFlight briefings typically include weather reports for
+        departure, destination, and alternate airports.
+        """
+        reports = []
+        seen_raw = set()
+
+        # Match METAR/SPECI lines: start with METAR/SPECI followed by ICAO code
+        metar_pattern = re.compile(
+            r'(?:METAR|SPECI)\s+[A-Z]{4}\s+\d{6}Z\s+.+?(?=\n(?:METAR|SPECI|TAF\s)|$)',
+            re.MULTILINE | re.DOTALL,
+        )
+        for match in metar_pattern.finditer(text):
+            raw = match.group(0).strip()
+            # Normalize whitespace for dedup
+            norm = ' '.join(raw.split())
+            if norm not in seen_raw:
+                seen_raw.add(norm)
+                report = WeatherParser.parse_metar(raw, source='foreflight')
+                if report:
+                    reports.append(report)
+
+        # Match TAF blocks: start with TAF and end at next METAR/SPECI/TAF or double newline
+        taf_pattern = re.compile(
+            r'TAF\s+(?:AMD\s+|COR\s+)?[A-Z]{4}\s+\d{6}Z\s+.+?(?=\n(?:METAR|SPECI|TAF\s)|\n\s*\n|$)',
+            re.MULTILINE | re.DOTALL,
+        )
+        for match in taf_pattern.finditer(text):
+            raw = match.group(0).strip()
+            norm = ' '.join(raw.split())
+            if norm not in seen_raw:
+                seen_raw.add(norm)
+                report = WeatherParser.parse_taf(raw, source='foreflight')
+                if report:
+                    reports.append(report)
+
+        return reports
 
     def get_supported_formats(self) -> List[str]:
         """Get list of supported input formats."""

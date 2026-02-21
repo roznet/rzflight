@@ -12,6 +12,8 @@ from euro_aip.briefing.models.route import Route
 
 if TYPE_CHECKING:
     from euro_aip.briefing.collections.notam_collection import NotamCollection
+    from euro_aip.briefing.weather.collection import WeatherCollection
+    from euro_aip.briefing.weather.models import WeatherReport
     from euro_aip.models.euro_aip_model import EuroAipModel
 
 
@@ -52,6 +54,9 @@ class Briefing:
 
     # NOTAMs
     notams: List[Notam] = field(default_factory=list)
+
+    # Weather reports
+    weather_reports: List['WeatherReport'] = field(default_factory=list)
 
     # Metadata
     valid_from: Optional[datetime] = None
@@ -99,6 +104,24 @@ class Briefing:
         from euro_aip.briefing.collections.notam_collection import NotamCollection
         return NotamCollection(self.notams, model=self._model)
 
+    @property
+    def weather_query(self) -> 'WeatherCollection':
+        """
+        Get queryable collection of weather reports.
+
+        Returns:
+            WeatherCollection with fluent filtering API.
+
+        Example:
+            # Get latest METAR for departure
+            metar = briefing.weather_query.metars().for_airport("LFPG").latest()
+
+            # Find IFR conditions
+            ifr = briefing.weather_query.at_or_worse_than(FlightCategory.IFR).all()
+        """
+        from euro_aip.briefing.weather.collection import WeatherCollection
+        return WeatherCollection(self.weather_reports)
+
     def to_dict(self) -> dict:
         """
         Serialize to dictionary for JSON export.
@@ -111,6 +134,7 @@ class Briefing:
             'source': self.source,
             'route': self.route.to_dict() if self.route else None,
             'notams': [n.to_dict() for n in self.notams],
+            'weather_reports': [w.to_dict() for w in self.weather_reports],
             'valid_from': self.valid_from.isoformat() if self.valid_from else None,
             'valid_to': self.valid_to.isoformat() if self.valid_to else None,
             'raw_data': self.raw_data,
@@ -147,12 +171,18 @@ class Briefing:
         if data.get('notams'):
             notams = [Notam.from_dict(n) for n in data['notams']]
 
+        weather_reports = []
+        if data.get('weather_reports'):
+            from euro_aip.briefing.weather.models import WeatherReport
+            weather_reports = [WeatherReport.from_dict(w) for w in data['weather_reports']]
+
         return cls(
             id=data.get('id', str(uuid.uuid4())),
             created_at=created_at,
             source=data.get('source', ''),
             route=route,
             notams=notams,
+            weather_reports=weather_reports,
             valid_from=valid_from,
             valid_to=valid_to,
             raw_data=data.get('raw_data'),
@@ -210,4 +240,5 @@ class Briefing:
 
     def __repr__(self) -> str:
         route_str = f"{self.route.departure}->{self.route.destination}" if self.route else "no route"
-        return f"Briefing(id={self.id!r}, source={self.source!r}, route={route_str}, notams={len(self.notams)})"
+        wx = f", weather={len(self.weather_reports)}" if self.weather_reports else ""
+        return f"Briefing(id={self.id!r}, source={self.source!r}, route={route_str}, notams={len(self.notams)}{wx})"
