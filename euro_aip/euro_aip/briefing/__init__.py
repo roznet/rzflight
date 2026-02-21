@@ -33,6 +33,7 @@ from euro_aip.briefing.models.route import Route, RoutePoint
 from euro_aip.briefing.models.briefing import Briefing
 from euro_aip.briefing.collections.notam_collection import NotamCollection
 from euro_aip.briefing.sources.foreflight import ForeFlightSource
+from euro_aip.briefing.sources.avwx import AvWxSource
 from euro_aip.briefing.parsers.notam_parser import NotamParser
 from euro_aip.briefing.categorization.pipeline import CategorizationPipeline
 from euro_aip.briefing.weather import (
@@ -43,6 +44,9 @@ from euro_aip.briefing.weather import (
     WeatherParser,
     WeatherAnalyzer,
     WeatherCollection,
+    RouteWeatherService,
+    RouteWeatherResult,
+    RouteAirportWeather,
 )
 
 __all__ = [
@@ -56,6 +60,7 @@ __all__ = [
     'NotamCollection',
     # Sources
     'ForeFlightSource',
+    'AvWxSource',
     # Parsers
     'NotamParser',
     # Categorization
@@ -68,4 +73,7 @@ __all__ = [
     'WeatherParser',
     'WeatherAnalyzer',
     'WeatherCollection',
+    'RouteWeatherService',
+    'RouteWeatherResult',
+    'RouteAirportWeather',
 ]

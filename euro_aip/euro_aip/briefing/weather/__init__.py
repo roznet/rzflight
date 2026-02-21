@@ -29,6 +29,11 @@ from euro_aip.briefing.weather.models import (
 from euro_aip.briefing.weather.parser import WeatherParser
 from euro_aip.briefing.weather.analysis import WeatherAnalyzer
 from euro_aip.briefing.weather.collection import WeatherCollection
+from euro_aip.briefing.weather.route_weather import (
+    RouteWeatherService,
+    RouteWeatherResult,
+    RouteAirportWeather,
+)
 
 __all__ = [
     'WeatherReport',
@@ -38,4 +43,7 @@ __all__ = [
     'WeatherParser',
     'WeatherAnalyzer',
     'WeatherCollection',
+    'RouteWeatherService',
+    'RouteWeatherResult',
+    'RouteAirportWeather',
 ]
