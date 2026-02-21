@@ -399,11 +399,11 @@ class TestDatabaseStorageWithWorldAirports:
         """Create a WorldAirportsSource with test data."""
         # Copy test CSV files to cache directory
         test_csv_dir = Path(__file__).parent.parent / 'assets' / 'csv'
-        cache_csv_dir = Path(temp_cache_dir) / 'worldairports'
+        cache_csv_dir = Path(temp_cache_dir) / 'worldairportssource'
         cache_csv_dir.mkdir(parents=True, exist_ok=True)
         
-        shutil.copy(test_csv_dir / 'airports_test.csv', cache_csv_dir / 'airports.csv')
-        shutil.copy(test_csv_dir / 'runways_test.csv', cache_csv_dir / 'runways.csv')
+        shutil.copy(test_csv_dir / 'airports_test.csv', cache_csv_dir / 'airports_.csv')
+        shutil.copy(test_csv_dir / 'runways_test.csv', cache_csv_dir / 'runways_.csv')
         
         return WorldAirportsSource(
             cache_dir=temp_cache_dir,

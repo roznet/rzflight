@@ -245,21 +245,21 @@ class TestNotamCollectionCategoryFilters:
     def test_by_category(self):
         """Test filtering by NOTAM category."""
         notams = [
-            create_notam(id="A0001/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0001/24", category=NotamCategory.AGA_MOVEMENT),
             create_notam(id="A0002/24", category=NotamCategory.NAVIGATION),
-            create_notam(id="A0003/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0003/24", category=NotamCategory.AGA_MOVEMENT),
         ]
 
         collection = NotamCollection(notams)
-        result = collection.by_category(NotamCategory.RUNWAY).all()
+        result = collection.by_category(NotamCategory.AGA_MOVEMENT).all()
 
         assert len(result) == 2
 
     def test_runway_related(self):
         """Test filtering runway-related NOTAMs."""
         notams = [
-            create_notam(id="A0001/24", category=NotamCategory.RUNWAY),
-            create_notam(id="A0002/24", category=NotamCategory.LIGHTING),
+            create_notam(id="A0001/24", category=NotamCategory.AGA_MOVEMENT),
+            create_notam(id="A0002/24", category=NotamCategory.AGA_LIGHTING),
             create_notam(id="A0003/24", q_code="QMRLC"),  # Runway closed
             create_notam(id="A0004/24", category=NotamCategory.NAVIGATION),
         ]
@@ -275,7 +275,7 @@ class TestNotamCollectionCategoryFilters:
         notams = [
             create_notam(id="A0001/24", category=NotamCategory.NAVIGATION),
             create_notam(id="A0002/24", q_code="QNVAS"),  # VOR unserviceable
-            create_notam(id="A0003/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0003/24", category=NotamCategory.AGA_MOVEMENT),
         ]
 
         collection = NotamCollection(notams)
@@ -286,9 +286,9 @@ class TestNotamCollectionCategoryFilters:
     def test_airspace_related(self):
         """Test filtering airspace-related NOTAMs."""
         notams = [
-            create_notam(id="A0001/24", category=NotamCategory.AIRSPACE),
+            create_notam(id="A0001/24", category=NotamCategory.ATM_AIRSPACE),
             create_notam(id="A0002/24", q_code="QARAU"),  # Restricted area active
-            create_notam(id="A0003/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0003/24", category=NotamCategory.AGA_MOVEMENT),
         ]
 
         collection = NotamCollection(notams)
@@ -521,7 +521,7 @@ class TestNotamCollectionSetOperations:
             create_notam(
                 id="A0001/24",
                 location="LFPG",
-                category=NotamCategory.RUNWAY,
+                category=NotamCategory.AGA_MOVEMENT,
                 effective_from=now - timedelta(hours=1),
                 effective_to=now + timedelta(hours=1),
             ),
@@ -535,14 +535,14 @@ class TestNotamCollectionSetOperations:
             create_notam(
                 id="A0003/24",
                 location="LFPG",
-                category=NotamCategory.RUNWAY,
+                category=NotamCategory.AGA_MOVEMENT,
                 effective_from=now + timedelta(hours=5),
                 effective_to=now + timedelta(hours=10),
             ),
         ]
 
         collection = NotamCollection(notams)
-        runway = collection.by_category(NotamCategory.RUNWAY)
+        runway = collection.by_category(NotamCategory.AGA_MOVEMENT)
         active = collection.active_now()
 
         result = (runway & active).all()
@@ -589,16 +589,16 @@ class TestNotamCollectionGrouping:
     def test_group_by_category(self):
         """Test grouping by category."""
         notams = [
-            create_notam(id="A0001/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0001/24", category=NotamCategory.AGA_MOVEMENT),
             create_notam(id="A0002/24", category=NotamCategory.NAVIGATION),
-            create_notam(id="A0003/24", category=NotamCategory.RUNWAY),
+            create_notam(id="A0003/24", category=NotamCategory.AGA_MOVEMENT),
         ]
 
         collection = NotamCollection(notams)
         groups = collection.group_by_category()
 
         assert len(groups) == 2
-        assert len(groups[NotamCategory.RUNWAY].all()) == 2
+        assert len(groups[NotamCategory.AGA_MOVEMENT].all()) == 2
         assert len(groups[NotamCategory.NAVIGATION].all()) == 1
 
 
@@ -612,7 +612,7 @@ class TestNotamCollectionChaining:
             create_notam(
                 id="A0001/24",
                 location="LFPG",
-                category=NotamCategory.RUNWAY,
+                category=NotamCategory.AGA_MOVEMENT,
                 effective_from=now - timedelta(hours=1),
                 effective_to=now + timedelta(hours=1),
             ),
@@ -626,7 +626,7 @@ class TestNotamCollectionChaining:
             create_notam(
                 id="A0003/24",
                 location="EGLL",
-                category=NotamCategory.RUNWAY,
+                category=NotamCategory.AGA_MOVEMENT,
                 effective_from=now - timedelta(hours=1),
                 effective_to=now + timedelta(hours=1),
             ),
@@ -637,7 +637,7 @@ class TestNotamCollectionChaining:
             collection
             .for_airport("LFPG")
             .active_now()
-            .by_category(NotamCategory.RUNWAY)
+            .by_category(NotamCategory.AGA_MOVEMENT)
             .all()
         )
 

@@ -33,7 +33,7 @@ class TestNotamParser:
         assert notam.purpose == "NBO"
         assert notam.scope == "A"
         assert "RWY 09L/27R CLSD" in notam.message
-        assert notam.category == NotamCategory.RUNWAY
+        assert notam.category == NotamCategory.AGA_MOVEMENT
 
     def test_parse_notam_coordinates(self):
         """Test coordinate parsing from Q-line."""
@@ -151,8 +151,8 @@ class TestNotamParser:
         assert notams[2].id == "A0003/24"
 
         # Check categories
-        assert notams[0].category == NotamCategory.RUNWAY
-        assert notams[1].category == NotamCategory.MOVEMENT_AREA
+        assert notams[0].category == NotamCategory.AGA_MOVEMENT
+        assert notams[1].category == NotamCategory.AGA_MOVEMENT
         assert notams[2].category == NotamCategory.NAVIGATION
 
     def test_parse_q_code(self):
@@ -162,21 +162,21 @@ class TestNotamParser:
         assert result['code'] == "MRLC"
         assert result['prefix'] == "MR"
         assert result['suffix'] == "LC"
-        assert result['category'] == NotamCategory.RUNWAY
+        assert result['category'] == NotamCategory.AGA_MOVEMENT
         assert result['suffix_meaning'] == "closed"
 
     def test_parse_category_from_qcode(self):
         """Test category determination from various Q-codes."""
         test_cases = [
-            ("QMRLC", NotamCategory.RUNWAY),
-            ("QMXLC", NotamCategory.MOVEMENT_AREA),
-            ("QLRAS", NotamCategory.LIGHTING),
+            ("QMRLC", NotamCategory.AGA_MOVEMENT),
+            ("QMXLC", NotamCategory.AGA_MOVEMENT),
+            ("QLRAS", NotamCategory.AGA_LIGHTING),
             ("QNVAS", NotamCategory.NAVIGATION),
             ("QNIAS", NotamCategory.NAVIGATION),
-            ("QOBCE", NotamCategory.OBSTACLE),
-            ("QPICH", NotamCategory.PROCEDURE),
-            ("QARAU", NotamCategory.AIRSPACE),
-            ("QWPLW", NotamCategory.WARNING),
+            ("QOBCE", NotamCategory.OTHER_INFO),
+            ("QPICH", NotamCategory.ATM_PROCEDURES),
+            ("QARAU", NotamCategory.ATM_AIRSPACE),
+            ("QWPLW", NotamCategory.OTHER_INFO),
         ]
 
         for q_code, expected_category in test_cases:
