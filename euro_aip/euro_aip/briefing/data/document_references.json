@@ -1,0 +1,31 @@
+{
+  "providers": [
+    {
+      "id": "uk_nats",
+      "name": "UK NATS AIP Supplements",
+      "country_code": "EG",
+      "trigger_patterns": ["WWW.NATS.AERO/AIS", "NATS.AERO/AIS"],
+      "reference_pattern": "SUP\\s*(\\d{3})/(\\d{2,4})",
+      "search_url": "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/aip-supplements/",
+      "document_url_templates": [
+        "https://nats-uk.ead-it.com/cms-nats/opencms/en/Publications/aip-supplements/EG_Sup_{year}_{number}_en.pdf"
+      ],
+      "year_format": "4digit",
+      "number_padding": 3
+    },
+    {
+      "id": "france_sia",
+      "name": "France SIA AIP Supplements",
+      "country_code": "LF",
+      "trigger_patterns": ["WWW.SIA.AVIATION-CIVILE.GOUV.FR", "SIA.AVIATION-CIVILE.GOUV.FR"],
+      "reference_pattern": "SUP\\s*(\\d{3})/(\\d{2,4})",
+      "search_url": "https://www.sia.aviation-civile.gouv.fr/documents/supaip/aip/id/6",
+      "document_url_templates": [
+        "https://www.sia.aviation-civile.gouv.fr/media/store/documents/file/l/f/lf_sup_{year}_{number}_fr.pdf",
+        "https://www.sia.aviation-civile.gouv.fr/media/store/documents/file/l/f/lf_sup_{year}_{number}_en.pdf"
+      ],
+      "year_format": "4digit",
+      "number_padding": 3
+    }
+  ]
+}

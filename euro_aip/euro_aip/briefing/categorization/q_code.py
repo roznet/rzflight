@@ -22,7 +22,7 @@ from euro_aip.briefing.models.notam import Notam
 
 
 # Load Q-codes data at module level
-_Q_CODES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "q_codes.json"
+_Q_CODES_PATH = Path(__file__).parent.parent / "data" / "q_codes.json"
 _Q_CODES_DATA: Optional[Dict] = None
 
 

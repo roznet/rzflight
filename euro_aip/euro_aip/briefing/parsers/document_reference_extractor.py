@@ -43,7 +43,7 @@ class DocumentReferenceExtractor:
         """
         if config_path is None:
             # Default path relative to this file
-            config_path = Path(__file__).parent.parent.parent.parent / 'data' / 'document_references.json'
+            config_path = Path(__file__).parent.parent / 'data' / 'document_references.json'
 
         self.config_path = config_path
         self._providers: List[Dict[str, Any]] = []
