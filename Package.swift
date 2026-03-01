@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "RZFlight",
+    name: "rzflight",
     platforms: [
         .macOS(.v12), .iOS(.v15)
     ],
