@@ -1,7 +1,7 @@
 """Weather report data models."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from math import cos, sin, radians
 from typing import Optional, List, Dict, Any
@@ -303,6 +303,8 @@ class WeatherReport:
         observation_time = None
         if data.get('observation_time'):
             observation_time = datetime.fromisoformat(data['observation_time'])
+            if observation_time.tzinfo is None:
+                observation_time = observation_time.replace(tzinfo=timezone.utc)
 
         report_type = WeatherType.METAR
         if data.get('report_type'):
@@ -321,10 +323,14 @@ class WeatherReport:
         validity_start = None
         if data.get('validity_start'):
             validity_start = datetime.fromisoformat(data['validity_start'])
+            if validity_start.tzinfo is None:
+                validity_start = validity_start.replace(tzinfo=timezone.utc)
 
         validity_end = None
         if data.get('validity_end'):
             validity_end = datetime.fromisoformat(data['validity_end'])
+            if validity_end.tzinfo is None:
+                validity_end = validity_end.replace(tzinfo=timezone.utc)
 
         trends = []
         if data.get('trends'):

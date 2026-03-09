@@ -1,7 +1,7 @@
 """Tests for weather analysis: flight categories, wind components."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from euro_aip.briefing.weather.models import (
     WeatherReport,
@@ -249,46 +249,46 @@ class TestTafValidity:
         """When no trends apply, returns base TAF."""
         taf = WeatherReport(
             report_type=WeatherType.TAF,
-            validity_start=datetime(2024, 3, 21, 12, 0),
-            validity_end=datetime(2024, 3, 22, 18, 0),
+            validity_start=datetime(2024, 3, 21, 12, 0, tzinfo=timezone.utc),
+            validity_end=datetime(2024, 3, 22, 18, 0, tzinfo=timezone.utc),
             trends=[],
         )
-        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 15, 0))
+        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 15, 0, tzinfo=timezone.utc))
         assert result is taf
 
     def test_find_applicable_taf_with_tempo(self):
         """Returns applicable TEMPO trend."""
         tempo = WeatherReport(
             trend_type="TEMPO",
-            validity_start=datetime(2024, 3, 21, 14, 0),
-            validity_end=datetime(2024, 3, 21, 18, 0),
+            validity_start=datetime(2024, 3, 21, 14, 0, tzinfo=timezone.utc),
+            validity_end=datetime(2024, 3, 21, 18, 0, tzinfo=timezone.utc),
         )
         taf = WeatherReport(
             report_type=WeatherType.TAF,
-            validity_start=datetime(2024, 3, 21, 12, 0),
-            validity_end=datetime(2024, 3, 22, 18, 0),
+            validity_start=datetime(2024, 3, 21, 12, 0, tzinfo=timezone.utc),
+            validity_end=datetime(2024, 3, 22, 18, 0, tzinfo=timezone.utc),
             trends=[tempo],
         )
 
         # Within TEMPO validity
-        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 15, 0))
+        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 15, 0, tzinfo=timezone.utc))
         assert result is tempo
 
         # Outside TEMPO validity
-        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 13, 0))
+        result = WeatherAnalyzer.find_applicable_taf(taf, datetime(2024, 3, 21, 13, 0, tzinfo=timezone.utc))
         assert result is taf
 
     def test_applicable_trends_multiple(self):
         """Returns all applicable trends."""
         tempo1 = WeatherReport(
             trend_type="TEMPO",
-            validity_start=datetime(2024, 3, 21, 14, 0),
-            validity_end=datetime(2024, 3, 21, 20, 0),
+            validity_start=datetime(2024, 3, 21, 14, 0, tzinfo=timezone.utc),
+            validity_end=datetime(2024, 3, 21, 20, 0, tzinfo=timezone.utc),
         )
         tempo2 = WeatherReport(
             trend_type="TEMPO",
-            validity_start=datetime(2024, 3, 21, 16, 0),
-            validity_end=datetime(2024, 3, 21, 18, 0),
+            validity_start=datetime(2024, 3, 21, 16, 0, tzinfo=timezone.utc),
+            validity_end=datetime(2024, 3, 21, 18, 0, tzinfo=timezone.utc),
         )
         taf = WeatherReport(
             report_type=WeatherType.TAF,
@@ -296,5 +296,5 @@ class TestTafValidity:
         )
 
         # Time within both trends
-        result = WeatherAnalyzer.applicable_trends(taf, datetime(2024, 3, 21, 17, 0))
+        result = WeatherAnalyzer.applicable_trends(taf, datetime(2024, 3, 21, 17, 0, tzinfo=timezone.utc))
         assert len(result) == 2

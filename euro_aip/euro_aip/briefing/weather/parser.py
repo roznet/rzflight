@@ -2,7 +2,7 @@
 
 import re
 import logging
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timezone
 from typing import Optional, List, Dict, Any
 
 from euro_aip.briefing.weather.models import WeatherReport, WeatherType, FlightCategory
@@ -145,11 +145,12 @@ class WeatherParser:
         """Build WeatherReport from a parsed Metar object."""
         obs_time = None
         if parsed.day is not None and parsed.time is not None:
-            now = datetime.now(tz=None)
+            now = datetime.now(tz=timezone.utc)
             try:
                 obs_time = datetime(
                     now.year, now.month, parsed.day,
                     parsed.time.hour, parsed.time.minute,
+                    tzinfo=timezone.utc,
                 )
             except ValueError:
                 pass
@@ -193,11 +194,12 @@ class WeatherParser:
         """Build WeatherReport from a parsed TAF object."""
         obs_time = None
         if parsed.day is not None and parsed.time is not None:
-            now = datetime.now(tz=None)
+            now = datetime.now(tz=timezone.utc)
             try:
                 obs_time = datetime(
                     now.year, now.month, parsed.day,
                     parsed.time.hour, parsed.time.minute,
+                    tzinfo=timezone.utc,
                 )
             except ValueError:
                 pass
@@ -524,7 +526,7 @@ class WeatherParser:
 
         Handles hour 24 conversion and month-crossing.
         """
-        now = datetime.now(tz=None)
+        now = datetime.now(tz=timezone.utc)
 
         start_day = getattr(validity, 'start_day', None)
         start_hour = getattr(validity, 'start_hour', None)
@@ -539,7 +541,7 @@ class WeatherParser:
             start_day += 1
 
         try:
-            val_start = datetime(now.year, now.month, start_day, start_hour, start_minutes)
+            val_start = datetime(now.year, now.month, start_day, start_hour, start_minutes, tzinfo=timezone.utc)
         except ValueError:
             return None, None
 
@@ -555,7 +557,7 @@ class WeatherParser:
             end_day += 1
 
         try:
-            val_end = datetime(now.year, now.month, end_day, end_hour)
+            val_end = datetime(now.year, now.month, end_day, end_hour, tzinfo=timezone.utc)
         except ValueError:
             # Likely month-crossing: end_day is in next month
             month = now.month + 1
@@ -564,7 +566,7 @@ class WeatherParser:
                 month = 1
                 year += 1
             try:
-                val_end = datetime(year, month, end_day, end_hour)
+                val_end = datetime(year, month, end_day, end_hour, tzinfo=timezone.utc)
             except ValueError:
                 return val_start, None
 
@@ -576,7 +578,7 @@ class WeatherParser:
                 month = 1
                 year += 1
             try:
-                val_end = datetime(year, month, end_day, end_hour)
+                val_end = datetime(year, month, end_day, end_hour, tzinfo=timezone.utc)
             except ValueError:
                 pass
 

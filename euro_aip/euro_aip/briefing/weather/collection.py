@@ -1,6 +1,6 @@
 """Queryable collection for weather report filtering."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional, Callable
 
 from euro_aip.models.queryable_collection import QueryableCollection
@@ -175,7 +175,7 @@ class WeatherCollection(QueryableCollection[WeatherReport]):
         return self._new_collection(
             sorted(
                 self._items,
-                key=lambda r: r.observation_time or datetime.min,
+                key=lambda r: r.observation_time or datetime.min.replace(tzinfo=timezone.utc),
             )
         )
 

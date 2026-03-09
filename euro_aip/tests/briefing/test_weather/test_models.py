@@ -1,7 +1,7 @@
 """Tests for weather models: serialization, FlightCategory ordering."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from euro_aip.briefing.weather.models import (
     FlightCategory,
@@ -127,7 +127,7 @@ class TestWeatherReport:
             icao="LFPG",
             report_type=WeatherType.METAR,
             raw_text="METAR LFPG 211230Z 24015G25KT 9999 FEW040 18/09 Q1015",
-            observation_time=datetime(2024, 3, 21, 12, 30),
+            observation_time=datetime(2024, 3, 21, 12, 30, tzinfo=timezone.utc),
             wind_direction=240,
             wind_speed=15,
             wind_gust=25,
@@ -150,14 +150,14 @@ class TestWeatherReport:
         assert d['report_type'] == "METAR"
         assert d['flight_category'] == "VFR"
         assert d['wind_gust'] == 25
-        assert d['observation_time'] == "2024-03-21T12:30:00"
+        assert d['observation_time'] == "2024-03-21T12:30:00+00:00"
 
         report2 = WeatherReport.from_dict(d)
         assert report2.icao == "LFPG"
         assert report2.report_type == WeatherType.METAR
         assert report2.flight_category == FlightCategory.VFR
         assert report2.wind_gust == 25
-        assert report2.observation_time == datetime(2024, 3, 21, 12, 30)
+        assert report2.observation_time == datetime(2024, 3, 21, 12, 30, tzinfo=timezone.utc)
         assert report2.clouds == [{'quantity': 'FEW', 'height': 4000, 'type': None}]
 
     def test_serialization_with_trends(self):

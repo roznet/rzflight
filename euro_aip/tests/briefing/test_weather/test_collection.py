@@ -1,7 +1,7 @@
 """Tests for weather collection filtering."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from euro_aip.briefing.weather.models import (
     WeatherReport,
@@ -17,7 +17,7 @@ def _make_reports():
         WeatherReport(
             icao="LFPG",
             report_type=WeatherType.METAR,
-            observation_time=datetime(2024, 3, 21, 12, 30),
+            observation_time=datetime(2024, 3, 21, 12, 30, tzinfo=timezone.utc),
             wind_direction=240,
             wind_speed=15,
             visibility_sm=10.0,
@@ -26,7 +26,7 @@ def _make_reports():
         WeatherReport(
             icao="LFPG",
             report_type=WeatherType.TAF,
-            observation_time=datetime(2024, 3, 21, 11, 0),
+            observation_time=datetime(2024, 3, 21, 11, 0, tzinfo=timezone.utc),
             wind_direction=240,
             wind_speed=12,
             visibility_sm=10.0,
@@ -35,7 +35,7 @@ def _make_reports():
         WeatherReport(
             icao="EGLL",
             report_type=WeatherType.METAR,
-            observation_time=datetime(2024, 3, 21, 12, 50),
+            observation_time=datetime(2024, 3, 21, 12, 50, tzinfo=timezone.utc),
             wind_direction=270,
             wind_speed=20,
             visibility_sm=2.0,
@@ -45,7 +45,7 @@ def _make_reports():
         WeatherReport(
             icao="EGLL",
             report_type=WeatherType.SPECI,
-            observation_time=datetime(2024, 3, 21, 13, 0),
+            observation_time=datetime(2024, 3, 21, 13, 0, tzinfo=timezone.utc),
             wind_direction=280,
             wind_speed=25,
             wind_gust=35,
@@ -56,7 +56,7 @@ def _make_reports():
         WeatherReport(
             icao="LFBO",
             report_type=WeatherType.METAR,
-            observation_time=datetime(2024, 3, 21, 12, 30),
+            observation_time=datetime(2024, 3, 21, 12, 30, tzinfo=timezone.utc),
             wind_direction=180,
             wind_speed=8,
             visibility_sm=4.0,
@@ -144,19 +144,19 @@ class TestTimeFilters:
 
     def test_before(self):
         coll = WeatherCollection(_make_reports())
-        before = coll.before(datetime(2024, 3, 21, 12, 0))
+        before = coll.before(datetime(2024, 3, 21, 12, 0, tzinfo=timezone.utc))
         assert before.count() == 1  # TAF at 11:00
 
     def test_after(self):
         coll = WeatherCollection(_make_reports())
-        after = coll.after(datetime(2024, 3, 21, 12, 45))
+        after = coll.after(datetime(2024, 3, 21, 12, 45, tzinfo=timezone.utc))
         assert after.count() == 2  # EGLL METAR at 12:50, SPECI at 13:00
 
     def test_between(self):
         coll = WeatherCollection(_make_reports())
         result = coll.between(
-            datetime(2024, 3, 21, 12, 0),
-            datetime(2024, 3, 21, 12, 40),
+            datetime(2024, 3, 21, 12, 0, tzinfo=timezone.utc),
+            datetime(2024, 3, 21, 12, 40, tzinfo=timezone.utc),
         )
         assert result.count() == 2  # LFPG METAR + LFBO METAR at 12:30
 
