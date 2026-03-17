@@ -30,16 +30,26 @@ class DatabaseStorage:
     def __init__(self, database_path: str, save_only_std_fields: bool = True):
         """
         Initialize the database storage.
-        
+
         Args:
             database_path: Path to the SQLite database file
-            save_only_std_fields: If True, only save AIP entries with std_field_id. 
+            save_only_std_fields: If True, only save AIP entries with std_field_id.
                                  If False, save all AIP entries. Defaults to True.
         """
         self.database_path = Path(database_path)
         self.schema_manager = SchemaManager()
         self.save_only_std_fields = save_only_std_fields
+        self._airac_date: Optional[str] = None
         self._ensure_database_exists()
+
+    @property
+    def airac_date(self) -> Optional[str]:
+        """The AIRAC cycle date (YYYY-MM-DD) to tag changes with."""
+        return self._airac_date
+
+    @airac_date.setter
+    def airac_date(self, value: Optional[str]):
+        self._airac_date = value
     
     def _ensure_database_exists(self):
         """Ensure the database file exists and has the correct schema."""
@@ -120,6 +130,7 @@ class DatabaseStorage:
                     mapping_score REAL,
                     source TEXT,
                     changed_at TEXT,
+                    airac_date TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code)
                 )
             ''')
@@ -134,6 +145,7 @@ class DatabaseStorage:
                     field_type TEXT,
                     source TEXT,
                     changed_at TEXT,
+                    airac_date TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code)
                 )
             ''')
@@ -149,6 +161,7 @@ class DatabaseStorage:
                     field_type TEXT,
                     source TEXT,
                     changed_at TEXT,
+                    airac_date TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code),
                     FOREIGN KEY (runway_id) REFERENCES runways (id)
                 )
@@ -164,6 +177,7 @@ class DatabaseStorage:
                     new_value TEXT,
                     source TEXT,
                     changed_at TEXT,
+                    airac_date TEXT,
                     FOREIGN KEY (airport_icao) REFERENCES airports (icao_code),
                     FOREIGN KEY (procedure_id) REFERENCES procedures (id)
                 )
@@ -214,6 +228,19 @@ class DatabaseStorage:
                     name TEXT PRIMARY KEY,
                     last_updated TEXT,
                     record_count INTEGER
+                )
+            ''')
+
+            conn.execute('''
+                CREATE TABLE airac_updates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    airac_date TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    fetched_at TEXT NOT NULL,
+                    airports_updated INTEGER DEFAULT 0,
+                    changes_count INTEGER DEFAULT 0,
+                    status TEXT DEFAULT 'success',
+                    UNIQUE(airac_date, source)
                 )
             ''')
             
@@ -286,6 +313,35 @@ class DatabaseStorage:
                     conn.commit()
                     logger.info("Added is_airport column to border_crossing_points table")
             
+            # Add airac_date column to _changes tables if missing
+            for table_name in ['aip_entries_changes', 'airports_changes', 'runways_changes',
+                               'procedures_changes']:
+                cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+                if cursor.fetchone():
+                    cursor.execute(f"PRAGMA table_info({table_name})")
+                    columns = [col[1] for col in cursor.fetchall()]
+                    if 'airac_date' not in columns:
+                        logger.info(f"Adding airac_date column to {table_name}")
+                        cursor.execute(f'ALTER TABLE {table_name} ADD COLUMN airac_date TEXT')
+
+            # Create airac_updates table if missing
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='airac_updates'")
+            if not cursor.fetchone():
+                logger.info("Creating airac_updates table")
+                cursor.execute('''
+                    CREATE TABLE airac_updates (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        airac_date TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        fetched_at TEXT NOT NULL,
+                        airports_updated INTEGER DEFAULT 0,
+                        changes_count INTEGER DEFAULT 0,
+                        status TEXT DEFAULT 'success',
+                        UNIQUE(airac_date, source)
+                    )
+                ''')
+                conn.commit()
+
             # Migrate if needed
             new_version = self.schema_manager.migrate_schema(conn, current_version)
             
@@ -326,25 +382,47 @@ class DatabaseStorage:
     def save_model(self, model: EuroAipModel) -> None:
         """
         Save the entire EuroAipModel to the database with change tracking.
-        
+
         Args:
             model: The EuroAipModel to save
         """
         logger.info(f"Saving model with {len(model._airports)} airports to database")
 
         with self._get_connection() as conn:
+            # Count changes before save to compute delta
+            changes_before = {}
+            for table in ['aip_entries_changes', 'airports_changes', 'runways_changes', 'procedures_changes']:
+                row = conn.execute(f'SELECT COUNT(*) as cnt FROM {table}').fetchone()
+                changes_before[table] = row['cnt']
+
             for airport in model._airports.values():
                 self._save_airport(conn, airport)
-            
+
             # Save border crossing data
             border_crossing_points = model.get_all_border_crossing_points()
             if border_crossing_points:
                 self.save_border_crossing_data(border_crossing_points, conn)
-            
+
             # Update metadata
             self._update_metadata(conn, model)
+
+            # Record AIRAC update if airac_date is set
+            if self._airac_date:
+                total_changes = 0
+                for table in changes_before:
+                    row = conn.execute(f'SELECT COUNT(*) as cnt FROM {table}').fetchone()
+                    total_changes += row['cnt'] - changes_before[table]
+                for source in model.sources_used:
+                    airports_count = model.airports.by_source(source).count()
+                    conn.execute('''
+                        INSERT OR REPLACE INTO airac_updates
+                        (airac_date, source, fetched_at, airports_updated, changes_count, status)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (self._airac_date, source, datetime.now().isoformat(),
+                          airports_count, total_changes, 'success'))
+
             conn.commit()
-        
+
         logger.info(f"Successfully saved model to database")
     
     def _save_airport(self, conn: sqlite3.Connection, airport: Airport) -> None:
@@ -377,12 +455,13 @@ class DatabaseStorage:
         # Save changes to history
         for change in changes:
             conn.execute('''
-                INSERT INTO airports_changes 
-                (airport_icao, field_name, old_value, new_value, field_type, source, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO airports_changes
+                (airport_icao, field_name, old_value, new_value, field_type, source, changed_at, airac_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                airport.ident, change['field_name'], change['old_value'], 
-                change['new_value'], change['field_type'], change['source'], change['changed_at']
+                airport.ident, change['field_name'], change['old_value'],
+                change['new_value'], change['field_type'], change['source'], change['changed_at'],
+                self._airac_date
             ))
         
         # Build dynamic INSERT/REPLACE statement using field definitions
@@ -434,13 +513,13 @@ class DatabaseStorage:
             # Save changes to history
             for change in changes:
                 conn.execute('''
-                    INSERT INTO runways_changes 
-                    (airport_icao, runway_id, field_name, old_value, new_value, field_type, source, changed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO runways_changes
+                    (airport_icao, runway_id, field_name, old_value, new_value, field_type, source, changed_at, airac_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     airport.ident, change.get('runway_id'), change['field_name'],
-                    change['old_value'], change['new_value'], change['field_type'], 
-                    change['source'], change['changed_at']
+                    change['old_value'], change['new_value'], change['field_type'],
+                    change['source'], change['changed_at'], self._airac_date
                 ))
             
             # Insert or update runway using field definitions
@@ -520,14 +599,14 @@ class DatabaseStorage:
         if current_procedures:
             for name, proc_type in added_procedures:
                 conn.execute('''
-                    INSERT INTO procedures_changes 
-                    (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO procedures_changes
+                    (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at, airac_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     airport.ident, None, 'PROCEDURE_ADDED', None, f"{name} ({proc_type})",
-                    'unknown', datetime.now().isoformat()
+                    'unknown', datetime.now().isoformat(), self._airac_date
                 ))
-        
+
         # Record REMOVED procedures
         for name, proc_type in removed_procedures:
             # Find the procedure ID for the removed procedure
@@ -536,14 +615,14 @@ class DatabaseStorage:
                 if curr['name'] == name and curr['procedure_type'] == proc_type:
                     proc_id = curr['id']
                     break
-            
+
             conn.execute('''
-                INSERT INTO procedures_changes 
-                (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO procedures_changes
+                (airport_icao, procedure_id, field_name, old_value, new_value, source, changed_at, airac_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 airport.ident, proc_id, 'PROCEDURE_REMOVED', f"{name} ({proc_type})", None,
-                'unknown', datetime.now().isoformat()
+                'unknown', datetime.now().isoformat(), self._airac_date
             ))
         
         # Clear all current procedures and insert new ones
@@ -617,19 +696,19 @@ class DatabaseStorage:
             entry.created_at.isoformat(), datetime.now().isoformat()
         ))
     
-    def _save_aip_change(self, conn: sqlite3.Connection, airport_icao: str, 
+    def _save_aip_change(self, conn: sqlite3.Connection, airport_icao: str,
                         old_entry: Dict, new_entry: AIPEntry) -> None:
         """Save an AIP field change to history."""
         conn.execute('''
-            INSERT INTO aip_entries_changes 
+            INSERT INTO aip_entries_changes
             (airport_icao, section, field, old_value, new_value, std_field,
-             std_field_id, mapping_score, source, changed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             std_field_id, mapping_score, source, changed_at, airac_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             airport_icao, new_entry.section, new_entry.field,
             old_entry['value'], new_entry.value, new_entry.std_field,
             new_entry.std_field_id, new_entry.mapping_score,
-            new_entry.source, datetime.now().isoformat()
+            new_entry.source, datetime.now().isoformat(), self._airac_date
         ))
     
     def _update_aip_entry(self, conn: sqlite3.Connection, entry_id: int, entry: AIPEntry) -> None:
@@ -784,6 +863,28 @@ class DatabaseStorage:
                 VALUES (?, ?, ?)
             ''', (source, datetime.now().isoformat(), airports_from_source))
     
+    def record_airac_update(self, airac_date: str, source: str,
+                           airports_updated: int = 0, changes_count: int = 0,
+                           status: str = 'success') -> None:
+        """Record an AIRAC cycle update in the airac_updates metadata table."""
+        with self._get_connection() as conn:
+            conn.execute('''
+                INSERT OR REPLACE INTO airac_updates
+                (airac_date, source, fetched_at, airports_updated, changes_count, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (airac_date, source, datetime.now().isoformat(),
+                  airports_updated, changes_count, status))
+            conn.commit()
+
+    def get_airac_updates(self) -> List[Dict]:
+        """Return all recorded AIRAC updates, most recent first."""
+        with self._get_connection() as conn:
+            cursor = conn.execute('''
+                SELECT airac_date, source, fetched_at, airports_updated, changes_count, status
+                FROM airac_updates ORDER BY airac_date DESC, source
+            ''')
+            return [dict(row) for row in cursor.fetchall()]
+
     def load_model(self,ignore_non_icao: bool = True) -> EuroAipModel:
         """
         Load the entire EuroAipModel from the database.
