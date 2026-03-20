@@ -45,6 +45,9 @@ public struct Airport : Codable {
 
 
     public let name : String
+    // Pre-computed lowercase for fast search (avoids per-query allocations)
+    public let nameLower : String
+    public let icaoLower : String
     public let city : String
     public let country : String
     public let isoRegion : String?
@@ -82,17 +85,12 @@ public struct Airport : Codable {
 
     public func contains( _ searchText : String) -> Bool {
         let lowered = searchText.lowercased()
-        if icao.lowercased().contains(lowered) || name.lowercased().contains(lowered) || country.lowercased().contains(lowered) || city.lowercased().contains(lowered) {
-            return true
-        }
-        return false
+        return icaoLower.contains(lowered) || nameLower.contains(lowered) ||
+               country.lowercased().contains(lowered) || city.lowercased().contains(lowered)
     }
     func matches(_ needle : String) -> Bool {
-        if self.icao.range(of: needle, options: [.caseInsensitive,.diacriticInsensitive]) != nil ||
-            self.name.range(of: needle, options: [.caseInsensitive,.diacriticInsensitive]) != nil {
-            return true
-        }
-        return false
+        let lower = needle.lowercased()
+        return icaoLower.contains(lower) || nameLower.contains(lower)
     }
 
     // MARK: - Initialization from Database
@@ -102,7 +100,9 @@ public struct Airport : Codable {
         else { return nil }
 
         self.icao = ident
+        self.icaoLower = ident.lowercased()
         self.name = res.string(forColumn: "name") ?? ident
+        self.nameLower = self.name.lowercased()
         self.latitude = res.double(forColumn: "latitude_deg")
         self.longitude = res.double(forColumn: "longitude_deg")
         self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
@@ -214,7 +214,9 @@ public struct Airport : Codable {
         self.latitude = location.latitude
         self.longitude = location.longitude
         self.icao = icao ?? ""
+        self.icaoLower = self.icao.lowercased()
         self.name = ""
+        self.nameLower = ""
         self.city = ""
         self.country = ""
         self.isoRegion = nil
@@ -241,8 +243,10 @@ public struct Airport : Codable {
         let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
         if let res = res, res.next() {
             self.icao = ident
+            self.icaoLower = ident.lowercased()
             self.type = AirportType(rawValue: res.string(forColumn:"type") ?? "") ?? .none
             self.name = res.string(forColumn: "name") ?? ident
+            self.nameLower = self.name.lowercased()
             self.latitude = res.double(forColumn: "latitude_deg")
             self.longitude = res.double(forColumn: "longitude_deg")
             self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
@@ -371,6 +375,8 @@ public struct Airport : Codable {
 
         // Identifiers - support both "icao" and "ident" (API format)
         self.icao = try decodeString(keys: .icao, .ident)
+        self.icaoLower = self.icao.lowercased()
+        self.nameLower = self.name.lowercased()
 
         // Enums with defaults
         self.type = try container.decodeIfPresent(AirportType.self, forKey: .type) ?? .none

@@ -137,6 +137,40 @@ public class KnownAirports {
         }
         return rv
     }
+
+    /// Search airports ranked by relevance, returning up to `limit` results.
+    /// Tiers: 0 = ICAO prefix, 1 = ICAO contains, 2 = name word prefix, 3 = name contains.
+    /// Within each tier, results are sorted alphabetically by ICAO.
+    public func rankedSearch(needle: String, limit: Int = 20) -> [Airport] {
+        guard !needle.isEmpty else { return [] }
+        let lower = needle.lowercased()
+
+        var buckets: [[Airport]] = [[], [], [], []]
+        for (_, airport) in known {
+            let tier: Int
+            if airport.icaoLower.hasPrefix(lower) {
+                tier = 0
+            } else if airport.icaoLower.contains(lower) {
+                tier = 1
+            } else if airport.nameLower.contains(lower) {
+                let words = airport.nameLower.split(separator: " ")
+                tier = words.contains(where: { $0.hasPrefix(lower) }) ? 2 : 3
+            } else {
+                continue
+            }
+            buckets[tier].append(airport)
+        }
+
+        var result: [Airport] = []
+        result.reserveCapacity(limit)
+        for i in 0..<4 where !buckets[i].isEmpty {
+            buckets[i].sort { $0.icao < $1.icao }
+            let remaining = limit - result.count
+            result.append(contentsOf: buckets[i].prefix(remaining))
+            if result.count >= limit { break }
+        }
+        return result
+    }
     
     public func airportsWithinBox(minCoord: CLLocationCoordinate2D, maxCoord: CLLocationCoordinate2D) -> [Airport] {
         var results: [Airport] = []
