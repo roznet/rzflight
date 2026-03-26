@@ -35,6 +35,7 @@ __all__ = [
     'NavPoint',
     'Waypoint',
     'WaypointCollection',
+    'RouteResolver',
     'BorderCrossingEntry',
     # Queryable collections
     'QueryableCollection',
@@ -46,4 +47,11 @@ __all__ = [
     'ModelValidationError',
     'ModelTransaction',
     'AirportBuilder',
-] 
+]
+
+def __getattr__(name):
+    """Lazy import for RouteResolver to avoid circular import with briefing.models."""
+    if name == "RouteResolver":
+        from .route_resolver import RouteResolver
+        return RouteResolver
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

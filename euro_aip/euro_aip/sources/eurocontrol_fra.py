@@ -240,12 +240,18 @@ class EurocontrolFRASource(CachedSource, SourceInterface):
             source="eurocontrol_fra",
         )
 
-    # CachedSource uses 'pdf' extension for binary data
     def _save_to_cache(self, data, key: str, ext: str) -> None:
-        """Override to support xlsx binary files."""
-        cache_file = self._get_cache_file(key, ext)
+        """Override to support xlsx binary files (base class only handles json/csv/pdf)."""
         if ext == "xlsx":
+            cache_file = self._get_cache_file(key, ext)
             with open(cache_file, "wb") as f:
                 f.write(data)
         else:
             super()._save_to_cache(data, key, ext)
+
+    def _load_from_cache(self, key: str, ext: str):
+        """Override to support loading xlsx binary files."""
+        if ext == "xlsx":
+            cache_file = self._get_cache_file(key, ext)
+            return cache_file.read_bytes()
+        return super()._load_from_cache(key, ext)

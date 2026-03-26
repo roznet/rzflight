@@ -67,9 +67,9 @@ EUROPEAN_COUNTRIES = [
 _ROW_PATTERN = re.compile(
     r'<tr>\s*<td>\s*<a[^>]*>([^<]+)</a>\s*</td>'   # IDENT
     r'(?:\s*<td[^>]*>[^<]*</td>)*?'                  # spacer td(s)
-    r'\s*<td>(\d+°[^<]+)</td>'                        # LAT (starts with digits°)
+    r'\s*<td>(\d+\s*[°&][^<]+)</td>'                  # LAT (digits then ° or &deg;)
     r'(?:\s*<td[^>]*>[^<]*</td>)*?'                  # spacer td(s)
-    r'\s*<td>(\d+°[^<]+)</td>'                        # LON (starts with digits°)
+    r'\s*<td>(\d+\s*[°&][^<]+)</td>'                  # LON (digits then ° or &deg;)
     r'\s*</tr>',
     re.IGNORECASE,
 )

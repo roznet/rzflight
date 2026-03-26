@@ -116,6 +116,8 @@ class AutorouterNotamSource:
         Returns:
             List of raw NOTAM row dicts from the API
         """
+        # "itemas" is the correct param name per Autorouter API:
+        # https://www.autorouter.aero/wiki/api/notams/
         params: Dict[str, Any] = {
             "itemas": json.dumps(icaos),
             "offset": offset,

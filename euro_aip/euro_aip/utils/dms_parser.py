@@ -88,7 +88,7 @@ def parse_fra_coordinates(lat_str: str, lon_str: str) -> Tuple[float, float]:
 # ========================================================================
 
 _DMS_PATTERN = re.compile(
-    r"""(\d+)\s*°\s*(\d+)\s*['′]\s*([\d.]+)\s*["″]\s*([NSEW])""",
+    r"""(\d+)\s*(?:°|&deg;)\s*(\d+)\s*(?:['′]|&prime;)\s*([\d.]+)\s*(?:["″]|&Prime;)\s*([NSEW])""",
     re.IGNORECASE,
 )
 
