@@ -6,6 +6,7 @@ final class TestSupport {
     static let shared = TestSupport()
     let db: FMDatabase?
     let known: KnownAirports?
+    let knownWaypoints: KnownWaypoints?
 
     private init() {
         let thisSourceFile = URL(fileURLWithPath: #file)
@@ -19,9 +20,11 @@ final class TestSupport {
             database.open()
             self.db = database
             self.known = KnownAirports(db: database)
+            self.knownWaypoints = KnownWaypoints(db: database)
         } else {
             self.db = nil
             self.known = nil
+            self.knownWaypoints = nil
         }
     }
 }
