@@ -91,6 +91,18 @@ notam = NotamParser.parse(raw_notam_text)
 notams = NotamParser.parse_many(text_block)
 ```
 
+### Route Resolution with Waypoints
+```python
+from euro_aip.models.route_resolver import RouteResolver
+
+# Resolve mixed airport/waypoint route strings
+resolver = RouteResolver(model)
+route = resolver.resolve("EGTF VESAN POGOL LSGS")
+# All spatial queries (along_route, get_route_navpoints) work with resolved coords
+```
+
+See [waypoints.md](./waypoints.md) for full waypoint architecture and data sources.
+
 ## Key Choices
 
 | Decision | Choice | Rationale |
@@ -120,5 +132,6 @@ notams = NotamParser.parse_many(text_block)
 - Filtering details: [briefing_filtering.md](./briefing_filtering.md)
 - Weather module: [briefing_weather.md](./briefing_weather.md)
 - Parsing architecture: [briefing_parsing.md](./briefing_parsing.md)
+- Waypoints & route resolution: [waypoints.md](./waypoints.md)
 - Key code: `euro_aip/briefing/`
 - Similar patterns: [query_api_architecture.md](./query_api_architecture.md)

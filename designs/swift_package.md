@@ -30,18 +30,21 @@ RZFlight
 │   ├── Runway           # Runway geometry and configuration
 │   ├── Procedure        # Approaches, departures, arrivals
 │   ├── AIPEntry         # Aeronautical Information Publication entries
+│   ├── Waypoint         # Named navigation point (5LNC, VOR, DME, NDB)
 │   ├── Metar            # Weather data structure
 │   └── Briefing/        # Flight briefings and NOTAMs (from Python JSON)
 │       ├── Briefing     # Container with route and NOTAMs
 │       ├── Notam        # NOTAM data model
-│       └── Route        # Flight route with coordinates
+│       ├── Route        # Flight route with coordinates
+│       └── RoutePointResolver  # Resolve mixed airport/waypoint routes
 ├── Calculation Models
 │   ├── RunwayWindModel  # Wind calculations and component analysis
 │   ├── Heading          # Compass heading arithmetic
 │   ├── Speed            # Wind speed handling
 │   └── Percent          # Percentage calculations
 ├── Database Layer
-│   └── KnownAirports    # Airport database with spatial indexing
+│   ├── KnownAirports    # Airport database with spatial indexing
+│   └── KnownWaypoints   # Waypoint database with spatial indexing
 └── Remote Services
     └── AVWX             # Weather API integration
 ```
@@ -58,7 +61,8 @@ RZFlight
 ## Key Features
 
 - **Wind Calculations** - Crosswind/headwind components, best runway selection
-- **Spatial Queries** - Find nearest airports, airports along route, within bounding box
+- **Spatial Queries** - Find nearest airports/waypoints, points along route, within bounding box
+- **Route Resolution** - Resolve mixed airport/waypoint route strings to coordinates
 - **Procedure Data** - Approach types, precision categories, runway matching
 - **AIP Integration** - Standardized field catalog, fuel availability, border crossings
 - **METAR Support** - AVWX API integration, wind model updates

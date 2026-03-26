@@ -112,6 +112,21 @@ CREATE TABLE aip_entries (
 );
 ```
 
+### waypoints
+```sql
+CREATE TABLE waypoints (
+    name TEXT NOT NULL PRIMARY KEY,
+    latitude_deg REAL,
+    longitude_deg REAL,
+    point_type TEXT,        -- "5LNC", "VOR", "DME", "VORDME", "NDB", "VORTAC", etc.
+    fir_codes TEXT,         -- Comma-separated FIR ICAOs
+    level_availability TEXT,
+    source TEXT,
+    created_at TEXT,
+    updated_at TEXT
+);
+```
+
 ---
 
 ## Quick Queries

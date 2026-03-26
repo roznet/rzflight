@@ -14,6 +14,7 @@ Sources/RZFlight/
 ├── Heading.swift           # Compass heading calculations
 ├── Heading+iOS.swift       # iOS-specific extensions (UIImage)
 ├── KnownAirports.swift     # Database layer + spatial queries
+├── KnownWaypoints.swift    # Waypoint database + spatial queries (parallels KnownAirports)
 ├── Log.swift               # OSLog categories
 ├── Metar.swift             # Weather data structure
 ├── Percent.swift           # Percentage calculations
@@ -21,6 +22,7 @@ Sources/RZFlight/
 ├── Runway.swift            # Runway geometry
 ├── RunwayWindModel.swift   # Wind calculation engine
 ├── Speed.swift             # Wind speed handling
+├── Waypoint.swift          # Named waypoint model (Codable, KDTreePoint)
 
 Briefing/
 ├── Briefing.swift                # Container with load/parse methods
@@ -31,6 +33,7 @@ Briefing/
 ├── Notam+Queries.swift           # [Notam] filtering extensions
 ├── Route.swift                   # Route + RoutePoint models
 ├── Route+Geometry.swift          # Route projection & NOTAM classification
+├── RoutePointResolver.swift     # Unified airport+waypoint route resolution
 ├── QCodeLookup.swift             # Q-code meanings from JSON
 ├── DocumentReference.swift       # Reference model
 └── DocumentReferenceExtractor.swift  # AIP supplement & AIC links
@@ -47,7 +50,7 @@ Resources/
 
 | Package | Purpose | Used In |
 |---------|---------|---------|
-| FMDB | SQLite wrapper | KnownAirports, Airport, Procedure, AIPEntry, Runway |
+| FMDB | SQLite wrapper | KnownAirports, KnownWaypoints, Airport, Waypoint, Procedure, AIPEntry, Runway |
 | KDTree | Spatial indexing | KnownAirports (nearest queries) |
 | Geomagnetism | Magnetic declination | Airport (heading conversions) |
 | RZUtilsSwift | Utilities, Secrets | AviationRemoteServices, Metar |
@@ -472,7 +475,7 @@ AIPEntry.AIPFieldCatalog.setOverrideURL(nil)  // Reset
 |--------------|-----------|
 | Airport properties | `Airport.swift` |
 | Airport filters (Array extensions) | `Airport.swift` (fuel) or `KnownAirports.swift` (others) |
-| Database queries | `KnownAirports.swift` |
+| Database queries | `KnownAirports.swift`, `KnownWaypoints.swift` |
 | Runway data | `Runway.swift` |
 | Procedure types/precision | `Procedure.swift` |
 | AIP field catalog | `Resources/aip_fields.csv` + `AIPEntry.swift` |

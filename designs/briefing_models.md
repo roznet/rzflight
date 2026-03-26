@@ -166,7 +166,26 @@ route.get_all_airports()        # [departure, destination, alternates] unique
 route.get_airport_coordinates() # {icao: (lat, lon)} for all known coords
 route.get_flight_window(60)     # (dep_time, arr_time + 60min buffer)
 route.get_route_navpoints()     # List[NavPoint] for distance calcs
+
+# Create from route string with waypoint resolution
+Route.from_route_string("EGTF VESAN POGOL LSGS", resolver)
 ```
+
+### Route Resolution
+
+Use `RouteResolver` to resolve mixed airport/waypoint route strings:
+
+```python
+from euro_aip.models.route_resolver import RouteResolver
+
+resolver = RouteResolver(model)  # model has airports + waypoints
+route = resolver.resolve("EGTF VESAN POGOL LSGS")
+# First/last tokens = departure/destination, middle = waypoints
+# Airport-first: ICAO codes take precedence over waypoint names
+# DCT/-> tokens are filtered out
+```
+
+See [waypoints.md](./waypoints.md) for full waypoint architecture.
 
 ## RoutePoint
 

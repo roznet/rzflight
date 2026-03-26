@@ -16,8 +16,8 @@ When modifying parsing logic, update BOTH implementations and run tests on both 
 ## Modules
 
 ### RZFlight Swift Package
-Aviation calculations, airport data management, and flight planning for iOS/macOS. Wind calculations, runway selection, METAR integration, spatial airport queries, and native PDF briefing parsing.
-Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `Briefing`, `Notam`, `ForeFlightParser`
+Aviation calculations, airport data management, and flight planning for iOS/macOS. Wind calculations, runway selection, METAR integration, spatial airport/waypoint queries, route resolution, and native PDF briefing parsing.
+Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `Waypoint`, `KnownWaypoints`, `RoutePointResolver`, `Briefing`, `Notam`, `ForeFlightParser`
 
 **Documentation:**
 - `swift_package.md` - Package overview, quick start
@@ -33,8 +33,13 @@ Key exports: `model.airports`, `model.procedures`, `by_country`, `with_runways`
 - `query_api_quickref.md` - Compact method reference (quick syntax lookup)
 - `query_api_detailed.md` - Full API documentation (complete details)
 
+### Python Euro AIP Waypoints & Route Resolution
+Named navigation waypoints (5-letter codes, VOR/DME/NDB) from Eurocontrol FRA, with route string resolution that mixes airports and waypoints.
+Key exports: `Waypoint`, `WaypointCollection`, `RouteResolver`, `EurocontrolFRASource`
+→ Full doc: waypoints.md
+
 ### Python Euro AIP Database
-SQLite database structure, quick queries, and DatabaseStorage for model persistence.
+SQLite database structure, quick queries, and DatabaseStorage for model persistence. Includes airports, runways, procedures, AIP entries, border crossings, and waypoints tables.
 Key exports: `DatabaseStorage`, `load_model()`, `save_model()`
 → Full doc: database_quick_reference.md
 
@@ -49,7 +54,7 @@ Documentation for European AIP web sources and data retrieval.
 
 ### Python Euro AIP Briefing
 Flight briefing data extraction, NOTAM filtering, and weather analysis. Parse ForeFlight PDFs, extract METARs/TAFs/NOTAMs, and filter with fluent API.
-Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSource`, `CategorizationPipeline`, `WeatherReport`, `FlightCategory`
+Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSource`, `CategorizationPipeline`, `WeatherReport`, `FlightCategory`, `Route`, `RoutePoint`
 
 **Documentation (load in order of need):**
 - `briefing.md` - Overview, architecture, usage examples (read FIRST)
