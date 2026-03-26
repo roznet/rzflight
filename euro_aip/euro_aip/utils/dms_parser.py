@@ -1,11 +1,12 @@
 """
-DMS (Degrees, Minutes, Seconds) coordinate parser for Eurocontrol FRA format.
+DMS (Degrees, Minutes, Seconds) coordinate parsers.
 
-Parses coordinates in the format used by the Eurocontrol FRA Points list:
-  Latitude:  N404519  -> 40 degrees, 45 minutes, 19 seconds North
-  Longitude: E0183830 -> 18 degrees, 38 minutes, 30 seconds East
+Supports two formats:
+  Eurocontrol FRA:  N404519 / E0183830  (compact, hemisphere prefix)
+  OpenNav:          49° 54' 7.00" N / 3° 26' 50.00" E  (human-readable, hemisphere suffix)
 """
 
+import re
 from typing import Tuple
 
 
@@ -80,3 +81,58 @@ def parse_fra_coordinates(lat_str: str, lon_str: str) -> Tuple[float, float]:
         Tuple of (latitude, longitude) in decimal degrees
     """
     return parse_fra_latitude(lat_str), parse_fra_longitude(lon_str)
+
+
+# ========================================================================
+# OpenNav DMS format: 49° 54' 7.00" N / 3° 26' 50.00" E
+# ========================================================================
+
+_DMS_PATTERN = re.compile(
+    r"""(\d+)\s*°\s*(\d+)\s*['′]\s*([\d.]+)\s*["″]\s*([NSEW])""",
+    re.IGNORECASE,
+)
+
+
+def parse_dms(s: str) -> float:
+    """Parse a human-readable DMS string to decimal degrees.
+
+    Handles formats like:
+      49° 54' 7.00" N
+      3° 26' 50.00" E
+      007° 11' 29.00" W
+
+    Args:
+        s: DMS string with hemisphere letter (N/S/E/W)
+
+    Returns:
+        Decimal degrees (negative for S/W)
+
+    Raises:
+        ValueError: If the string cannot be parsed
+    """
+    m = _DMS_PATTERN.search(s.strip())
+    if not m:
+        raise ValueError(f"Cannot parse DMS string: '{s}'")
+
+    degrees = int(m.group(1))
+    minutes = int(m.group(2))
+    seconds = float(m.group(3))
+    hemisphere = m.group(4).upper()
+
+    decimal = degrees + minutes / 60.0 + seconds / 3600.0
+    if hemisphere in ("S", "W"):
+        decimal = -decimal
+    return decimal
+
+
+def parse_dms_coordinates(lat_str: str, lon_str: str) -> Tuple[float, float]:
+    """Parse human-readable DMS lat/lon strings to decimal degrees.
+
+    Args:
+        lat_str: e.g. "49° 54' 7.00\" N"
+        lon_str: e.g. "3° 26' 50.00\" E"
+
+    Returns:
+        Tuple of (latitude, longitude) in decimal degrees
+    """
+    return parse_dms(lat_str), parse_dms(lon_str)

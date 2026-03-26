@@ -17,7 +17,10 @@ from euro_aip.utils.dms_parser import (
     parse_fra_latitude,
     parse_fra_longitude,
     parse_fra_coordinates,
+    parse_dms,
+    parse_dms_coordinates,
 )
+from euro_aip.sources.opennav import OpenNavSource, _ROW_PATTERN
 
 
 # ========================================================================
@@ -58,6 +61,83 @@ class TestDMSParser:
     def test_invalid_hemisphere(self):
         with pytest.raises(ValueError):
             parse_fra_latitude("X404519")
+
+
+# ========================================================================
+# OpenNav DMS Parser Tests
+# ========================================================================
+
+class TestOpenNavDMSParser:
+
+    def test_north_latitude(self):
+        lat = parse_dms('49° 54\' 7.00" N')
+        assert abs(lat - 49.901944) < 0.001
+
+    def test_south_latitude(self):
+        lat = parse_dms('45° 20\' 52.00" S')
+        assert lat < 0
+        assert abs(lat - (-45.347778)) < 0.001
+
+    def test_east_longitude(self):
+        lon = parse_dms('3° 26\' 50.00" E')
+        assert abs(lon - 3.447222) < 0.001
+
+    def test_west_longitude(self):
+        lon = parse_dms('007° 11\' 29.00" W')
+        assert lon < 0
+        assert abs(lon - (-7.191389)) < 0.001
+
+    def test_coordinates(self):
+        lat, lon = parse_dms_coordinates('49° 54\' 7.00" N', '3° 26\' 50.00" E')
+        assert abs(lat - 49.901944) < 0.001
+        assert abs(lon - 3.447222) < 0.001
+
+    def test_invalid_string(self):
+        with pytest.raises(ValueError):
+            parse_dms("not a coordinate")
+
+
+# ========================================================================
+# OpenNav Source Tests
+# ========================================================================
+
+class TestOpenNavSource:
+
+    SAMPLE_HTML = '''
+    <table>
+    <tr><td><b>IDENT</b></td><td class="layout_col50">&nbsp;</td><td><b>LATITUDE</b></td><td class="layout_col50">&nbsp;</td><td><b>LONGITUDE</b></td></tr>
+    <tr><td colspan="5">&nbsp;</td></tr>
+    <tr><td><a href="/waypoint/CH/ABESI">ABESI</a></td><td class="layout_col50">&nbsp;</td><td>46° 9' 34.61" N</td><td class="layout_col50">&nbsp;</td><td>9° 2' 34.09" E</td></tr>
+    <tr><td><a href="/waypoint/CH/ABREG">ABREG</a></td><td class="layout_col50">&nbsp;</td><td>46° 18' 25.00" N</td><td class="layout_col50">&nbsp;</td><td>009° 33' 05.00" E</td></tr>
+    </table>
+    '''
+
+    def test_parse_html(self):
+        import tempfile
+        source = OpenNavSource(cache_dir=tempfile.mkdtemp())
+        waypoints = source._parse_html(self.SAMPLE_HTML, "CH")
+        assert len(waypoints) == 2
+        assert waypoints[0].name == "ABESI"
+        assert abs(waypoints[0].latitude_deg - 46.159614) < 0.001
+        assert waypoints[0].source == "opennav"
+
+    def test_parse_html_empty(self):
+        import tempfile
+        source = OpenNavSource(cache_dir=tempfile.mkdtemp())
+        waypoints = source._parse_html("<table></table>", "XX")
+        assert len(waypoints) == 0
+
+    def test_point_type_classification(self):
+        import tempfile
+        source = OpenNavSource(cache_dir=tempfile.mkdtemp())
+        waypoints = source._parse_html(self.SAMPLE_HTML, "CH")
+        assert waypoints[0].point_type == "5LNC"  # 5-letter alpha name
+
+    def test_row_regex_matches_real_format(self):
+        row = '<tr><td><a href="/waypoint/FR/BILGO">BILGO</a></td><td class="layout_col50">&nbsp;</td><td>49° 54\' 7.00" N</td><td class="layout_col50">&nbsp;</td><td>3° 26\' 50.00" E</td></tr>'
+        match = _ROW_PATTERN.search(row)
+        assert match is not None
+        assert match.group(1) == "BILGO"
 
 
 # ========================================================================
