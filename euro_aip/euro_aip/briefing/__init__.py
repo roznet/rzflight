@@ -31,6 +31,7 @@ Example usage:
 from euro_aip.briefing.models.notam import Notam, NotamCategory
 from euro_aip.briefing.models.route import Route, RoutePoint
 from euro_aip.briefing.models.briefing import Briefing
+from euro_aip.briefing.models.icao_fpl import ICAOFlightPlan, parse_icao_fpl
 from euro_aip.briefing.collections.notam_collection import NotamCollection
 from euro_aip.briefing.sources.foreflight import ForeFlightSource
 from euro_aip.briefing.sources.avwx import AvWxSource
@@ -56,6 +57,8 @@ __all__ = [
     'Route',
     'RoutePoint',
     'Briefing',
+    'ICAOFlightPlan',
+    'parse_icao_fpl',
     # Collections
     'NotamCollection',
     # Sources

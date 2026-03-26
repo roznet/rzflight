@@ -1,9 +1,10 @@
 """
 DMS (Degrees, Minutes, Seconds) coordinate parsers.
 
-Supports two formats:
+Supports three formats:
   Eurocontrol FRA:  N404519 / E0183830  (compact, hemisphere prefix)
   OpenNav:          49° 54' 7.00" N / 3° 26' 50.00" E  (human-readable, hemisphere suffix)
+  ICAO route:       4830N00210E  (compact, hemisphere infix — used in FPL field 15)
 """
 
 import re
@@ -123,6 +124,87 @@ def parse_dms(s: str) -> float:
     if hemisphere in ("S", "W"):
         decimal = -decimal
     return decimal
+
+
+# ========================================================================
+# ICAO route coordinate format: 4830N00210E or 483012N0021034E
+# Used in ICAO FPL field 15 for GPS waypoints
+# ========================================================================
+
+# Degrees+minutes: DDMM[NS]DDDMM[EW] (11 chars)
+_ICAO_COORD_DM = re.compile(
+    r'^(\d{2})(\d{2})([NS])(\d{3})(\d{2})([EW])$'
+)
+
+# Degrees+minutes+seconds: DDMMSS[NS]DDDMMSS[EW] (15 chars)
+_ICAO_COORD_DMS = re.compile(
+    r'^(\d{2})(\d{2})(\d{2})([NS])(\d{3})(\d{2})(\d{2})([EW])$'
+)
+
+
+def parse_icao_coordinate(s: str) -> Tuple[float, float]:
+    """Parse an ICAO route coordinate string to (latitude, longitude).
+
+    Handles two ICAO FPL field 15 formats:
+      DDMM[NS]DDDMM[EW]       e.g. 4830N00210E   → (48.5, 2.1667)
+      DDMMSS[NS]DDDMMSS[EW]   e.g. 483012N0021034E → (48.5033, 2.1761)
+
+    Args:
+        s: Coordinate string (11 or 15 characters)
+
+    Returns:
+        Tuple of (latitude, longitude) in decimal degrees
+
+    Raises:
+        ValueError: If the string format is invalid
+    """
+    s = s.strip().upper()
+
+    # Try degrees+minutes first (11 chars)
+    m = _ICAO_COORD_DM.match(s)
+    if m:
+        lat_deg = int(m.group(1))
+        lat_min = int(m.group(2))
+        lat_hem = m.group(3)
+        lon_deg = int(m.group(4))
+        lon_min = int(m.group(5))
+        lon_hem = m.group(6)
+
+        lat = lat_deg + lat_min / 60.0
+        lon = lon_deg + lon_min / 60.0
+        if lat_hem == "S":
+            lat = -lat
+        if lon_hem == "W":
+            lon = -lon
+        return (lat, lon)
+
+    # Try degrees+minutes+seconds (15 chars)
+    m = _ICAO_COORD_DMS.match(s)
+    if m:
+        lat_deg = int(m.group(1))
+        lat_min = int(m.group(2))
+        lat_sec = int(m.group(3))
+        lat_hem = m.group(4)
+        lon_deg = int(m.group(5))
+        lon_min = int(m.group(6))
+        lon_sec = int(m.group(7))
+        lon_hem = m.group(8)
+
+        lat = lat_deg + lat_min / 60.0 + lat_sec / 3600.0
+        lon = lon_deg + lon_min / 60.0 + lon_sec / 3600.0
+        if lat_hem == "S":
+            lat = -lat
+        if lon_hem == "W":
+            lon = -lon
+        return (lat, lon)
+
+    raise ValueError(f"Cannot parse ICAO coordinate: '{s}'")
+
+
+def is_icao_coordinate(s: str) -> bool:
+    """Check if a string looks like an ICAO route coordinate."""
+    s = s.strip().upper()
+    return bool(_ICAO_COORD_DM.match(s) or _ICAO_COORD_DMS.match(s))
 
 
 def parse_dms_coordinates(lat_str: str, lon_str: str) -> Tuple[float, float]:
