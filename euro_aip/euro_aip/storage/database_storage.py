@@ -15,7 +15,8 @@ from ..models.procedure import Procedure
 from ..models.aip_entry import AIPEntry
 from ..models.border_crossing_entry import BorderCrossingEntry
 from ..models.border_crossing_change import BorderCrossingChange
-from .field_definitions import AirportFields, RunwayFields, SchemaManager, ProcedureFields
+from ..models.waypoint import Waypoint
+from .field_definitions import AirportFields, RunwayFields, SchemaManager, ProcedureFields, WaypointFields
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +215,28 @@ class DatabaseStorage:
                 )
             ''')
             
+            # Waypoints table
+            waypoints_sql = self.schema_manager.get_create_table_sql(
+                "waypoints",
+                WaypointFields.get_all_fields(),
+                primary_key="name"
+            )
+            conn.execute(waypoints_sql)
+
+            conn.execute('''
+                CREATE TABLE waypoints_changes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    waypoint_name TEXT NOT NULL,
+                    field_name TEXT,
+                    old_value TEXT,
+                    new_value TEXT,
+                    field_type TEXT,
+                    source TEXT,
+                    changed_at TEXT,
+                    airac_date TEXT
+                )
+            ''')
+
             # Metadata tables
             conn.execute('''
                 CREATE TABLE model_metadata (
@@ -259,7 +282,13 @@ class DatabaseStorage:
             conn.execute('CREATE INDEX idx_border_crossing_country ON border_crossing_points (country_iso)')
             conn.execute('CREATE INDEX idx_border_crossing_source ON border_crossing_points (source)')
             conn.execute('CREATE INDEX idx_border_crossing_points_changes_time ON border_crossing_points_changes (changed_at)')
-            
+
+            # Waypoint indexes
+            conn.execute('CREATE INDEX idx_waypoints_type ON waypoints (point_type)')
+            conn.execute('CREATE INDEX idx_waypoints_source ON waypoints (source)')
+            conn.execute('CREATE INDEX idx_waypoints_changes_time ON waypoints_changes (changed_at)')
+            conn.execute('CREATE INDEX idx_waypoints_changes_name ON waypoints_changes (waypoint_name)')
+
             conn.commit()
             logger.info(f"Created database schema at {self.database_path}")
     
@@ -342,6 +371,35 @@ class DatabaseStorage:
                 ''')
                 conn.commit()
 
+            # Create waypoints table if missing
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='waypoints'")
+            if not cursor.fetchone():
+                logger.info("Creating waypoints table")
+                waypoints_sql = self.schema_manager.get_create_table_sql(
+                    "waypoints",
+                    WaypointFields.get_all_fields(),
+                    primary_key="name"
+                )
+                cursor.execute(waypoints_sql)
+                cursor.execute('''
+                    CREATE TABLE waypoints_changes (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        waypoint_name TEXT NOT NULL,
+                        field_name TEXT,
+                        old_value TEXT,
+                        new_value TEXT,
+                        field_type TEXT,
+                        source TEXT,
+                        changed_at TEXT,
+                        airac_date TEXT
+                    )
+                ''')
+                cursor.execute('CREATE INDEX idx_waypoints_type ON waypoints (point_type)')
+                cursor.execute('CREATE INDEX idx_waypoints_source ON waypoints (source)')
+                cursor.execute('CREATE INDEX idx_waypoints_changes_time ON waypoints_changes (changed_at)')
+                cursor.execute('CREATE INDEX idx_waypoints_changes_name ON waypoints_changes (waypoint_name)')
+                conn.commit()
+
             # Migrate if needed
             new_version = self.schema_manager.migrate_schema(conn, current_version)
             
@@ -391,12 +449,19 @@ class DatabaseStorage:
         with self._get_connection() as conn:
             # Count changes before save to compute delta
             changes_before = {}
-            for table in ['aip_entries_changes', 'airports_changes', 'runways_changes', 'procedures_changes']:
-                row = conn.execute(f'SELECT COUNT(*) as cnt FROM {table}').fetchone()
-                changes_before[table] = row['cnt']
+            for table in ['aip_entries_changes', 'airports_changes', 'runways_changes', 'procedures_changes', 'waypoints_changes']:
+                try:
+                    row = conn.execute(f'SELECT COUNT(*) as cnt FROM {table}').fetchone()
+                    changes_before[table] = row['cnt']
+                except sqlite3.OperationalError:
+                    changes_before[table] = 0
 
             for airport in model._airports.values():
                 self._save_airport(conn, airport)
+
+            # Save waypoints
+            if model._waypoints:
+                self._save_waypoints(conn, model._waypoints)
 
             # Save border crossing data
             border_crossing_points = model.get_all_border_crossing_points()
@@ -815,6 +880,124 @@ class DatabaseStorage:
         
         return changes
     
+    # ========================================================================
+    # Waypoint save/load methods
+    # ========================================================================
+
+    def _save_waypoints(self, conn: sqlite3.Connection, waypoints: Dict[str, 'Waypoint']) -> None:
+        """Save all waypoints with change tracking."""
+        fields = WaypointFields.get_all_fields()
+        field_names = [f.name for f in fields]
+        placeholders = ",".join(["?" for _ in fields])
+
+        for waypoint in waypoints.values():
+            # Detect changes
+            current = self._get_current_waypoint(conn, waypoint.name)
+            changes = self._detect_waypoint_changes(current, waypoint)
+
+            for change in changes:
+                conn.execute('''
+                    INSERT INTO waypoints_changes
+                    (waypoint_name, field_name, old_value, new_value, field_type, source, changed_at, airac_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    waypoint.name, change['field_name'], change['old_value'],
+                    change['new_value'], change['field_type'], change['source'],
+                    change['changed_at'], self._airac_date
+                ))
+
+            # Build values
+            values = []
+            for f in fields:
+                if f.name == "name":
+                    values.append(waypoint.name)
+                elif f.name == "created_at":
+                    values.append(waypoint.created_at.isoformat() if waypoint.created_at else datetime.now().isoformat())
+                elif f.name == "updated_at":
+                    values.append(waypoint.updated_at.isoformat() if waypoint.updated_at else datetime.now().isoformat())
+                else:
+                    value = getattr(waypoint, f.name, None)
+                    values.append(f.format_for_storage(value))
+
+            sql = f'''
+                INSERT OR REPLACE INTO waypoints
+                ({",".join(field_names)})
+                VALUES ({placeholders})
+            '''
+            conn.execute(sql, values)
+
+    def _load_waypoints(self, conn: sqlite3.Connection) -> List['Waypoint']:
+        """Load all waypoints from the database."""
+        # Check if waypoints table exists
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='waypoints'")
+        if not cursor.fetchone():
+            return []
+
+        cursor = conn.execute('SELECT * FROM waypoints')
+        waypoints = []
+        for row in cursor.fetchall():
+            row_dict = dict(row)
+            created_at = row_dict.get('created_at')
+            if isinstance(created_at, str):
+                try:
+                    created_at = datetime.fromisoformat(created_at)
+                except ValueError:
+                    created_at = datetime.now()
+            updated_at = row_dict.get('updated_at')
+            if isinstance(updated_at, str):
+                try:
+                    updated_at = datetime.fromisoformat(updated_at)
+                except ValueError:
+                    updated_at = datetime.now()
+
+            waypoint = Waypoint(
+                name=row_dict['name'],
+                latitude_deg=self._safe_convert_value(row_dict['latitude_deg'], 'REAL'),
+                longitude_deg=self._safe_convert_value(row_dict['longitude_deg'], 'REAL'),
+                point_type=row_dict.get('point_type'),
+                fir_codes=row_dict.get('fir_codes'),
+                level_availability=row_dict.get('level_availability'),
+                source=row_dict.get('source', 'unknown'),
+                created_at=created_at or datetime.now(),
+                updated_at=updated_at or datetime.now(),
+            )
+            waypoints.append(waypoint)
+
+        logger.debug(f"Loaded {len(waypoints)} waypoints from database")
+        return waypoints
+
+    def _get_current_waypoint(self, conn: sqlite3.Connection, name: str) -> Optional[Dict]:
+        """Get current waypoint data."""
+        cursor = conn.execute('SELECT * FROM waypoints WHERE name = ?', (name,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+    def _detect_waypoint_changes(self, current: Optional[Dict], new: 'Waypoint') -> List[Dict]:
+        """Detect changes in waypoint fields using field definitions."""
+        changes = []
+        now = datetime.now().isoformat()
+
+        if current is None:
+            return []
+
+        for f in WaypointFields.get_change_tracked_fields():
+            old_value = current.get(f.name)
+            new_value = getattr(new, f.name, None)
+            old_formatted = f.format_for_comparison(old_value)
+            new_formatted = f.format_for_comparison(new_value)
+
+            if old_formatted != new_formatted:
+                changes.append({
+                    'field_name': f.name,
+                    'old_value': str(old_formatted) if old_formatted is not None else None,
+                    'new_value': str(new_formatted) if new_formatted is not None else None,
+                    'field_type': f.field_type.value,
+                    'source': new.source or 'unknown',
+                    'changed_at': now,
+                })
+
+        return changes
+
     def _get_current_airport(self, conn: sqlite3.Connection, icao: str) -> Optional[Dict]:
         """Get current airport data."""
         cursor = conn.execute('SELECT * FROM airports WHERE icao_code = ?', (icao,))
@@ -922,12 +1105,17 @@ class DatabaseStorage:
                 )
                 logger.debug(f"Loaded {result['added']} airports from database")
 
+            # Load waypoints
+            waypoints = self._load_waypoints(conn)
+            if waypoints:
+                model.bulk_add_waypoints(waypoints)
+
             # Load border crossing data
             border_crossing_points = self.load_border_crossing_data()
             if border_crossing_points:
                 model.add_border_crossing_points(border_crossing_points)
 
-        logger.info(f"Loaded model with {model.airports.count()} airports and {len(model.get_all_border_crossing_points())} border crossing entries")
+        logger.info(f"Loaded model with {model.airports.count()} airports, {len(model._waypoints)} waypoints, and {len(model.get_all_border_crossing_points())} border crossing entries")
         
         # Update all derived fields after loading
         model.update_all_derived_fields()

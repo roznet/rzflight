@@ -18,6 +18,8 @@ from .queryable_collection import QueryableCollection
 from .airport_collection import AirportCollection
 from .procedure_collection import ProcedureCollection
 from .navpoint import NavPoint
+from .waypoint import Waypoint
+from .waypoint_collection import WaypointCollection
 from .border_crossing_entry import BorderCrossingEntry
 from .validation import ValidationResult, ValidationError, ModelValidationError
 from .model_transaction import ModelTransaction
@@ -31,6 +33,8 @@ __all__ = [
     'Procedure',
     'EuroAipModel',
     'NavPoint',
+    'Waypoint',
+    'WaypointCollection',
     'BorderCrossingEntry',
     # Queryable collections
     'QueryableCollection',

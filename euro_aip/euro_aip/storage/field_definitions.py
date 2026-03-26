@@ -221,6 +221,47 @@ class ProcedureFields:
             cls.SOURCE, cls.AUTHORITY, cls.RAW_NAME
         ]
 
+class WaypointFields:
+    """Centralized definition of waypoint fields."""
+
+    # Core fields
+    NAME = FieldDefinition("name", FieldType.STRING, nullable=False, description="Waypoint name (5LNC or NAVAID)")
+    LATITUDE_DEG = FieldDefinition("latitude_deg", FieldType.FLOAT, description="Latitude in degrees")
+    LONGITUDE_DEG = FieldDefinition("longitude_deg", FieldType.FLOAT, description="Longitude in degrees")
+    POINT_TYPE = FieldDefinition("point_type", FieldType.STRING, description="Point type (5LNC, VOR, DME, NDB, VORDME, VORTAC, NDBDME, LOCATOR)")
+    FIR_CODES = FieldDefinition("fir_codes", FieldType.STRING, description="Comma-separated FIR ICAO codes")
+    LEVEL_AVAILABILITY = FieldDefinition("level_availability", FieldType.STRING, description="Level availability (e.g. FL195 / FL660)")
+
+    # Metadata
+    SOURCE = FieldDefinition("source", FieldType.STRING, description="Data source")
+    CREATED_AT = FieldDefinition("created_at", FieldType.DATETIME, description="Creation timestamp")
+    UPDATED_AT = FieldDefinition("updated_at", FieldType.DATETIME, description="Last update timestamp")
+
+    @classmethod
+    def get_all_fields(cls) -> List[FieldDefinition]:
+        """Get all field definitions."""
+        return [
+            cls.NAME, cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.POINT_TYPE,
+            cls.FIR_CODES, cls.LEVEL_AVAILABILITY, cls.SOURCE,
+            cls.CREATED_AT, cls.UPDATED_AT
+        ]
+
+    @classmethod
+    def get_change_tracked_fields(cls) -> List[FieldDefinition]:
+        """Get fields that should be tracked for changes (excludes metadata fields)."""
+        return [
+            cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.POINT_TYPE,
+            cls.FIR_CODES, cls.LEVEL_AVAILABILITY
+        ]
+
+    @classmethod
+    def get_field_by_name(cls, name: str) -> Optional[FieldDefinition]:
+        """Get field definition by name."""
+        for field in cls.get_all_fields():
+            if field.name == name:
+                return field
+        return None
+
 class SchemaManager:
     """Manages database schema and migrations."""
     

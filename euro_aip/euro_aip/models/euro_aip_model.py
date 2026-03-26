@@ -12,8 +12,10 @@ from .aip_entry import AIPEntry
 from .procedure import Procedure
 from .border_crossing_entry import BorderCrossingEntry
 from .navpoint import NavPoint
+from .waypoint import Waypoint
 from .airport_collection import AirportCollection
 from .procedure_collection import ProcedureCollection
+from .waypoint_collection import WaypointCollection
 from .model_transaction import ModelTransaction
 from .airport_builder import AirportBuilder
 from .validation import ValidationResult, ModelValidationError
@@ -38,7 +40,10 @@ class EuroAipModel:
     # Main data store: map from ICAO code to Airport object
     # Internal storage - use the .airports property for querying
     _airports: Dict[str, Airport] = field(default_factory=dict)
-    
+
+    # Waypoint data store: map from waypoint name to Waypoint object
+    _waypoints: Dict[str, Waypoint] = field(default_factory=dict)
+
     # Border crossing data: map from country ISO to airport name to entry
     border_crossing_points: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
     
@@ -137,6 +142,75 @@ class EuroAipModel:
         for airport in self._airports.values():
             all_procedures.extend(airport.procedures)
         return ProcedureCollection(all_procedures)
+
+    @property
+    def waypoints(self) -> WaypointCollection:
+        """
+        Get queryable collection of all waypoints.
+
+        Returns:
+            WaypointCollection with all waypoints in the model
+
+        Examples:
+            model.waypoints.by_type("VOR").all()
+            model.waypoints.by_fir("LFFF").all()
+            model.waypoints.nearest(navpoint, count=10).all()
+            "BILGO" in model.waypoints
+        """
+        return WaypointCollection(list(self._waypoints.values()))
+
+    # ========================================================================
+    # Waypoint API
+    # ========================================================================
+
+    def add_waypoint(self, waypoint: Waypoint) -> None:
+        """Add or update a waypoint in the model.
+
+        If a waypoint with the same name exists, merges fir_codes and updates
+        fields with non-None values from the new waypoint.
+        """
+        if waypoint.name in self._waypoints:
+            existing = self._waypoints[waypoint.name]
+            # Merge FIR codes
+            if waypoint.fir_codes and existing.fir_codes:
+                existing_firs = set(existing.fir_list)
+                new_firs = set(waypoint.fir_list)
+                merged = sorted(existing_firs | new_firs)
+                existing.fir_codes = ",".join(merged)
+            elif waypoint.fir_codes:
+                existing.fir_codes = waypoint.fir_codes
+            # Update other fields if new data is available
+            for attr in ("latitude_deg", "longitude_deg", "point_type", "level_availability", "source"):
+                new_val = getattr(waypoint, attr, None)
+                if new_val is not None:
+                    setattr(existing, attr, new_val)
+            existing.updated_at = datetime.now()
+            existing._navpoint = None  # Reset cached navpoint
+        else:
+            self._waypoints[waypoint.name] = waypoint
+
+        self.updated_at = datetime.now()
+
+    def get_waypoint(self, name: str) -> Optional[Waypoint]:
+        """Get a waypoint by name."""
+        return self._waypoints.get(name)
+
+    def bulk_add_waypoints(self, waypoints: List[Waypoint]) -> Dict[str, int]:
+        """Add multiple waypoints at once.
+
+        Returns:
+            Dict with 'added' and 'updated' counts.
+        """
+        added = 0
+        updated = 0
+        for wp in waypoints:
+            existed = wp.name in self._waypoints
+            self.add_waypoint(wp)
+            if existed:
+                updated += 1
+            else:
+                added += 1
+        return {"added": added, "updated": updated}
 
     # ========================================================================
     # Legacy Query API - Maintained for Backward Compatibility
@@ -448,7 +522,8 @@ class EuroAipModel:
         total_procedures = sum(len(airport.procedures) for airport in self._airports.values())
         total_aip_entries = sum(len(airport.aip_entries) for airport in self._airports.values())
         total_border_crossing_points = len(self.get_all_border_crossing_points())
-        
+        total_waypoints = len(self._waypoints)
+
         # Count procedures by type
         procedure_types = {}
         for airport in self._airports.values():
@@ -469,6 +544,7 @@ class EuroAipModel:
             'total_procedures': total_procedures,
             'total_aip_entries': total_aip_entries,
             'total_border_crossing_points': total_border_crossing_points,
+            'total_waypoints': total_waypoints,
             'procedure_types': procedure_types,
             'border_crossing': border_crossing_stats,
             'sources_used': list(self.sources_used),
@@ -486,6 +562,7 @@ class EuroAipModel:
         """
         return {
             'airports': {icao: airport.to_dict() for icao, airport in self._airports.items()},
+            'waypoints': {name: wp.to_dict() for name, wp in self._waypoints.items()},
             'border_crossing_points': {
                 country_iso: {
                     icao_code: entry.to_dict() 
@@ -499,7 +576,7 @@ class EuroAipModel:
     
     
     def __repr__(self):
-        return f"EuroAipModel(airports={len(self._airports)}, sources={list(self.sources_used)})"
+        return f"EuroAipModel(airports={len(self._airports)}, waypoints={len(self._waypoints)}, sources={list(self.sources_used)})"
     
     def __str__(self):
         stats = self.get_statistics()
@@ -513,6 +590,7 @@ class EuroAipModel:
 - Total procedures: {stats['total_procedures']}
 - Total AIP entries: {stats['total_aip_entries']}
 - Total border crossing entries: {stats['total_border_crossing_points']}
+- Total waypoints: {stats['total_waypoints']}
 - Sources used: {', '.join(stats['sources_used'])}
 - Created: {stats['created_at']}
 - Updated: {stats['updated_at']}"""

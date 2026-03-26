@@ -167,6 +167,19 @@ class Route:
         end_time = self.arrival_time or self.departure_time
         return (self.departure_time, end_time + timedelta(minutes=buffer_minutes))
 
+    @classmethod
+    def from_route_string(cls, route_string: str, resolver: 'RouteResolver') -> 'Route':
+        """Create a Route from a space-separated route string with coordinate resolution.
+
+        Args:
+            route_string: Route string, e.g. "EGTF POGOL REM VESAN LSGS"
+            resolver: RouteResolver instance with airport/waypoint data
+
+        Returns:
+            Route with resolved coordinates
+        """
+        return resolver.resolve(route_string)
+
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
         return {
