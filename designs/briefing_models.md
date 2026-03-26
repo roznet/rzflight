@@ -200,6 +200,57 @@ Individual waypoint with coordinates.
 
 Has `.navpoint` property for `NavPoint` integration (distance calculations).
 
+## ICAOFlightPlan
+
+Parsed ICAO flight plan with all extractable fields. Python: `parse_icao_fpl()`, Swift: `ICAOFlightPlanParser.parse()`.
+
+### Parsed Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `aircraft_registration` | `str?` | Field 7: e.g., "N122DR" |
+| `aircraft_type` | `str?` | Field 9: e.g., "S22T" |
+| `flight_rules` | `str?` | V=VFR, I=IFR, Y/Z=mixed |
+| `flight_type` | `str?` | G=general, S=scheduled, N/M/X |
+| `speed` | `str?` | Raw: "N0166" or "K0280" |
+| `speed_knots` | `int?` | Always in knots (K converted via ÷1.852) |
+| `level` | `str?` | Raw: "VFR", "F350", "A055" |
+| `altitude_feet` | `int?` | F350→35000, A055→5500, VFR→None |
+| `equipment` | `str?` | Field 10a COM/NAV codes: "SBDGORVY" |
+| `surveillance` | `str?` | Field 10b: "LB2" |
+| `date_of_flight` | `date?` | From DOF/YYMMDD in field 18 |
+| `departure_time_utc` | `time?` | From field 13 HHMM |
+| `eet_minutes` | `int?` | From field 16, total minutes |
+| `raw_route` | `str?` | Unparsed field 15 route string |
+| `other_info` | `Dict[str,str]` | Field 18 key/value pairs (DOF, PBN, RMK, EET, etc.) |
+| `route` | `Route` | Fully populated with departure, destination, waypoints, times |
+
+### Derived Properties
+
+| Property | Type | Logic |
+|----------|------|-------|
+| `is_ifr` | `bool` | flight_rules in {I, Y, Z} |
+| `is_vfr` | `bool` | flight_rules == V |
+| `has_gnss` | `bool` | G in equipment |
+| `has_rnav` | `bool` | R in equipment |
+| `has_adsb` | `bool` | B/1/2 in surveillance |
+| `has_rvsm` | `bool` | W in equipment |
+| `pbn_codes` | `str?` | other_info["PBN"] |
+| `remarks` | `str?` | other_info["RMK"] |
+
+### Route Token Classification
+
+Field 15 route tokens are classified:
+- **GPS coords** (`4830N00210E`) → RoutePoint with parsed lat/lon, point_type="gps"
+- **Airways** (`UL9`, `L28`) → skipped (no airway DB)
+- **DCT/VFR/IFR** → filtered out
+- **Everything else** → waypoint name, resolved if resolver provided
+
+### Key Code
+
+- Python: `euro_aip/briefing/models/icao_fpl.py`
+- Swift: `Sources/RZFlight/Briefing/ICAOFlightPlanParser.swift`
+
 ## Briefing
 
 Container for complete flight briefing.

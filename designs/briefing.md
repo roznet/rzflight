@@ -5,7 +5,7 @@
 ## Intent
 
 Allow users to:
-1. **Import** briefing data from multiple sources (ForeFlight PDFs first, APIs later)
+1. **Import** briefing data from multiple sources (ForeFlight PDFs, Autorouter API, ICAO FPL strings)
 2. **Parse** structured data: NOTAMs, METARs, TAFs, routes
 3. **Filter & query** with the same fluent patterns as `euro_aip` (chainable, set operations)
 4. **Serialize** to JSON for cross-platform use (CLI, web, iOS)
@@ -18,7 +18,7 @@ Allow users to:
 euro_aip/briefing/
 ├── models/          # Briefing, Notam, Route dataclasses
 ├── parsers/         # Standalone text parsers (NotamParser)
-├── sources/         # BriefingSource implementations (ForeFlight)
+├── sources/         # BriefingSource implementations (ForeFlight, Autorouter, AvWx)
 ├── collections/     # NotamCollection (QueryableCollection)
 ├── categorization/  # Q-code, text rules, pipeline
 ├── weather/         # WeatherReport, WeatherParser, WeatherAnalyzer, WeatherCollection
@@ -28,11 +28,12 @@ euro_aip/briefing/
 **Key separation**: Sources extract raw text → Parsers convert to models → Collections filter/query
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│   Source    │────▶│    Parsers       │────▶│    Collections      │
-│ (ForeFlight)│     │ NotamParser      │     │ NotamCollection     │
-└─────────────┘     │ WeatherParser    │     │ WeatherCollection   │
-     PDF            └──────────────────┘     └─────────────────────┘
+┌──────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│    Sources       │────▶│    Parsers       │────▶│    Collections      │
+│ ForeFlightSource │     │ NotamParser      │     │ NotamCollection     │
+│ AutorouterNotam  │     │ WeatherParser    │     │ WeatherCollection   │
+│ AvWxSource       │     │ ICAOFPLParser    │     │                     │
+└──────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
 ## Usage Examples
@@ -102,6 +103,33 @@ route = resolver.resolve("EGTF VESAN POGOL LSGS")
 ```
 
 See [waypoints.md](./waypoints.md) for full waypoint architecture and data sources.
+
+### ICAO Flight Plan Parsing
+```python
+from euro_aip.briefing import parse_icao_fpl
+
+fpl = parse_icao_fpl("(FPL-N122DR-VG -S22T/L-SBDGORVY/LB2 -LFAT0930 ...)")
+fpl.route                  # Route with departure, destination, waypoints, times
+fpl.is_vfr                 # True
+fpl.altitude_feet          # Parsed from F350→35000, A055→5500
+fpl.has_gnss               # Equipment flags from field 10
+fpl.speed_knots            # Speed converted to knots
+fpl.other_info["PBN"]      # Field 18 key/value pairs
+
+# With coordinate resolution
+fpl = parse_icao_fpl(text, resolver=RouteResolver(model))
+```
+
+GPS coordinates in routes (e.g., `4830N00210E`) are parsed to RoutePoints with lat/lon.
+Airways (e.g., `UL9`, `L28`) are skipped. Swift equivalent: `ICAOFlightPlanParser.parse()`.
+
+### Autorouter NOTAM API
+```python
+from euro_aip.briefing import AutorouterNotamSource
+
+source = AutorouterNotamSource(credential_manager)
+notams = source.fetch_notams(["LFPG", "EGTT"], start_validity=start, end_validity=end)
+```
 
 ## Key Choices
 

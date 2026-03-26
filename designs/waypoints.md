@@ -21,9 +21,10 @@ models/
 
 sources/
 ├── eurocontrol_fra.py       # EurocontrolFRASource (downloads/parses Excel)
+├── opennav.py               # OpenNavSource (scrapes per-country waypoint pages)
 
 utils/
-├── dms_parser.py            # FRA DMS format parser (N404519 → 40.7553°)
+├── dms_parser.py            # FRA DMS, OpenNav DMS, ICAO route coordinate parsers
 
 storage/
 ├── database_storage.py      # Extended: waypoints + waypoints_changes tables
@@ -85,15 +86,25 @@ let route = resolver.resolveRouteString("EGTF VESAN POGOL LSGS")
 | WaypointCollection | Extends QueryableCollection | Follows the established fluent API pattern |
 | Point type classification | From Excel "Point Type" column | 5LNC (empty column) vs VOR/DME/VORDME/NDB/VORTAC/NDBDME/LOCATOR |
 
-## Data Source
+## Data Sources
 
-**Eurocontrol FRA Points List**: ~8,100 unique waypoints (5-letter codes + NAVAIDs) across European free route airspace. Updated every AIRAC cycle (28 days).
+### Eurocontrol FRA Points List (primary)
+~8,100 unique waypoints (5-letter codes + NAVAIDs) across European free route airspace. Updated every AIRAC cycle (28 days).
 
 - Publication page: `https://www.eurocontrol.int/publication/free-route-airspace-fra-points-list-ecac-area`
 - Format: Excel (.xlsx), "FRA Points" sheet
 - Coordinates: DMS format (`N404519`, `E0183830`)
 - Auto-scrapes the page for the latest download URL; also accepts local file path
 - Rows marked "DEL" are skipped; duplicate names merge FIR codes
+
+### OpenNav (supplementary)
+Per-country waypoint lists from opennav.com covering all published fixes (not just FRA-significant). Broader coverage than FRA.
+
+- URL pattern: `https://opennav.com/waypoint/{country_code}` (ISO alpha-2, except UK not GB)
+- HTML table scraping with regex; coordinates in DMS format (`49° 54' 7.00" N`)
+- Covers 32 European countries by default
+- Point type inferred by name length (5-letter → 5LNC, shorter → unknown/NAVAID)
+- Source field: `"opennav"` vs `"eurocontrol_fra"`
 
 ## Database Schema
 
@@ -126,7 +137,7 @@ Field-level change tracking with AIRAC tagging, same pattern as `airports_change
 
 - **FRA is European-only**: The Eurocontrol dataset covers ECAC area. Other regions would need different sources.
 - **~8,100 not 26,000**: The Excel has ~26,667 rows but many are duplicates across FIRs. Deduplication by name yields ~8,100 unique waypoints.
-- **Not all waypoints exist**: Common waypoints like BILGO may not be in the FRA dataset if they're not FRA-significant. The dataset is FRA points, not all worldwide fixes.
+- **Not all waypoints exist**: Common waypoints like BILGO may not be in the FRA dataset if they're not FRA-significant. Use OpenNav as supplementary source for broader coverage.
 - **KnownWaypoints handles missing table**: Older databases without `waypoints` table result in an empty store (no crash).
 
 ## References
