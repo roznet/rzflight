@@ -13,20 +13,9 @@ The briefing/NOTAM parsing system has **parallel implementations in Python and S
 
 When modifying parsing logic, update BOTH implementations and run tests on both platforms.
 
-## Versioning
-
-Two packages are released independently from this repo, using **separate tag conventions**:
-
-| Package | Tag format | Current | Install |
-|---------|-----------|---------|---------|
-| Python pip (`euro_aip`) | `v0.x.y` (v prefix) | `v0.3.0` | `pip install euro-aip` |
-| Swift SPM (`RZFlight`) | `1.x.y` (no prefix) | `1.3.0` | `.package(url: "...", from: "1.3.0")` |
-
-- **Version independently**: Python and Swift packages evolve at different paces
-- **Tag both on release**: `git tag v0.3.0` for pip, `git tag 1.3.0` for SPM
-- **Python version**: set in both `euro_aip/pyproject.toml` and `euro_aip/euro_aip/__init__.py`
-- **Swift version**: determined by the git tag (no version file)
-- **Publish pip**: `make build` then `twine upload dist/*`
+## Releasing & Versioning
+Two packages released independently from this repo with separate tag conventions.
+→ Full doc: releasing.md
 
 ## Modules
 
