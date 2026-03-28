@@ -370,6 +370,60 @@ class TestDatabaseStorage:
         assert len(model.airports) == 0
         assert len(model.sources_used) == 0
 
+    def test_country_coverage_with_airac(self, storage, sample_model):
+        """Test that saving with airac_date records per-country AIP coverage."""
+        storage.airac_date = "2026-03-19"
+        storage.save_model(sample_model)
+
+        coverage = storage.get_country_coverage()
+        # sample_model has EBOS (BE) and EGKB (GB), both with AIP entries
+        assert len(coverage) == 2
+        countries = {r["country_iso"]: r for r in coverage}
+        assert "BE" in countries
+        assert "GB" in countries
+        assert countries["BE"]["airports_count"] == 1
+        assert countries["GB"]["airports_count"] == 1
+        # AIRAC date derived from aip_entries.updated_at, not from storage.airac_date
+        # Both should have a valid AIRAC date string
+        for row in coverage:
+            assert len(row["airac_date"]) == 10  # YYYY-MM-DD
+            assert row["source"] == "aip_data"
+
+    def test_country_coverage_without_airac(self, storage, sample_model):
+        """Test that saving without airac_date does not record coverage."""
+        storage.save_model(sample_model)
+        coverage = storage.get_country_coverage()
+        assert len(coverage) == 0
+
+    def test_country_coverage_empty_on_fresh_db(self, storage):
+        """Test get_country_coverage on a database with no data."""
+        coverage = storage.get_country_coverage()
+        assert coverage == []
+
+    def test_country_coverage_no_aip_entries(self, temp_db_path):
+        """Airports without AIP entries should not appear in coverage."""
+        storage = DatabaseStorage(temp_db_path)
+        model = EuroAipModel()
+
+        # Airport with NO AIP entries
+        airport = Airport(
+            ident='EDML',
+            name='Landshut Ellermühle',
+            type='small_airport',
+            latitude_deg=48.511,
+            longitude_deg=12.033,
+            iso_country='DE',
+        )
+        airport.add_source("worldairports")
+        model.add_airport(airport)
+        model.sources_used.add("worldairports")
+
+        storage.airac_date = "2026-03-19"
+        storage.save_model(model)
+
+        coverage = storage.get_country_coverage()
+        assert len(coverage) == 0  # No AIP entries → no coverage
+
 
 class TestDatabaseStorageWithWorldAirports:
     """Test DatabaseStorage with WorldAirports source data."""

@@ -266,7 +266,18 @@ class DatabaseStorage:
                     UNIQUE(airac_date, source)
                 )
             ''')
-            
+
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS airac_country_coverage (
+                    country_iso TEXT NOT NULL,
+                    airac_date TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    airports_count INTEGER DEFAULT 0,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY (country_iso, source)
+                )
+            ''')
+
             # Indexes for performance
             conn.execute('CREATE INDEX idx_aip_entries_changes_airport_time ON aip_entries_changes (airport_icao, changed_at)')
             conn.execute('CREATE INDEX idx_aip_entries_changes_field_time ON aip_entries_changes (field, changed_at)')
@@ -368,6 +379,22 @@ class DatabaseStorage:
                         changes_count INTEGER DEFAULT 0,
                         status TEXT DEFAULT 'success',
                         UNIQUE(airac_date, source)
+                    )
+                ''')
+                conn.commit()
+
+            # Create airac_country_coverage table if missing
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='airac_country_coverage'")
+            if not cursor.fetchone():
+                logger.info("Creating airac_country_coverage table")
+                cursor.execute('''
+                    CREATE TABLE airac_country_coverage (
+                        country_iso TEXT NOT NULL,
+                        airac_date TEXT NOT NULL,
+                        source TEXT NOT NULL,
+                        airports_count INTEGER DEFAULT 0,
+                        updated_at TEXT NOT NULL,
+                        PRIMARY KEY (country_iso, source)
                     )
                 ''')
                 conn.commit()
@@ -478,14 +505,19 @@ class DatabaseStorage:
                 for table in changes_before:
                     row = conn.execute(f'SELECT COUNT(*) as cnt FROM {table}').fetchone()
                     total_changes += row['cnt'] - changes_before[table]
+                now = datetime.now().isoformat()
                 for source in model.sources_used:
-                    airports_count = model.airports.by_source(source).count()
+                    source_airports = model.airports.by_source(source)
+                    airports_count = source_airports.count()
                     conn.execute('''
                         INSERT OR REPLACE INTO airac_updates
                         (airac_date, source, fetched_at, airports_updated, changes_count, status)
                         VALUES (?, ?, ?, ?, ?, ?)
-                    ''', (self._airac_date, source, datetime.now().isoformat(),
+                    ''', (self._airac_date, source, now,
                           airports_count, total_changes, 'success'))
+
+                # Update per-country AIP coverage from actual aip_entries timestamps
+                self._update_country_coverage(conn)
 
             conn.commit()
 
@@ -1030,6 +1062,36 @@ class DatabaseStorage:
             entries[key] = dict(row)
         return entries
     
+    def _update_country_coverage(self, conn: sqlite3.Connection) -> None:
+        """Update per-country AIP data coverage from aip_entries timestamps.
+
+        For each country that has AIP entries, records the effective AIRAC date
+        derived from the latest aip_entries.updated_at timestamp.  Countries
+        without AIP entries are not included — they only have basic metadata.
+        """
+        from euro_aip.utils.airac_date_calculator import AIRACDateCalculator
+        calc = AIRACDateCalculator()
+
+        rows = conn.execute('''
+            SELECT a.iso_country,
+                   COUNT(DISTINCT a.icao_code) AS airports_with_aip,
+                   MAX(ae.updated_at) AS latest_update
+            FROM airports a
+            JOIN aip_entries ae ON a.icao_code = ae.airport_icao
+            WHERE a.iso_country IS NOT NULL
+            GROUP BY a.iso_country
+        ''').fetchall()
+
+        for row in rows:
+            latest_date = row['latest_update'][:10]  # YYYY-MM-DD
+            airac_date = calc.get_current_airac_date(from_date=latest_date)
+            conn.execute('''
+                INSERT OR REPLACE INTO airac_country_coverage
+                (country_iso, airac_date, source, airports_count, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (row['iso_country'], airac_date, 'aip_data',
+                  row['airports_with_aip'], row['latest_update']))
+
     def _update_metadata(self, conn: sqlite3.Connection, model: EuroAipModel) -> None:
         """Update model metadata."""
         stats = model.get_statistics()
@@ -1072,6 +1134,26 @@ class DatabaseStorage:
             cursor = conn.execute('''
                 SELECT airac_date, source, fetched_at, airports_updated, changes_count, status
                 FROM airac_updates ORDER BY airac_date DESC, source
+            ''')
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_country_coverage(self) -> List[Dict]:
+        """Return per-country AIRAC coverage, showing the latest data source for each country.
+
+        Returns a list of dicts with keys: country_iso, airac_date, source,
+        airports_count, updated_at. Ordered by country_iso.
+        """
+        with self._get_connection() as conn:
+            # Check if table exists (for older databases)
+            cursor = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='airac_country_coverage'"
+            )
+            if not cursor.fetchone():
+                return []
+            cursor = conn.execute('''
+                SELECT country_iso, airac_date, source, airports_count, updated_at
+                FROM airac_country_coverage
+                ORDER BY country_iso
             ''')
             return [dict(row) for row in cursor.fetchall()]
 
