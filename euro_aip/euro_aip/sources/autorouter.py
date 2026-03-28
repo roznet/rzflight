@@ -329,8 +329,8 @@ class AutorouterSource(CachedSource, SourceInterface):
 
                 airport = model.airports[icao]
                 
-                # Get AIP data and convert to AIPEntry objects
-                aip_data = self.get_airport_aip(icao)
+                # Parse AIP data from PDF (richer than the pre-parsed JSON)
+                aip_data = self.fetch_airport_aip(icao)
                 if aip_data and 'parsed_data' in aip_data:
                     # Create AIPEntry objects from parsed data
                     entries = field_service.create_aip_entries_from_parsed_data(icao, aip_data['parsed_data'])
