@@ -21,13 +21,14 @@ class Waypoint:
     just like Airport does.
     """
 
-    name: str  # Primary key — "BILGO", "REM", "ABADI"
+    name: str  # "BILGO", "REM", "ABADI"
     latitude_deg: float
     longitude_deg: float
     point_type: Optional[str] = None  # "5LNC", "VOR", "DME", "VORDME", "NDB", "VORTAC", "NDBDME", "LOCATOR"
     fir_codes: Optional[str] = None  # Comma-separated FIR ICAOs e.g. "LFFF,LFBB"
     level_availability: Optional[str] = None  # e.g. "FL195 / FL660"
     source: str = "eurocontrol_fra"
+    source_id: str = ""  # Unique per candidate, e.g. "fra:LFFF", "opennav:UK", "ourairports:GB"
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
 
@@ -66,6 +67,7 @@ class Waypoint:
             "fir_codes": self.fir_codes,
             "level_availability": self.level_availability,
             "source": self.source,
+            "source_id": self.source_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -88,6 +90,7 @@ class Waypoint:
             fir_codes=data.get("fir_codes"),
             level_availability=data.get("level_availability"),
             source=data.get("source", "eurocontrol_fra"),
+            source_id=data.get("source_id", ""),
             created_at=created_at or datetime.now(),
             updated_at=updated_at or datetime.now(),
         )

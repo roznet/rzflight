@@ -62,26 +62,21 @@ class OurAirportsNavaidSource(CachedSource, SourceInterface):
         self.countries = {c.upper() for c in countries} if countries else None
 
     def update_model(self, model: EuroAipModel, airports: Optional[List[str]] = None) -> None:
-        """Update the model with OurAirports NAVAIDs, skipping existing waypoints."""
+        """Update the model with OurAirports NAVAIDs.
+
+        Adds all candidates — the proximity resolver picks the right one at
+        query time. Each candidate has a unique source_id (ourairports:XX).
+        """
         all_waypoints = self._get_navaids()
 
-        # Only add waypoints not already in the model
-        new_waypoints = [
-            wp for wp in all_waypoints
-            if model.get_waypoint(wp.name) is None
-        ]
-
-        if new_waypoints:
-            result = model.bulk_add_waypoints(new_waypoints)
+        if all_waypoints:
+            result = model.bulk_add_waypoints(all_waypoints)
             logger.info(
-                "OurAirports: added %d NAVAIDs (%d already existed, skipped)",
-                result["added"], len(all_waypoints) - len(new_waypoints),
+                "OurAirports: added %d, updated %d NAVAID candidates",
+                result["added"], result["updated"],
             )
         else:
-            logger.info(
-                "OurAirports: all %d NAVAIDs already present, nothing to add",
-                len(all_waypoints),
-            )
+            logger.info("OurAirports: no NAVAIDs parsed")
 
     def _get_navaids(self, max_age_days: int = 28) -> List[Waypoint]:
         """Get NAVAID waypoints, using cache if available."""
@@ -105,9 +100,14 @@ class OurAirportsNavaidSource(CachedSource, SourceInterface):
         return data
 
     def _parse_csv(self, csv_text: str) -> List[Waypoint]:
-        """Parse navaids.csv into Waypoint objects."""
+        """Parse navaids.csv into Waypoint objects.
+
+        Keeps all candidates — duplicate idents from different countries are
+        stored separately with distinct source_id values.
+        """
         reader = csv.DictReader(io.StringIO(csv_text))
-        waypoints: Dict[str, Waypoint] = {}
+        # Deduplicate by (ident, country) — same navaid in same country is one candidate
+        seen: Dict[tuple, Waypoint] = {}
         skipped = 0
 
         for row in reader:
@@ -117,18 +117,18 @@ class OurAirportsNavaidSource(CachedSource, SourceInterface):
                     skipped += 1
                     continue
 
-                # Deduplicate by ident — keep first occurrence
-                if wp.name not in waypoints:
-                    waypoints[wp.name] = wp
+                key = (wp.name, wp.source_id)
+                if key not in seen:
+                    seen[key] = wp
             except Exception as e:
                 logger.debug("OurAirports row parse error: %s — %s", row.get("ident", "?"), e)
                 skipped += 1
 
         logger.info(
-            "Parsed %d unique NAVAIDs from OurAirports CSV (%d skipped)",
-            len(waypoints), skipped,
+            "Parsed %d NAVAID candidates from OurAirports CSV (%d skipped)",
+            len(seen), skipped,
         )
-        return list(waypoints.values())
+        return list(seen.values())
 
     def _parse_row(self, row: Dict[str, str]) -> Optional[Waypoint]:
         """Parse a single CSV row into a Waypoint, or None to skip."""
@@ -160,4 +160,5 @@ class OurAirportsNavaidSource(CachedSource, SourceInterface):
             longitude_deg=lon,
             point_type=point_type,
             source="ourairports",
+            source_id=f"ourairports:{country}",
         )

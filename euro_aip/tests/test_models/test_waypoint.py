@@ -358,8 +358,8 @@ class TestDatabaseStorageWaypoints:
             storage.save_model(model)
 
             # Update and re-save
-            model._waypoints["A"].latitude_deg = 48.6
-            model._waypoints["A"]._navpoint = None
+            model._waypoints["A"][0].latitude_deg = 48.6
+            model._waypoints["A"][0]._navpoint = None
             storage2 = DatabaseStorage(db_path)
             storage2.save_model(model)
 

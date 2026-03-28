@@ -215,11 +215,11 @@ class DatabaseStorage:
                 )
             ''')
             
-            # Waypoints table
+            # Waypoints table — composite PK allows multiple candidates per name
             waypoints_sql = self.schema_manager.get_create_table_sql(
                 "waypoints",
                 WaypointFields.get_all_fields(),
-                primary_key="name"
+                primary_key="name, source_id"
             )
             conn.execute(waypoints_sql)
 
@@ -284,6 +284,7 @@ class DatabaseStorage:
             conn.execute('CREATE INDEX idx_border_crossing_points_changes_time ON border_crossing_points_changes (changed_at)')
 
             # Waypoint indexes
+            conn.execute('CREATE INDEX idx_waypoints_name ON waypoints (name)')
             conn.execute('CREATE INDEX idx_waypoints_type ON waypoints (point_type)')
             conn.execute('CREATE INDEX idx_waypoints_source ON waypoints (source)')
             conn.execute('CREATE INDEX idx_waypoints_changes_time ON waypoints_changes (changed_at)')
@@ -884,47 +885,52 @@ class DatabaseStorage:
     # Waypoint save/load methods
     # ========================================================================
 
-    def _save_waypoints(self, conn: sqlite3.Connection, waypoints: Dict[str, 'Waypoint']) -> None:
-        """Save all waypoints with change tracking."""
+    def _save_waypoints(self, conn: sqlite3.Connection, waypoints: Dict[str, list]) -> None:
+        """Save all waypoints with change tracking.
+
+        Args:
+            waypoints: Dict mapping name -> list of Waypoint candidates
+        """
         fields = WaypointFields.get_all_fields()
         field_names = [f.name for f in fields]
         placeholders = ",".join(["?" for _ in fields])
 
-        for waypoint in waypoints.values():
-            # Detect changes
-            current = self._get_current_waypoint(conn, waypoint.name)
-            changes = self._detect_waypoint_changes(current, waypoint)
+        for candidates in waypoints.values():
+            for waypoint in candidates:
+                # Detect changes using composite key (name, source_id)
+                current = self._get_current_waypoint(conn, waypoint.name, waypoint.source_id)
+                changes = self._detect_waypoint_changes(current, waypoint)
 
-            for change in changes:
-                conn.execute('''
-                    INSERT INTO waypoints_changes
-                    (waypoint_name, field_name, old_value, new_value, field_type, source, changed_at, airac_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (
-                    waypoint.name, change['field_name'], change['old_value'],
-                    change['new_value'], change['field_type'], change['source'],
-                    change['changed_at'], self._airac_date
-                ))
+                for change in changes:
+                    conn.execute('''
+                        INSERT INTO waypoints_changes
+                        (waypoint_name, field_name, old_value, new_value, field_type, source, changed_at, airac_date)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        waypoint.name, change['field_name'], change['old_value'],
+                        change['new_value'], change['field_type'], change['source'],
+                        change['changed_at'], self._airac_date
+                    ))
 
-            # Build values
-            values = []
-            for f in fields:
-                if f.name == "name":
-                    values.append(waypoint.name)
-                elif f.name == "created_at":
-                    values.append(waypoint.created_at.isoformat() if waypoint.created_at else datetime.now().isoformat())
-                elif f.name == "updated_at":
-                    values.append(waypoint.updated_at.isoformat() if waypoint.updated_at else datetime.now().isoformat())
-                else:
-                    value = getattr(waypoint, f.name, None)
-                    values.append(f.format_for_storage(value))
+                # Build values
+                values = []
+                for f in fields:
+                    if f.name == "name":
+                        values.append(waypoint.name)
+                    elif f.name == "created_at":
+                        values.append(waypoint.created_at.isoformat() if waypoint.created_at else datetime.now().isoformat())
+                    elif f.name == "updated_at":
+                        values.append(waypoint.updated_at.isoformat() if waypoint.updated_at else datetime.now().isoformat())
+                    else:
+                        value = getattr(waypoint, f.name, None)
+                        values.append(f.format_for_storage(value))
 
-            sql = f'''
-                INSERT OR REPLACE INTO waypoints
-                ({",".join(field_names)})
-                VALUES ({placeholders})
-            '''
-            conn.execute(sql, values)
+                sql = f'''
+                    INSERT OR REPLACE INTO waypoints
+                    ({",".join(field_names)})
+                    VALUES ({placeholders})
+                '''
+                conn.execute(sql, values)
 
     def _load_waypoints(self, conn: sqlite3.Connection) -> List['Waypoint']:
         """Load all waypoints from the database."""
@@ -958,6 +964,7 @@ class DatabaseStorage:
                 fir_codes=row_dict.get('fir_codes'),
                 level_availability=row_dict.get('level_availability'),
                 source=row_dict.get('source', 'unknown'),
+                source_id=row_dict.get('source_id', ''),
                 created_at=created_at or datetime.now(),
                 updated_at=updated_at or datetime.now(),
             )
@@ -966,9 +973,9 @@ class DatabaseStorage:
         logger.debug(f"Loaded {len(waypoints)} waypoints from database")
         return waypoints
 
-    def _get_current_waypoint(self, conn: sqlite3.Connection, name: str) -> Optional[Dict]:
-        """Get current waypoint data."""
-        cursor = conn.execute('SELECT * FROM waypoints WHERE name = ?', (name,))
+    def _get_current_waypoint(self, conn: sqlite3.Connection, name: str, source_id: str = "") -> Optional[Dict]:
+        """Get current waypoint data by composite key (name, source_id)."""
+        cursor = conn.execute('SELECT * FROM waypoints WHERE name = ? AND source_id = ?', (name, source_id))
         row = cursor.fetchone()
         return dict(row) if row else None
 

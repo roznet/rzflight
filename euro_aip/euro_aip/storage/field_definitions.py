@@ -234,6 +234,7 @@ class WaypointFields:
 
     # Metadata
     SOURCE = FieldDefinition("source", FieldType.STRING, description="Data source")
+    SOURCE_ID = FieldDefinition("source_id", FieldType.STRING, nullable=False, default_value="", description="Unique candidate identifier (e.g. fra:LFFF, opennav:UK)")
     CREATED_AT = FieldDefinition("created_at", FieldType.DATETIME, description="Creation timestamp")
     UPDATED_AT = FieldDefinition("updated_at", FieldType.DATETIME, description="Last update timestamp")
 
@@ -242,7 +243,7 @@ class WaypointFields:
         """Get all field definitions."""
         return [
             cls.NAME, cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.POINT_TYPE,
-            cls.FIR_CODES, cls.LEVEL_AVAILABILITY, cls.SOURCE,
+            cls.FIR_CODES, cls.LEVEL_AVAILABILITY, cls.SOURCE, cls.SOURCE_ID,
             cls.CREATED_AT, cls.UPDATED_AT
         ]
 

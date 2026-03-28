@@ -41,8 +41,8 @@ class EuroAipModel:
     # Internal storage - use the .airports property for querying
     _airports: Dict[str, Airport] = field(default_factory=dict)
 
-    # Waypoint data store: map from waypoint name to Waypoint object
-    _waypoints: Dict[str, Waypoint] = field(default_factory=dict)
+    # Waypoint data store: map from waypoint name to list of candidates
+    _waypoints: Dict[str, List[Waypoint]] = field(default_factory=dict)
 
     # Border crossing data: map from country ISO to airport name to entry
     border_crossing_points: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
@@ -157,20 +157,32 @@ class EuroAipModel:
             model.waypoints.nearest(navpoint, count=10).all()
             "BILGO" in model.waypoints
         """
-        return WaypointCollection(list(self._waypoints.values()))
+        all_wps = []
+        for candidates in self._waypoints.values():
+            all_wps.extend(candidates)
+        return WaypointCollection(all_wps)
 
     # ========================================================================
     # Waypoint API
     # ========================================================================
 
     def add_waypoint(self, waypoint: Waypoint) -> None:
-        """Add or update a waypoint in the model.
+        """Add or update a waypoint candidate in the model.
 
-        If a waypoint with the same name exists, merges fir_codes and updates
-        fields with non-None values from the new waypoint.
+        Multiple candidates with the same name but different source_id are stored
+        separately. If a candidate with matching (name, source_id) exists, it is
+        updated in place (merging FIR codes).
         """
-        if waypoint.name in self._waypoints:
-            existing = self._waypoints[waypoint.name]
+        candidates = self._waypoints.get(waypoint.name, [])
+
+        # Find existing candidate with same source_id
+        existing = None
+        for c in candidates:
+            if c.source_id == waypoint.source_id:
+                existing = c
+                break
+
+        if existing is not None:
             # Merge FIR codes
             if waypoint.fir_codes and existing.fir_codes:
                 existing_firs = set(existing.fir_list)
@@ -187,13 +199,19 @@ class EuroAipModel:
             existing.updated_at = datetime.now()
             existing._navpoint = None  # Reset cached navpoint
         else:
-            self._waypoints[waypoint.name] = waypoint
+            candidates.append(waypoint)
+            self._waypoints[waypoint.name] = candidates
 
         self.updated_at = datetime.now()
 
     def get_waypoint(self, name: str) -> Optional[Waypoint]:
-        """Get a waypoint by name."""
-        return self._waypoints.get(name)
+        """Get first waypoint candidate by name (backward compat)."""
+        candidates = self._waypoints.get(name)
+        return candidates[0] if candidates else None
+
+    def get_waypoint_candidates(self, name: str) -> List[Waypoint]:
+        """Get all waypoint candidates for a given name."""
+        return list(self._waypoints.get(name, []))
 
     def bulk_add_waypoints(self, waypoints: List[Waypoint]) -> Dict[str, int]:
         """Add multiple waypoints at once.
@@ -204,9 +222,10 @@ class EuroAipModel:
         added = 0
         updated = 0
         for wp in waypoints:
-            existed = wp.name in self._waypoints
+            candidates = self._waypoints.get(wp.name, [])
+            had_match = any(c.source_id == wp.source_id for c in candidates)
             self.add_waypoint(wp)
-            if existed:
+            if had_match:
                 updated += 1
             else:
                 added += 1
@@ -522,7 +541,7 @@ class EuroAipModel:
         total_procedures = sum(len(airport.procedures) for airport in self._airports.values())
         total_aip_entries = sum(len(airport.aip_entries) for airport in self._airports.values())
         total_border_crossing_points = len(self.get_all_border_crossing_points())
-        total_waypoints = len(self._waypoints)
+        total_waypoints = sum(len(candidates) for candidates in self._waypoints.values())
 
         # Count procedures by type
         procedure_types = {}
@@ -562,7 +581,10 @@ class EuroAipModel:
         """
         return {
             'airports': {icao: airport.to_dict() for icao, airport in self._airports.items()},
-            'waypoints': {name: wp.to_dict() for name, wp in self._waypoints.items()},
+            'waypoints': {
+                name: [wp.to_dict() for wp in candidates]
+                for name, candidates in self._waypoints.items()
+            },
             'border_crossing_points': {
                 country_iso: {
                     icao_code: entry.to_dict() 

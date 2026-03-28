@@ -101,25 +101,24 @@ class OpenNavSource(CachedSource, SourceInterface):
         )
 
     def get_waypoints(self, max_age_days: int = 28) -> List[Waypoint]:
-        """Get waypoints from all configured countries."""
-        all_waypoints: Dict[str, Waypoint] = {}
+        """Get waypoints from all configured countries.
+
+        Keeps all candidates — duplicate names from different countries are
+        stored separately and resolved by proximity at query time.
+        """
+        all_waypoints: List[Waypoint] = []
 
         for country in self.countries:
             try:
                 country_wps = self._get_country_waypoints(country, max_age_days)
-                for wp in country_wps:
-                    if wp.name not in all_waypoints:
-                        all_waypoints[wp.name] = wp
-                    else:
-                        # Merge: waypoint exists from another country, keep first
-                        pass
+                all_waypoints.extend(country_wps)
                 logger.info("OpenNav %s: %d waypoints", country, len(country_wps))
             except Exception as e:
                 logger.warning("OpenNav %s: failed to fetch: %s", country, e)
 
-        logger.info("OpenNav total: %d unique waypoints from %d countries",
+        logger.info("OpenNav total: %d waypoints from %d countries",
                      len(all_waypoints), len(self.countries))
-        return list(all_waypoints.values())
+        return all_waypoints
 
     def _get_country_waypoints(self, country: str, max_age_days: int) -> List[Waypoint]:
         """Get waypoints for a single country, using cache if available."""
@@ -185,6 +184,7 @@ class OpenNavSource(CachedSource, SourceInterface):
                 longitude_deg=lon,
                 point_type=point_type,
                 source="opennav",
+                source_id=f"opennav:{country}",
             ))
 
         return waypoints

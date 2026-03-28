@@ -230,6 +230,8 @@ class EurocontrolFRASource(CachedSource, SourceInterface):
 
         level_availability = get("Level Availability")
 
+        # source_id from first FIR code for uniqueness across regions
+        first_fir = fir_codes.split(",")[0].strip() if fir_codes else name
         return Waypoint(
             name=name,
             latitude_deg=lat,
@@ -238,6 +240,7 @@ class EurocontrolFRASource(CachedSource, SourceInterface):
             fir_codes=fir_codes,
             level_availability=level_availability,
             source="eurocontrol_fra",
+            source_id=f"fra:{first_fir}",
         )
 
     def _save_to_cache(self, data, key: str, ext: str) -> None:
