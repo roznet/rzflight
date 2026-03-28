@@ -113,25 +113,26 @@ class FieldMapper:
                     return (field_id, field_info['field_name'], 1.0)
         
         # Then try fuzzy matching with field names
-        candidates = []
-        for field_id, field_info in self.standard_fields.items():
-            # Skip if section is specified and doesn't match
-            if section is not None and field_info['section'] != section:
-                continue
-            candidates.append((field_id, field_info['field_name']))
-            if field_info['parsing_hint'] is not None:
-                for hint in field_info['parsing_hint']:
-                    candidates.append((field_id, hint.strip()))
-        
-        result = self.fuzzy_matcher.find_best_match_with_id(field_name, candidates, threshold)
-        
-        if result:
-            field_id, matched_field_name, score = result
-            field_info = self.standard_fields[field_id]
-            # the matched name could be the hint, so make sure we return the actual field name
-            matched_field_name = field_info['field_name']
-            return (field_id, matched_field_name, score)
-        
+        # First pass: match within the specified section
+        # Second pass (fallback): match across all sections
+        for restrict_section in ([section, None] if section is not None else [None]):
+            candidates = []
+            for field_id, field_info in self.standard_fields.items():
+                if restrict_section is not None and field_info['section'] != restrict_section:
+                    continue
+                candidates.append((field_id, field_info['field_name']))
+                if field_info['parsing_hint'] is not None:
+                    for hint in field_info['parsing_hint']:
+                        candidates.append((field_id, hint.strip()))
+
+            result = self.fuzzy_matcher.find_best_match_with_id(field_name, candidates, threshold)
+
+            if result:
+                field_id, matched_field_name, score = result
+                field_info = self.standard_fields[field_id]
+                matched_field_name = field_info['field_name']
+                return (field_id, matched_field_name, score)
+
         return None
     
     def map_field(self, field_name: str, section: str = None, field_aip_id: str = None,

@@ -9,6 +9,7 @@ from .aip_lkc import LKCAIPParser
 from .aip_ekc import EKCAIPParser
 from .aip_egc import EGCAIPParser
 from .aip_enc import ENCAIPParser
+from .aip_loc import LOCAIPParser
 from .aip_dual import DualFormatAIPParser
 from .bordercrossing import BorderCrossingParser
 from .procedure_factory import ProcedureParserFactory, DEFAULT_AUTHORITY as PROCEDURE_DEFAULT_AUTHORITY
@@ -25,6 +26,7 @@ AIPParserFactory.register_html_parser('LFC', LFCHTMLParser)
 AIPParserFactory.register_pdf_parser('LIC', LICAIPParser)
 AIPParserFactory.register_pdf_parser('LKC', LKCAIPParser)
 AIPParserFactory.register_pdf_parser('EKC', EKCAIPParser)
+AIPParserFactory.register_pdf_parser('LOC', LOCAIPParser)
 AIPParserFactory.register_pdf_parser(AIP_DEFAULT_AUTHORITY, DefaultAIPParser)
 
 # Register HTML and PDF parsers for EGC (UK)
@@ -54,6 +56,7 @@ __all__ = [
     'EKCAIPParser',
     'EGCAIPParser',
     'ENCAIPParser',
+    'LOCAIPParser',
     'DualFormatAIPParser',
     'BorderCrossingParser',
     'ProcedureParserFactory',
