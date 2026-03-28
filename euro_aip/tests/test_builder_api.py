@@ -98,7 +98,7 @@ class TestTransactionAPI:
             txn.add_airport(sample_airport)
 
         # Airport should be in model
-        assert sample_airport.ident in model._airports
+        assert sample_airport.ident in model.airports
         assert model.airports.count() == 1
 
     def test_transaction_rollback_on_error(self, model, sample_airport):
@@ -112,7 +112,7 @@ class TestTransactionAPI:
             pass
 
         # Airport should NOT be in model (rolled back)
-        assert sample_airport.ident not in model._airports
+        assert sample_airport.ident not in model.airports
         assert model.airports.count() == 0
 
     def test_transaction_multiple_operations(self, model, sample_airports):
@@ -123,9 +123,9 @@ class TestTransactionAPI:
 
         # All airports should be in model
         assert model.airports.count() == 3
-        assert "EGLL" in model._airports
-        assert "LFPG" in model._airports
-        assert "EDDF" in model._airports
+        assert "EGLL" in model.airports
+        assert "LFPG" in model.airports
+        assert "EDDF" in model.airports
 
     def test_transaction_with_aip_entries(self, model, sample_airport, sample_aip_entry):
         """Test transaction with AIP entries."""
@@ -133,7 +133,7 @@ class TestTransactionAPI:
             txn.add_airport(sample_airport)
             txn.add_aip_entries(sample_airport.ident, [sample_aip_entry])
 
-        airport = model._airports[sample_airport.ident]
+        airport = model.airports[sample_airport.ident]
         assert len(airport.aip_entries) == 1
 
     def test_transaction_with_procedures(self, model, sample_airport, sample_procedure):
@@ -142,7 +142,7 @@ class TestTransactionAPI:
             txn.add_airport(sample_airport)
             txn.add_procedures(sample_airport.ident, [sample_procedure])
 
-        airport = model._airports[sample_airport.ident]
+        airport = model.airports[sample_airport.ident]
         assert len(airport.procedures) == 1
 
     def test_transaction_bulk_operations(self, model, sample_airports):
@@ -163,7 +163,7 @@ class TestTransactionAPI:
             txn.remove_by_country("FR")
 
         assert model.airports.count() == 2
-        assert "LFPG" not in model._airports
+        assert "LFPG" not in model.airports
 
     def test_transaction_change_tracking(self, model, sample_airports):
         """Test change tracking in transaction."""
@@ -221,7 +221,7 @@ class TestBulkOperations:
         assert result['total'] == 2
 
         # Verify update
-        airport = model._airports["EGLL"]
+        airport = model.airports["EGLL"]
         assert airport.name == "London Heathrow Updated"
 
     def test_bulk_add_airports_skip_existing(self, model, sample_airports):
@@ -276,7 +276,7 @@ class TestBulkOperations:
         result = model.bulk_add_aip_entries(aip_data)
 
         assert result["EGLL"] == 2
-        airport = model._airports["EGLL"]
+        airport = model.airports["EGLL"]
         assert len(airport.aip_entries) == 2
 
     def test_bulk_add_procedures(self, model, sample_airport):
@@ -293,7 +293,7 @@ class TestBulkOperations:
         result = model.bulk_add_procedures(procedures_data)
 
         assert result["EGLL"] == 2
-        airport = model._airports["EGLL"]
+        airport = model.airports["EGLL"]
         assert len(airport.procedures) == 2
 
 
@@ -395,8 +395,8 @@ class TestBuilderPattern:
             .commit()
 
         # Airport should be in model
-        assert "EGLL" in model._airports
-        assert model._airports["EGLL"] == airport
+        assert "EGLL" in model.airports
+        assert model.airports["EGLL"] == airport
 
     def test_builder_commit_with_validation_error(self, model):
         """Test builder commit with validation error."""
@@ -407,7 +407,7 @@ class TestBuilderPattern:
             builder.commit()
 
         # Airport should NOT be in model
-        assert "EGL" not in model._airports
+        assert "EGL" not in model.airports
 
     def test_builder_with_aip_entries(self, model):
         """Test builder with AIP entries."""
@@ -506,8 +506,8 @@ class TestIntegration:
 
         # Verify
         assert model.airports.count() == 3
-        assert len(model._airports["EGLL"].aip_entries) == 1
-        assert len(model._airports["EGLL"].procedures) == 1
+        assert len(model.airports["EGLL"].aip_entries) == 1
+        assert len(model.airports["EGLL"].procedures) == 1
 
     def test_incremental_update(self, model, sample_airports):
         """Test incremental model update."""
@@ -524,9 +524,9 @@ class TestIntegration:
             txn.bulk_add_airports(new_french)
 
         # Verify
-        assert "LFPG" not in model._airports  # Removed
-        assert "LFPO" in model._airports  # Added
-        assert "EGLL" in model._airports  # Unchanged
+        assert "LFPG" not in model.airports  # Removed
+        assert "LFPO" in model.airports  # Added
+        assert "EGLL" in model.airports  # Unchanged
 
     def test_builder_with_transaction(self, model):
         """Test using builder within transaction."""

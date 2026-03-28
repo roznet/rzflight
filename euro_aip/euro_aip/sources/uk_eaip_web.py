@@ -250,7 +250,7 @@ class UKEAIPWebSource(CachedSource, SourceInterface):
         for icao in airports:
             try:
                 if icao not in model.airports:
-                    model.airports[icao] = Airport(ident=icao)
+                    model.add_airport(Airport(ident=icao))
 
                 airport = model.airports[icao]
 

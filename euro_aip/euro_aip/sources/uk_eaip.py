@@ -298,8 +298,8 @@ class UKEAIPSource(CachedSource, SourceInterface):
             try:
                 # Get or create airport in model
                 if icao not in model.airports:
-                    model.airports[icao] = Airport(ident=icao)
-                
+                    model.add_airport(Airport(ident=icao))
+
                 airport = model.airports[icao]
                 
                 # Get AIP data and convert to AIPEntry objects

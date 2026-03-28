@@ -430,7 +430,7 @@ class BorderCrossingSource(CachedSource):
         airports_by_country = {}
         airports_by_iso = {}
 
-        for icao, airport in model._airports.items():
+        for icao, airport in model.airports.items():
             if airport.name:
                 # Use iso_country field for ISO code
                 country_iso = getattr(airport, 'iso_country', None)
@@ -459,8 +459,8 @@ class BorderCrossingSource(CachedSource):
             # First, try to use ICAO code if available
             if 'icao_code' in entry and entry['icao_code']:
                 airport_icao = entry['icao_code']
-                if airport_icao in model._airports:
-                    airport = model._airports[airport_icao]
+                if airport_icao in model.airports:
+                    airport = model.airports[airport_icao]
                     logger.debug(f"Matched border crossing entry for {airport_icao} using ICAO code")
                 else:
                     logger.debug(f"ICAO code {airport_icao} not found in model")
@@ -489,7 +489,7 @@ class BorderCrossingSource(CachedSource):
 
                 # If still no candidates, search all airports (fallback)
                 if not candidates:
-                    candidates = [(icao, airport.name) for icao, airport in model._airports.items() if airport.name]
+                    candidates = [(icao, airport.name) for icao, airport in model.airports.items() if airport.name]
                     logger.debug(f"No country-specific candidates found, searching all {len(candidates)} airports")
                 
                 if candidates:
@@ -568,7 +568,7 @@ class BorderCrossingSource(CachedSource):
                 entries_by_name[airport_name] = border_entry
             
             # If we found a matching airport, add border crossing information
-            if matched_airport_icao and matched_airport_icao in model._airports:
+            if matched_airport_icao and matched_airport_icao in model.airports:
                 airport = model._airports[matched_airport_icao]
                 
                 # Add border crossing data to airport

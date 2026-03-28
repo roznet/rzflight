@@ -501,6 +501,13 @@ class AirportCollection(QueryableCollection['Airport']):
         # List-style: use parent implementation
         return super().__getitem__(key)
 
+    def __setitem__(self, key, value):
+        """Raise a clear error directing callers to the model's write API."""
+        raise TypeError(
+            "AirportCollection is a read-only query view. "
+            "Use model.add_or_update_airport(airport) to add or modify airports."
+        )
+
     def __contains__(self, key) -> bool:
         """
         Check if airport exists by ICAO code.

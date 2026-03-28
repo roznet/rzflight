@@ -158,7 +158,7 @@ class TestDatabaseStorage:
             
             airport.add_aip_entry(aip_entry)
 
-            model._airports[airport.ident] = airport
+            model.add_airport(airport)
             model.sources_used.add("worldairports")
             model.sources_used.add("ukeaip")
         
@@ -493,7 +493,7 @@ class TestDatabaseStorageEdgeCases:
         )
         airport.add_source("test_source")
 
-        model._airports['TEST'] = airport
+        model.add_airport(airport)
         model.sources_used.add("test_source")
         
         # Should not raise an error
@@ -544,7 +544,7 @@ class TestDatabaseStorageEdgeCases:
             )
             airport.add_runway(runway)
 
-            model._airports[icao] = airport
+            model.add_airport(airport)
 
         model.sources_used.add("test_source")
         

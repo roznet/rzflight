@@ -38,8 +38,9 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         """Norway eAIP only handles EN* airports."""
         return self.SUPPORTED_PREFIXES
 
-    # Base URL for Norway AIM
-    BASE_URL = "https://aim-prod.avinor.no/no/AIP/View/Index/147"
+    # Stable entry point that redirects to the current index
+    AIP_ROOT_URL = "https://aim-prod.avinor.no/no/AIP/"
+    AIP_HOST = "https://aim-prod.avinor.no"
 
     def __init__(self, cache_dir: str, airac_date: str):
         """
@@ -51,6 +52,7 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         """
         super().__init__(cache_dir)
         self.airac_date = airac_date
+        self._base_url = None
         self._validate_airac_date()
 
     def _validate_airac_date(self):
@@ -59,6 +61,36 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
             datetime.strptime(self.airac_date, '%Y-%m-%d')
         except ValueError:
             raise ValueError(f"Invalid AIRAC date format: {self.airac_date}. Expected YYYY-MM-DD")
+
+    def _discover_base_url(self) -> str:
+        """Discover the current base URL by following the stable redirect.
+
+        https://aim-prod.avinor.no/no/AIP/ redirects to /no/AIP/View/Index/{N}
+        where {N} is the current publication index (changes each AIRAC cycle).
+        """
+        resp = requests.head(self.AIP_ROOT_URL, allow_redirects=False, timeout=10)
+        if resp.status_code in (301, 302) and 'Location' in resp.headers:
+            location = resp.headers['Location']
+            # Location is relative like /no/AIP/View/Index/152
+            if location.startswith('/'):
+                return f"{self.AIP_HOST}{location}"
+            return location
+        # Fallback: try GET if HEAD is not allowed
+        resp = requests.get(self.AIP_ROOT_URL, allow_redirects=False, timeout=10)
+        if resp.status_code in (301, 302) and 'Location' in resp.headers:
+            location = resp.headers['Location']
+            if location.startswith('/'):
+                return f"{self.AIP_HOST}{location}"
+            return location
+        raise RuntimeError(f"Could not discover Norway eAIP base URL from {self.AIP_ROOT_URL} (HTTP {resp.status_code})")
+
+    @property
+    def base_url(self) -> str:
+        """Current base URL, discovered on first access."""
+        if self._base_url is None:
+            self._base_url = self._discover_base_url()
+            logger.info(f"Discovered Norway eAIP base URL: {self._base_url}")
+        return self._base_url
 
     def _build_url(self, path: str) -> str:
         """
@@ -71,7 +103,7 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
             Complete URL
         """
         airac_root = f"{self.airac_date}-AIRAC"
-        return f"{self.BASE_URL}/{airac_root}/{path}"
+        return f"{self.base_url}/{airac_root}/{path}"
 
     def _get_index_url(self) -> str:
         """Get the main menu URL."""
@@ -241,7 +273,7 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
                     continue
 
                 if icao not in model.airports:
-                    model.airports[icao] = Airport(ident=icao)
+                    model.add_airport(Airport(ident=icao))
 
                 airport = model.airports[icao]
 
