@@ -44,7 +44,7 @@ This allows:
         │                       │                       │
    ForeFlight PDF         NotamParser            CategorizationPipeline
    AVWX API               MetarParser            Q-code decoder
-   FAA API                TafParser
+   Ogimet (historical)    TafParser
 ```
 
 ## Standalone Parsers
@@ -110,6 +110,17 @@ class BriefingSource(ABC):
 5. Return `Briefing` object
 
 The parsers handle the hard work - your source just extracts text.
+
+**Note**: Not all sources produce a full `Briefing`. Weather-only sources like `AvWxSource` and `OgimetSource` return `List[WeatherReport]` directly — they don't implement the `BriefingSource` interface since they only provide weather data, not NOTAMs or routes.
+
+## Available Sources
+
+| Source | Class | Input | Output | Use Case |
+|--------|-------|-------|--------|----------|
+| ForeFlight PDF | `ForeFlightSource` | PDF file | `Briefing` | Full briefing with NOTAMs + weather |
+| Autorouter | `AutorouterNotamSource` | API | `List[Notam]` | NOTAMs for specific airports |
+| aviationweather.gov | `AvWxSource` | API | `List[WeatherReport]` | Live METAR/TAF, multi-airport |
+| ogimet.com | `OgimetSource` | Web scraping | `List[WeatherReport]` | Historical METAR/TAF, single airport, date range |
 
 ## Key Choices
 

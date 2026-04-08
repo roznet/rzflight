@@ -5,7 +5,7 @@
 ## Intent
 
 Allow users to:
-1. **Import** briefing data from multiple sources (ForeFlight PDFs, Autorouter API, ICAO FPL strings)
+1. **Import** briefing data from multiple sources (ForeFlight PDFs, Autorouter API, Ogimet historical, ICAO FPL strings)
 2. **Parse** structured data: NOTAMs, METARs, TAFs, routes
 3. **Filter & query** with the same fluent patterns as `euro_aip` (chainable, set operations)
 4. **Serialize** to JSON for cross-platform use (CLI, web, iOS)
@@ -18,7 +18,7 @@ Allow users to:
 euro_aip/briefing/
 ├── models/          # Briefing, Notam, Route dataclasses
 ├── parsers/         # Standalone text parsers (NotamParser)
-├── sources/         # BriefingSource implementations (ForeFlight, Autorouter, AvWx)
+├── sources/         # BriefingSource implementations (ForeFlight, Autorouter, AvWx, Ogimet)
 ├── collections/     # NotamCollection (QueryableCollection)
 ├── categorization/  # Q-code, text rules, pipeline
 ├── weather/         # WeatherReport, WeatherParser, WeatherAnalyzer, WeatherCollection
@@ -33,6 +33,7 @@ euro_aip/briefing/
 │ ForeFlightSource │     │ NotamParser      │     │ NotamCollection     │
 │ AutorouterNotam  │     │ WeatherParser    │     │ WeatherCollection   │
 │ AvWxSource       │     │ ICAOFPLParser    │     │                     │
+│ OgimetSource     │     │                  │     │                     │
 └──────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
 
@@ -81,6 +82,24 @@ print(f"Within limits: {wc.within_limits(max_crosswind_kt=20)}")
 
 # Find IFR or worse
 bad_wx = briefing.weather_query.at_or_worse_than(FlightCategory.IFR).all()
+```
+
+### Historical Weather (Ogimet)
+```python
+from datetime import date
+from euro_aip.briefing import OgimetSource
+
+# Fetch historical METAR/TAF for one airport over a date range
+source = OgimetSource()
+reports = source.fetch_history("EGLL", date(2026, 4, 1), date(2026, 4, 3))
+
+# Or just METARs / just TAFs
+metars = source.fetch_metars("EGLL", date(2026, 4, 7))
+tafs = source.fetch_tafs("EGLL", date(2026, 4, 7))
+
+# Returns standard WeatherReport objects — same as AvWxSource
+for r in reports:
+    print(r.observation_time, r.flight_category, r.raw_text)
 ```
 
 ### Source-Agnostic Parsing

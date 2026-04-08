@@ -9,7 +9,7 @@ Provide aviation weather analysis within the briefing module:
 2. **Analyze** flight categories (VFR/MVFR/IFR/LIFR), wind components, TAF trends
 3. **Filter** weather reports with the same fluent patterns as `NotamCollection`
 
-Ported from `rzflight-save/python/weather/weather.py` — kept the valuable logic (FAA thresholds, trig-based wind components, TAF validity checking), discarded the monolithic design, web scraping, SQLite storage, and `eval()` calls.
+Ported from `rzflight-save/python/weather/weather.py` — kept the valuable logic (FAA thresholds, trig-based wind components, TAF validity checking), discarded the monolithic design, SQLite storage, and `eval()` calls. Historical web scraping was later re-added as `OgimetSource` (clean implementation using BeautifulSoup).
 
 **What should NOT change**: Weather lives in `briefing/weather/` (parallel to `categorization/`). It follows the same Source → Parser → Model → Collection pattern as NOTAMs.
 
@@ -62,6 +62,43 @@ taf = WeatherReport.from_taf("TAF LFPG 211100Z 2112/2218 24012KT 9999 FEW040 "
 applicable = WeatherAnalyzer.find_applicable_taf(taf, check_time)
 print(WeatherAnalyzer.compare_categories(metar.flight_category, applicable.flight_category))
 ```
+
+## Data Sources
+
+Three weather sources, all producing standard `WeatherReport` objects:
+
+| Source | Class | Use Case | Access Pattern |
+|--------|-------|----------|----------------|
+| aviationweather.gov | `AvWxSource` | Live weather | Multi-airport, last N hours |
+| ForeFlight PDF | `ForeFlightSource` | Briefing extraction | Airports in the briefing |
+| ogimet.com | `OgimetSource` | Historical weather | Single airport, date range |
+
+### AvWxSource (Live)
+```python
+from euro_aip.briefing.sources import AvWxSource
+source = AvWxSource()
+reports = source.fetch_weather(["EGLL", "LFPG"])  # METARs + TAFs
+```
+
+### OgimetSource (Historical)
+```python
+from datetime import date
+from euro_aip.briefing.sources import OgimetSource
+
+source = OgimetSource()
+
+# Single day
+reports = source.fetch_history("EGLL", date(2026, 4, 7))
+
+# Date range
+reports = source.fetch_history("EGLL", date(2026, 4, 1), date(2026, 4, 3))
+
+# Filter by type
+metars = source.fetch_metars("EGLL", date(2026, 4, 7))
+tafs = source.fetch_tafs("EGLL", date(2026, 4, 7))
+```
+
+Ogimet scrapes HTML from `display_metars2.php`. It automatically fixes TAF validity dates (the parser infers year/month from `now()`, but for historical data it uses the actual report datetime from ogimet). Results are sorted chronologically.
 
 ## Data Models
 

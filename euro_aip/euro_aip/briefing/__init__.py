@@ -35,6 +35,7 @@ from euro_aip.briefing.models.icao_fpl import ICAOFlightPlan, parse_icao_fpl
 from euro_aip.briefing.collections.notam_collection import NotamCollection
 from euro_aip.briefing.sources.foreflight import ForeFlightSource
 from euro_aip.briefing.sources.avwx import AvWxSource
+from euro_aip.briefing.sources.ogimet import OgimetSource
 from euro_aip.briefing.parsers.notam_parser import NotamParser
 from euro_aip.briefing.categorization.pipeline import CategorizationPipeline
 from euro_aip.briefing.weather import (
@@ -64,6 +65,7 @@ __all__ = [
     # Sources
     'ForeFlightSource',
     'AvWxSource',
+    'OgimetSource',
     # Parsers
     'NotamParser',
     # Categorization
