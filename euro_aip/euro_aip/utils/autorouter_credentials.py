@@ -1,6 +1,6 @@
 import requests
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from .credentials import CredentialManager
 
@@ -52,12 +52,27 @@ class AutorouterCredentialManager(CredentialManager):
             logger.error(f"Error connecting to Autorouter API: {e}")
             raise
 
+    def set_token(self, access_token: str, expires_at: Optional[datetime] = None) -> None:
+        """
+        Set a pre-obtained bearer token directly (e.g. from OAuth2 authorization code flow).
+
+        Args:
+            access_token: Bearer token obtained externally
+            expires_at: When the token expires. Defaults to ~1 year from now.
+        """
+        if expires_at is None:
+            expires_at = datetime.now() + timedelta(days=365)
+        self.credentials = {
+            'access_token': access_token,
+            'expiration': expires_at.isoformat(),
+        }
+
     def get_token(self) -> str:
         """
         Get the current access token, refreshing if necessary.
-        
+
         Returns:
             Current access token
         """
         credentials = self.get_credentials()
-        return credentials['access_token'] 
+        return credentials['access_token']

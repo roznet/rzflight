@@ -32,7 +32,8 @@ euro_aip/briefing/
 │    Sources       │────▶│    Parsers       │────▶│    Collections      │
 │ ForeFlightSource │     │ NotamParser      │     │ NotamCollection     │
 │ AutorouterNotam  │     │ WeatherParser    │     │ WeatherCollection   │
-│ AvWxSource       │     │ ICAOFPLParser    │     │                     │
+│ AutorouterGramet │     │ ICAOFPLParser    │     │                     │
+│ AvWxSource       │     │                  │     │                     │
 │ OgimetSource     │     │                  │     │                     │
 └──────────────────┘     └──────────────────┘     └─────────────────────┘
 ```
@@ -148,6 +149,46 @@ from euro_aip.briefing import AutorouterNotamSource
 
 source = AutorouterNotamSource(credential_manager)
 notams = source.fetch_notams(["LFPG", "EGTT"], start_validity=start, end_validity=end)
+```
+
+### Autorouter GRAMET (Vertical Cross-Section)
+```python
+from euro_aip.briefing.sources import AutorouterGrametSource
+
+source = AutorouterGrametSource(credential_manager)
+image_bytes = source.fetch_gramet(
+    waypoints=["EGTK", "LFPB", "LSGS"],
+    altitude_ft=8000,
+    departure_time=departure,
+    duration_hours=4.5,
+    fmt="pdf",  # or "png" (default)
+)
+```
+
+### Using Pre-Obtained OAuth2 Tokens
+
+When calling the Autorouter API from a web service where users have linked their
+account via the OAuth2 authorization code flow (e.g. via `flyfun-common`), use
+`set_token()` to inject the token directly instead of using client credentials:
+
+```python
+from euro_aip.utils.autorouter_credentials import AutorouterCredentialManager
+from euro_aip.briefing.sources import AutorouterNotamSource, AutorouterGrametSource
+
+# Token obtained externally (e.g. from flyfun-common's get_autorouter_token)
+cred_manager = AutorouterCredentialManager(cache_dir)
+cred_manager.set_token(access_token, expires_at=expiry_datetime)
+
+# Same sources work with either credential method
+notam_source = AutorouterNotamSource(cred_manager)
+gramet_source = AutorouterGrametSource(cred_manager)
+```
+
+`AutorouterSource` (AIP data) also accepts a `token` parameter directly:
+```python
+from euro_aip.sources import AutorouterSource
+
+source = AutorouterSource(cache_dir, token="bearer_token_from_db")
 ```
 
 ## Key Choices

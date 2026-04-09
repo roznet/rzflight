@@ -118,7 +118,8 @@ The parsers handle the hard work - your source just extracts text.
 | Source | Class | Input | Output | Use Case |
 |--------|-------|-------|--------|----------|
 | ForeFlight PDF | `ForeFlightSource` | PDF file | `Briefing` | Full briefing with NOTAMs + weather |
-| Autorouter | `AutorouterNotamSource` | API | `List[Notam]` | NOTAMs for specific airports |
+| Autorouter NOTAMs | `AutorouterNotamSource` | API | `List[Notam]` | NOTAMs for specific airports |
+| Autorouter GRAMET | `AutorouterGrametSource` | API | `bytes` (PNG/PDF) | Vertical met cross-section images |
 | aviationweather.gov | `AvWxSource` | API | `List[WeatherReport]` | Live METAR/TAF, multi-airport |
 | ogimet.com | `OgimetSource` | Web scraping | `List[WeatherReport]` | Historical METAR/TAF, single airport, date range |
 
