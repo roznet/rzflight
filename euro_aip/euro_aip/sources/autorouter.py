@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class AutorouterSource(CachedSource, SourceInterface):
     """Source implementation for the Autorouter API."""
     
-    def __init__(self, cache_dir: str, username: Optional[str] = None, password: Optional[str] = None, token: Optional[str] = None):
+    def __init__(self, cache_dir: str, username: Optional[str] = None, password: Optional[str] = None, token: Optional[str] = None, airac_date: Optional[str] = None):
         """
         Initialize the Autorouter source.
 
@@ -27,14 +27,23 @@ class AutorouterSource(CachedSource, SourceInterface):
             username: Optional username for client_credentials authentication
             password: Optional password for client_credentials authentication
             token: Optional pre-obtained bearer token (e.g. from OAuth2 authorization code flow)
+            airac_date: Optional AIRAC effective date (YYYY-MM-DD). When set, cache keys
+                are prefixed with the AIRAC date so each cycle gets its own cache entries.
         """
         super().__init__(cache_dir)
+        self.airac_date = airac_date
         self.credential_manager = AutorouterCredentialManager(cache_dir)
         if token is not None:
             self.credential_manager.set_token(token)
         elif username is not None or password is not None:
             self.credential_manager.set_credentials(username, password)
         self.base_url = "https://api.autorouter.aero/v1.0/pams"
+
+    def _get_cache_file(self, key: str, ext: str) -> Path:
+        """Get the cache file path, prefixed with AIRAC date when available."""
+        if self.airac_date:
+            return self.cache_path / f"{self.airac_date}_{key}.{ext}"
+        return self.cache_path / f"{key}.{ext}"
 
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for API requests."""
