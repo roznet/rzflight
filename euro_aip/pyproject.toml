@@ -56,8 +56,12 @@ pdf = [
 ]
 
 [tool.setuptools]
-packages = {find = {}}
 include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["euro_aip*"]
+exclude = ["tests*", "venv*", "build*", "dist*"]
 
 [tool.setuptools.package-data]
 "euro_aip.utils" = ["aip_fields.csv"]
