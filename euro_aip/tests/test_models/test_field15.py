@@ -33,14 +33,11 @@ from euro_aip.models.field15 import (
     ("MID", TokenKind.WAYPOINT),     # ambiguous but a valid point name
     ("23NM", TokenKind.UNKNOWN),     # US-style fix, out of scope
     ("FOO1BAR", TokenKind.UNKNOWN),
-    ("", TokenKind.UNKNOWN),         # not reachable via parse_field15, but classifier handles it
 ])
 def test_classify_each_kind(text, kind):
-    # Exercise via parse_field15 for all non-empty cases; directly for edge.
-    if text:
-        tokens = parse_field15(text)
-        assert len(tokens) == 1
-        assert tokens[0].kind is kind, f"{text!r} classified as {tokens[0].kind}, expected {kind}"
+    tokens = parse_field15(text)
+    assert len(tokens) == 1
+    assert tokens[0].kind is kind, f"{text!r} classified as {tokens[0].kind}, expected {kind}"
 
 
 # ---------------------------------------------------------------------------

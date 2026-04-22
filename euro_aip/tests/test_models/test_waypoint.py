@@ -479,6 +479,17 @@ class TestRouteResolver:
         route = resolver.resolve("EGTF DCT VESAN DCT LSGS")
         assert route.waypoints == ["VESAN"]
 
+    def test_resolve_filters_field15_annotations(self, model):
+        """Realistic Field-15 input: speed/level, DCT, airway, flight-rule, and
+        a POINT/QUALIFIER suffix must all be filtered out of the waypoint list."""
+        model.add_waypoint(Waypoint(name="BILGO", latitude_deg=50.0, longitude_deg=1.5, point_type="5LNC"))
+        model.add_waypoint(Waypoint(name="XIDIL", latitude_deg=47.5, longitude_deg=5.5, point_type="5LNC"))
+        resolver = RouteResolver(model)
+        route = resolver.resolve("N0175F160 EGTF DCT BILGO/N0180F100 UL612 XIDIL VFR LSGS")
+        assert route.departure == "EGTF"
+        assert route.destination == "LSGS"
+        assert route.waypoints == ["BILGO", "XIDIL"]
+
     def test_resolve_too_few_tokens(self, model):
         resolver = RouteResolver(model)
         with pytest.raises(ValueError):
