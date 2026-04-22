@@ -24,6 +24,13 @@ from .border_crossing_entry import BorderCrossingEntry
 from .validation import ValidationResult, ValidationError, ModelValidationError
 from .model_transaction import ModelTransaction
 from .airport_builder import AirportBuilder
+from .field15 import (
+    TokenKind,
+    RouteToken,
+    parse_field15,
+    waypoints_of,
+    annotations_of,
+)
 
 __all__ = [
     # Core models
@@ -47,6 +54,12 @@ __all__ = [
     'ModelValidationError',
     'ModelTransaction',
     'AirportBuilder',
+    # Field-15 tokenizer
+    'TokenKind',
+    'RouteToken',
+    'parse_field15',
+    'waypoints_of',
+    'annotations_of',
 ]
 
 def __getattr__(name):

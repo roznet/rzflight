@@ -10,10 +10,16 @@ midpoint, or the previously resolved point for progressive resolution).
 """
 
 import logging
+from dataclasses import replace
 from typing import Optional, List, TYPE_CHECKING
 
 from euro_aip.briefing.models.route import Route, RoutePoint
 from euro_aip.models.navpoint import NavPoint
+from euro_aip.models.field15 import (
+    TokenKind,
+    parse_field15,
+    waypoints_of,
+)
 
 if TYPE_CHECKING:
     from euro_aip.models.euro_aip_model import EuroAipModel
@@ -202,9 +208,19 @@ class RouteResolver:
         Raises:
             ValueError: If fewer than 2 tokens are provided
         """
-        tokens = route_string.upper().split()
-        # Filter out common route notation tokens
-        tokens = [t for t in tokens if t not in ("DCT", "->", "TO")]
+        parsed = parse_field15(route_string)
+
+        # Belt-and-braces: if a token classified as AIRWAY or UNKNOWN
+        # actually resolves to a known point, treat it as a waypoint. The
+        # parser stays strict to ICAO grammar; this demotion needs DB
+        # access so it lives here. Covers two real cases: airway-like
+        # identifiers that collide with a point name, and longer-than-ICAO
+        # point names occasionally present in real nav databases.
+        for i, t in enumerate(parsed):
+            if t.kind in (TokenKind.AIRWAY, TokenKind.UNKNOWN) and self.resolve_point(t.value):
+                parsed[i] = replace(t, kind=TokenKind.WAYPOINT)
+
+        tokens = waypoints_of(parsed)
 
         if len(tokens) < 2:
             raise ValueError(f"Route string must have at least departure and destination, got: '{route_string}'")
