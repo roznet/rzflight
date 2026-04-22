@@ -77,6 +77,12 @@ class Route:
     alternate_coords: Dict[str, Tuple[float, float]] = field(default_factory=dict)
     waypoint_coords: List[RoutePoint] = field(default_factory=list)
 
+    # Tokens that were recognized in the database but rejected during route
+    # resolution — typically because the resolved coordinates fall too far
+    # from the route (e.g. a 5-letter fix with only a far-off candidate).
+    # Each entry: {"name", "reason", "detour_nm", "leg_nm", "threshold_nm"}.
+    rejected_waypoints: List[Dict[str, object]] = field(default_factory=list)
+
     # Flight details
     aircraft_type: Optional[str] = None
     departure_time: Optional[datetime] = None
@@ -191,6 +197,7 @@ class Route:
             'destination_coords': list(self.destination_coords) if self.destination_coords else None,
             'alternate_coords': {k: list(v) for k, v in self.alternate_coords.items()},
             'waypoint_coords': [wp.to_dict() for wp in self.waypoint_coords],
+            'rejected_waypoints': list(self.rejected_waypoints),
             'aircraft_type': self.aircraft_type,
             'departure_time': self.departure_time.isoformat() if self.departure_time else None,
             'arrival_time': self.arrival_time.isoformat() if self.arrival_time else None,
@@ -234,6 +241,7 @@ class Route:
             destination_coords=destination_coords,
             alternate_coords=alternate_coords,
             waypoint_coords=waypoint_coords,
+            rejected_waypoints=list(data.get('rejected_waypoints') or []),
             aircraft_type=data.get('aircraft_type'),
             departure_time=departure_time,
             arrival_time=arrival_time,

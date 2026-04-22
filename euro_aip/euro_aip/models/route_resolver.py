@@ -10,10 +10,16 @@ midpoint, or the previously resolved point for progressive resolution).
 """
 
 import logging
+from dataclasses import replace
 from typing import Optional, List, TYPE_CHECKING
 
 from euro_aip.briefing.models.route import Route, RoutePoint
 from euro_aip.models.navpoint import NavPoint
+from euro_aip.models.field15 import (
+    TokenKind,
+    parse_field15,
+    waypoints_of,
+)
 
 if TYPE_CHECKING:
     from euro_aip.models.euro_aip_model import EuroAipModel
@@ -35,8 +41,39 @@ class RouteResolver:
         route = resolver.resolve("EGTF POGOL REM VESAN LSGS")
     """
 
-    def __init__(self, model: 'EuroAipModel'):
+    # Default detour-filter thresholds (nautical miles). The leg here is
+    # `prev_resolved → destination`, so the filter tightens automatically as
+    # resolution progresses.
+    DEFAULT_DETOUR_FLOOR_NM = 30.0
+    DEFAULT_DETOUR_COEF = 0.5
+    DEFAULT_DETOUR_CAP_NM = 300.0
+
+    def __init__(
+        self,
+        model: 'EuroAipModel',
+        detour_floor_nm: float = DEFAULT_DETOUR_FLOOR_NM,
+        detour_coef: float = DEFAULT_DETOUR_COEF,
+        detour_cap_nm: float = DEFAULT_DETOUR_CAP_NM,
+    ):
+        """
+        Args:
+            model: EuroAipModel with airport and waypoint data.
+            detour_floor_nm: Minimum detour tolerated on short legs (nm).
+            detour_coef: Fraction of leg length allowed as detour.
+            detour_cap_nm: Maximum detour tolerated on long legs (nm).
+
+        Threshold per candidate = min(cap, max(floor, coef × leg_nm)).
+        """
         self.model = model
+        self.detour_floor_nm = detour_floor_nm
+        self.detour_coef = detour_coef
+        self.detour_cap_nm = detour_cap_nm
+
+    def _detour_threshold_nm(self, leg_nm: float) -> float:
+        return min(
+            self.detour_cap_nm,
+            max(self.detour_floor_nm, self.detour_coef * leg_nm),
+        )
 
     def resolve_point(self, name: str) -> Optional[RoutePoint]:
         """Resolve a single name to a RoutePoint (first candidate, no proximity).
@@ -74,15 +111,31 @@ class RouteResolver:
 
         return None
 
-    def resolve_point_near(self, name: str, reference: NavPoint) -> Optional[RoutePoint]:
-        """Resolve a name to a RoutePoint, picking the candidate closest to reference.
+    def resolve_point_near(
+        self,
+        name: str,
+        reference: NavPoint,
+        forward: Optional[NavPoint] = None,
+    ) -> Optional[RoutePoint]:
+        """Resolve a name to a RoutePoint, disambiguating among candidates.
+
+        When ``forward`` is provided, candidates are scored by their detour
+        cost relative to the leg ``reference → forward`` — i.e. how much
+        they'd add if inserted there. This is more meaningful than raw
+        distance to ``reference`` when the route is long and ``reference``
+        is only one endpoint of the current leg.
+
+        When ``forward`` is None, falls back to closest-to-reference
+        (legacy behavior).
 
         Args:
-            name: ICAO code or waypoint name
-            reference: NavPoint to use for proximity disambiguation
+            name: ICAO code or waypoint name.
+            reference: Anchor NavPoint (typically last resolved point).
+            forward: Optional second anchor (typically destination) used
+                for detour-based selection.
 
         Returns:
-            RoutePoint with coordinates, or None if not found
+            RoutePoint with coordinates, or None if not found.
         """
         name_upper = name.upper().strip()
 
@@ -96,24 +149,37 @@ class RouteResolver:
                 point_type="airport",
             )
 
-        # Try waypoint — pick closest candidate to reference
+        # Try waypoint — pick best candidate
         candidates = self.model.get_waypoint_candidates(name_upper)
         if not candidates:
             return None
 
         if len(candidates) == 1:
             wp = candidates[0]
+        elif forward is not None:
+            # Minimise detour on the reference→forward leg
+            wp = min(
+                candidates,
+                key=lambda c: NavPoint.detour_nm(reference, c.navpoint, forward),
+            )
+            logger.debug(
+                "Waypoint %s: %d candidates, chose %s (detour %.0f nm)",
+                name_upper,
+                len(candidates),
+                wp.source_id,
+                NavPoint.detour_nm(reference, wp.navpoint, forward),
+            )
         else:
+            # No forward anchor — fall back to closest-to-reference
             wp = min(
                 candidates,
                 key=lambda c: reference.haversine_distance(c.navpoint)[1],
             )
-            if len(candidates) > 1:
-                _, chosen_dist = reference.haversine_distance(wp.navpoint)
-                logger.debug(
-                    "Waypoint %s: %d candidates, chose %s (%.0f nm from reference)",
-                    name_upper, len(candidates), wp.source_id, chosen_dist,
-                )
+            _, chosen_dist = reference.haversine_distance(wp.navpoint)
+            logger.debug(
+                "Waypoint %s: %d candidates, chose %s (%.0f nm from reference)",
+                name_upper, len(candidates), wp.source_id, chosen_dist,
+            )
 
         return RoutePoint(
             name=name_upper,
@@ -142,9 +208,19 @@ class RouteResolver:
         Raises:
             ValueError: If fewer than 2 tokens are provided
         """
-        tokens = route_string.upper().split()
-        # Filter out common route notation tokens
-        tokens = [t for t in tokens if t not in ("DCT", "->", "TO")]
+        parsed = parse_field15(route_string)
+
+        # Belt-and-braces: if a token classified as AIRWAY or UNKNOWN
+        # actually resolves to a known point, treat it as a waypoint. The
+        # parser stays strict to ICAO grammar; this demotion needs DB
+        # access so it lives here. Covers two real cases: airway-like
+        # identifiers that collide with a point name, and longer-than-ICAO
+        # point names occasionally present in real nav databases.
+        for i, t in enumerate(parsed):
+            if t.kind in (TokenKind.AIRWAY, TokenKind.UNKNOWN) and self.resolve_point(t.value):
+                parsed[i] = replace(t, kind=TokenKind.WAYPOINT)
+
+        tokens = waypoints_of(parsed)
 
         if len(tokens) < 2:
             raise ValueError(f"Route string must have at least departure and destination, got: '{route_string}'")
@@ -169,40 +245,88 @@ class RouteResolver:
         else:
             logger.warning("Could not resolve destination: %s", destination)
 
-        # Build reference point for proximity disambiguation
-        # Start with midpoint of dep/dest, then progressively use last resolved point
+        # Anchors for progressive resolution:
+        #   reference = last good resolved point (starts at dep, else dep/dest
+        #               midpoint fallback, else dest)
+        #   forward   = destination (stable; used for detour scoring + gate)
         reference = self._make_reference(dep_point, dest_point)
+        forward = (
+            NavPoint(
+                latitude=dest_point.latitude,
+                longitude=dest_point.longitude,
+                name=dest_point.name,
+            )
+            if dest_point
+            else None
+        )
+        # Prefer dep_point as starting reference when available, so the leg
+        # used for the detour gate is a real leg (dep→dest) rather than the
+        # midpoint→dest half-leg.
+        if dep_point is not None:
+            reference = NavPoint(
+                latitude=dep_point.latitude,
+                longitude=dep_point.longitude,
+                name=dep_point.name,
+            )
 
-        # Resolve middle waypoints with proximity context
-        waypoint_names = []
-        waypoint_coords = []
-        unresolved = []
+        waypoint_names: List[str] = []
+        waypoint_coords: List[RoutePoint] = []
+        unresolved: List[str] = []
+        rejected: List[dict] = []
         for token in middle_tokens:
             if reference is not None:
-                point = self.resolve_point_near(token, reference)
+                point = self.resolve_point_near(token, reference, forward=forward)
             else:
                 point = self.resolve_point(token)
 
-            if point:
-                waypoint_names.append(token)
-                # Override point_type for intermediate points
-                if point.point_type == "airport":
-                    point = RoutePoint(
-                        name=point.name,
-                        latitude=point.latitude,
-                        longitude=point.longitude,
-                        point_type="waypoint",
-                    )
-                waypoint_coords.append(point)
-                # Update reference to last resolved point for progressive resolution
-                reference = NavPoint(
+            if not point:
+                unresolved.append(token)
+                logger.warning("Could not resolve waypoint: %s", token)
+                continue
+
+            # Detour gate — only applies when we have both anchors
+            if reference is not None and forward is not None:
+                candidate_np = NavPoint(
                     latitude=point.latitude,
                     longitude=point.longitude,
                     name=point.name,
                 )
-            else:
-                unresolved.append(token)
-                logger.warning("Could not resolve waypoint: %s", token)
+                _, leg_nm = reference.haversine_distance(forward)
+                detour = NavPoint.detour_nm(reference, candidate_np, forward)
+                threshold = self._detour_threshold_nm(leg_nm)
+                if detour > threshold:
+                    rejected.append({
+                        "name": token,
+                        "reason": "detour_exceeds_threshold",
+                        "detour_nm": round(detour, 1),
+                        "leg_nm": round(leg_nm, 1),
+                        "threshold_nm": round(threshold, 1),
+                    })
+                    logger.warning(
+                        "Route '%s': rejecting %s — detour %.0f nm exceeds "
+                        "threshold %.0f nm on %.0f nm leg (%s→%s)",
+                        route_string, token, detour, threshold, leg_nm,
+                        reference.name, forward.name,
+                    )
+                    # Do not advance reference — keep anchoring on last good point
+                    continue
+
+            waypoint_names.append(token)
+            # Override point_type for intermediate points
+            if point.point_type == "airport":
+                point = RoutePoint(
+                    name=point.name,
+                    latitude=point.latitude,
+                    longitude=point.longitude,
+                    point_type="waypoint",
+                )
+            waypoint_coords.append(point)
+            # Advance reference to last good resolved point
+            reference = NavPoint(
+                latitude=point.latitude,
+                longitude=point.longitude,
+                name=point.name,
+            )
 
         if unresolved:
             logger.warning(
@@ -217,6 +341,7 @@ class RouteResolver:
             departure_coords=departure_coords,
             destination_coords=destination_coords,
             waypoint_coords=waypoint_coords,
+            rejected_waypoints=rejected,
         )
 
     @staticmethod

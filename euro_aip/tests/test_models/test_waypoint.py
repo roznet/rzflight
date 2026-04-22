@@ -500,3 +500,110 @@ class TestRouteResolver:
         assert route.departure == "EGTF"
         assert route.destination == "LSGS"
         assert route.waypoints == ["VESAN"]
+
+
+# ========================================================================
+# Detour Filter Tests
+# ========================================================================
+
+class TestDetourFilter:
+    """Filters waypoints resolved to coordinates far from the route."""
+
+    @pytest.fixture
+    def model(self):
+        m = EuroAipModel()
+        # EGKK (Gatwick) → EDDF (Frankfurt), ~340 nm leg
+        m.add_airport(Airport(ident="EGKK", name="Gatwick", latitude_deg=51.148, longitude_deg=-0.190))
+        m.add_airport(Airport(ident="EDDF", name="Frankfurt", latitude_deg=50.033, longitude_deg=8.543))
+        # Small regional pair for short-leg floor test
+        m.add_airport(Airport(ident="EGKA", name="Shoreham", latitude_deg=50.835, longitude_deg=-0.297))
+        m.add_airport(Airport(ident="EGKB", name="Biggin Hill", latitude_deg=51.331, longitude_deg=0.033))
+        # On-route European fixes
+        m.add_waypoint(Waypoint(name="NEARR", latitude_deg=50.6, longitude_deg=4.2, point_type="5LNC"))
+        m.add_waypoint(Waypoint(name="TERMN", latitude_deg=51.20, longitude_deg=-0.10, point_type="5LNC"))
+        # Single far-off candidate (simulates a misresolution)
+        m.add_waypoint(Waypoint(name="FAROFF", latitude_deg=40.5, longitude_deg=-3.5, point_type="5LNC"))
+        # Ambiguous name — one candidate near route, one far off
+        m.add_waypoint(
+            Waypoint(name="AMBIG", latitude_deg=50.5, longitude_deg=4.0, point_type="VOR",
+                     source_id="near", source="test")
+        )
+        m.add_waypoint(
+            Waypoint(name="AMBIG", latitude_deg=35.0, longitude_deg=-100.0, point_type="VOR",
+                     source_id="far", source="test")
+        )
+        return m
+
+    def test_threshold_formula(self, model):
+        r = RouteResolver(model, detour_floor_nm=30, detour_coef=0.5, detour_cap_nm=300)
+        # Short leg → floor
+        assert r._detour_threshold_nm(10.0) == 30
+        # Medium leg → coef × leg
+        assert r._detour_threshold_nm(200.0) == 100.0
+        # Long leg → cap
+        assert r._detour_threshold_nm(2000.0) == 300.0
+
+    def test_two_point_route_has_no_rejects(self, model):
+        r = RouteResolver(model)
+        route = r.resolve("EGKK EDDF")
+        assert route.rejected_waypoints == []
+
+    def test_near_route_waypoint_passes(self, model):
+        r = RouteResolver(model)
+        route = r.resolve("EGKK NEARR EDDF")
+        assert route.waypoints == ["NEARR"]
+        assert route.rejected_waypoints == []
+
+    def test_far_off_waypoint_rejected(self, model):
+        r = RouteResolver(model)
+        route = r.resolve("EGKK FAROFF EDDF")
+        assert route.waypoints == []
+        assert len(route.rejected_waypoints) == 1
+        entry = route.rejected_waypoints[0]
+        assert entry["name"] == "FAROFF"
+        assert entry["reason"] == "detour_exceeds_threshold"
+        assert entry["detour_nm"] > entry["threshold_nm"]
+
+    def test_short_leg_floor_accepts_terminal_fix(self, model):
+        """Short legs use the floor, tolerating near-route terminal fixes."""
+        # EGKA→EGKB is ~24 nm; TERMN is ~12 nm off course → should pass.
+        r = RouteResolver(model)
+        route = r.resolve("EGKA TERMN EGKB")
+        assert route.waypoints == ["TERMN"]
+        assert route.rejected_waypoints == []
+
+    def test_long_leg_cap_rejects_very_far_off(self, model):
+        """Cap bounds permissiveness even on long legs."""
+        # Manually tighten cap so FAROFF is clearly out of bounds
+        r = RouteResolver(model, detour_cap_nm=200)
+        route = r.resolve("EGKK FAROFF EDDF")
+        assert route.rejected_waypoints
+        assert route.rejected_waypoints[0]["threshold_nm"] <= 200
+
+    def test_candidate_selection_picks_min_detour(self, model):
+        """When multiple candidates exist, the on-route one is chosen."""
+        r = RouteResolver(model)
+        route = r.resolve("EGKK AMBIG EDDF")
+        # Should pick the near candidate (lat ~50.5) not the far one (lat 35)
+        assert route.waypoints == ["AMBIG"]
+        assert len(route.waypoint_coords) == 1
+        assert abs(route.waypoint_coords[0].latitude - 50.5) < 0.1
+        assert route.rejected_waypoints == []
+
+    def test_bad_point_does_not_pollute_subsequent_anchor(self, model):
+        """A rejected point must not move the reference — next fix still
+        scored against the last good anchor."""
+        r = RouteResolver(model)
+        # FAROFF (in Spain) between two on-route fixes. If rejection moved
+        # the anchor to Spain, NEARR would then fail too. It must still pass.
+        route = r.resolve("EGKK FAROFF NEARR EDDF")
+        assert "NEARR" in route.waypoints
+        assert any(rej["name"] == "FAROFF" for rej in route.rejected_waypoints)
+
+    def test_rejected_waypoints_roundtrip(self, model):
+        r = RouteResolver(model)
+        route = r.resolve("EGKK FAROFF EDDF")
+        d = route.to_dict()
+        assert d["rejected_waypoints"]
+        route2 = Route.from_dict(d)
+        assert route2.rejected_waypoints == route.rejected_waypoints

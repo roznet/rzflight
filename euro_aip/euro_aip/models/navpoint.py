@@ -173,6 +173,22 @@ class NavPoint:
         return f"NavPoint(name={self.name!r}, latitude={self.latitude}, longitude={self.longitude})" 
     
 
+    @staticmethod
+    def detour_nm(a: 'NavPoint', w: 'NavPoint', b: 'NavPoint') -> float:
+        """Extra distance added by inserting waypoint W between A and B.
+
+        Returns d(A,W) + d(W,B) - d(A,B), in nautical miles. Always >= 0 (to
+        floating-point noise) for points on a sphere; values near zero mean W
+        lies on the A→B great circle, larger values mean a bigger detour.
+
+        Useful for judging whether a candidate fix is plausibly "on the way"
+        between two anchors — independent of absolute position.
+        """
+        _, d_aw = a.haversine_distance(w)
+        _, d_wb = w.haversine_distance(b)
+        _, d_ab = a.haversine_distance(b)
+        return (d_aw + d_wb) - d_ab
+
     def distance_to_segment(self, line_start: 'NavPoint', line_end: 'NavPoint') -> float:
         """
         Compute distance from this point to a segment defined by two NavPoints.
