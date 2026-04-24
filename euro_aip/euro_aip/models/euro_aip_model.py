@@ -231,6 +231,68 @@ class EuroAipModel:
                 added += 1
         return {"added": added, "updated": updated}
 
+    def dedup_waypoints(
+        self,
+        tolerance_nm: float = 0.5,
+        source_priority: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
+        """Merge near-duplicate waypoint candidates within each name group.
+
+        Candidates sharing a name are clustered by great-circle distance. Within
+        each cluster (coords within ``tolerance_nm``), only the candidate from
+        the highest-priority source survives. Candidates farther apart than
+        tolerance are preserved as separate candidates — they represent genuine
+        geographic collisions (e.g. 2-letter NDBs reused worldwide).
+
+        Args:
+            tolerance_nm: Maximum coord distance for two candidates to be
+                considered the same physical point. Default 0.5 nm handles both
+                rounding drift and collocated pairs without merging truly
+                distinct fixes.
+            source_priority: Source names in priority order (first = highest).
+                Unlisted sources rank below all listed ones. Default:
+                ``["eurocontrol_fra", "opennav", "ourairports", "faa_nasr"]``.
+
+        Returns:
+            Dict with ``kept`` and ``dropped`` row counts.
+        """
+        if source_priority is None:
+            source_priority = ["eurocontrol_fra", "opennav", "ourairports", "faa_nasr"]
+        rank = {src: i for i, src in enumerate(source_priority)}
+        low = len(source_priority)
+
+        def priority_key(wp: Waypoint) -> int:
+            return rank.get(wp.source, low)
+
+        kept = 0
+        dropped = 0
+        for name, candidates in list(self._waypoints.items()):
+            if len(candidates) <= 1:
+                kept += len(candidates)
+                continue
+
+            # Cluster by pairwise coord distance. O(n²) per name, but n is tiny
+            # (max ~18 in practice), so this is cheap.
+            clusters: List[List[Waypoint]] = []
+            for wp in candidates:
+                placed = False
+                for cluster in clusters:
+                    _, dist = wp.navpoint.haversine_distance(cluster[0].navpoint)
+                    if dist < tolerance_nm:
+                        cluster.append(wp)
+                        placed = True
+                        break
+                if not placed:
+                    clusters.append([wp])
+
+            # Keep highest-priority candidate per cluster
+            survivors = [min(cluster, key=priority_key) for cluster in clusters]
+            self._waypoints[name] = survivors
+            kept += len(survivors)
+            dropped += len(candidates) - len(survivors)
+
+        return {"kept": kept, "dropped": dropped}
+
     # ========================================================================
     # Legacy Query API - Maintained for Backward Compatibility
     # ========================================================================

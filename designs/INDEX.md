@@ -38,8 +38,8 @@ Key exports: `model.airports`, `model.procedures`, `by_country`, `with_runways`
 - `query_api_detailed.md` - Full API documentation (complete details)
 
 ### Python Euro AIP Waypoints & Route Resolution
-Named navigation waypoints (5-letter codes, VOR/DME/NDB) from Eurocontrol FRA and OpenNav, with route string resolution that mixes airports and waypoints.
-Key exports: `Waypoint`, `WaypointCollection`, `RouteResolver`, `EurocontrolFRASource`, `OpenNavSource`
+Named navigation waypoints (5-letter codes, VOR/DME/NDB) from Eurocontrol FRA, OpenNav, OurAirports, and FAA NASR, with route string resolution that mixes airports and waypoints. Includes country-scoped fetch and cross-source dedup.
+Key exports: `Waypoint`, `WaypointCollection`, `RouteResolver`, `EurocontrolFRASource`, `OpenNavSource`, `OurAirportsNavaidSource`, `FAANasrFixSource`, `EuroAipModel.dedup_waypoints()`
 → Full doc: waypoints.md
 
 ### Python Euro AIP Database

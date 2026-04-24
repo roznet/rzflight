@@ -16,12 +16,15 @@ Enable route strings with mixed airports and waypoints: `"EGTF VESAN POGOL LSGS"
 models/
 ├── waypoint.py              # Waypoint dataclass (name, coords, type, FIR)
 ├── waypoint_collection.py   # WaypointCollection (QueryableCollection)
-├── route_resolver.py        # RouteResolver (airport-first resolution)
+├── field15.py               # ICAO Field-15 route tokenizer (pure, DB-free)
+├── route_resolver.py        # RouteResolver (airport-first + detour gate)
 ├── euro_aip_model.py        # Extended: _waypoints dict, add_waypoint(), etc.
 
 sources/
 ├── eurocontrol_fra.py       # EurocontrolFRASource (downloads/parses Excel)
 ├── opennav.py               # OpenNavSource (scrapes per-country waypoint pages)
+├── ourairports_navaids.py   # OurAirportsNavaidSource (worldwide NAVAIDs CSV; country-filterable)
+├── faa_nasr_fix.py          # FAANasrFixSource (US 70k named fixes from NASR subscription)
 
 utils/
 ├── dms_parser.py            # FRA DMS, OpenNav DMS, ICAO route coordinate parsers
@@ -52,11 +55,22 @@ from euro_aip.sources.eurocontrol_fra import EurocontrolFRASource
 model = storage.load_model()
 EurocontrolFRASource(cache_dir="cache").update_model(model)
 
-# Resolve route
+# Resolve a full Field-15 string — speed/level, airways, IFR/VFR, DCT all drop out
 resolver = RouteResolver(model)
-route = resolver.resolve("EGTF VESAN POGOL LSGS")
+route = resolver.resolve("N0175F160 EGTF DCT BILGO/N0180F100 UL612 XIDIL VFR LSGS")
 # route.departure_coords, route.waypoint_coords, route.destination_coords all populated
+# route.rejected_waypoints — tokens whose coords fell too far off the route
 # route.get_route_navpoints() returns full NavPoint list for spatial queries
+```
+
+### Python: Tokenize without resolving
+```python
+from euro_aip.models import parse_field15, waypoints_of, TokenKind
+
+tokens = parse_field15("EGTF DCT BILGO/N0180F100 UL612 XIDIL LSGS")
+waypoints_of(tokens)        # ['EGTF', 'BILGO', 'XIDIL', 'LSGS']
+[(t.value, t.kind) for t in tokens if t.qualifier]
+# [('BILGO', TokenKind.WAYPOINT)]  — qualifier 'N0180F100' captured on the token
 ```
 
 ### Python: Query waypoints
@@ -85,6 +99,9 @@ let route = resolver.resolveRouteString("EGTF VESAN POGOL LSGS")
 | Separate KnownWaypoints | Not merged into KnownAirports | Different data shapes, separate KDTrees, clean separation |
 | WaypointCollection | Extends QueryableCollection | Follows the established fluent API pattern |
 | Point type classification | From Excel "Point Type" column | 5LNC (empty column) vs VOR/DME/VORDME/NDB/VORTAC/NDBDME/LOCATOR |
+| Tokenizer vs resolver split | `parse_field15` is pure; resolver does DB lookups | Pure tokenizer is testable and reusable (`waypoints_of`, `annotations_of`). Resolver demotes AIRWAY/UNKNOWN → WAYPOINT *after* classification when a DB hit exists (covers real-world collisions like Y8 airway vs NDB). |
+| Multi-candidate disambiguation | Minimise detour on `reference→forward` leg (forward = destination) | Raw distance to `reference` (legacy) picks the wrong candidate when dep and dest are far apart — e.g. ABB would pick the US VORTAC over the French VORDME on an EGKB→LFMD route. Detour-on-leg is direction-aware. |
+| Detour filter | Reject middle waypoints whose detour > `min(cap, max(floor, coef × leg_nm))` | Defaults: `floor=30 nm`, `coef=0.5`, `cap=300 nm`. Prevents 5-letter fixes with only-far-off candidates being silently plotted hundreds of nm off route. Rejected entries surface on `Route.rejected_waypoints`, not silently dropped. |
 
 ## Data Sources
 
@@ -105,6 +122,40 @@ Per-country waypoint lists from opennav.com covering all published fixes (not ju
 - Covers 32 European countries by default
 - Point type inferred by name length (5-letter → 5LNC, shorter → unknown/NAVAID)
 - Source field: `"opennav"` vs `"eurocontrol_fra"`
+
+### OurAirports NAVAIDs (supplementary)
+Worldwide NAVAIDs (~9,900 across 231 countries) from the OurAirports `navaids.csv`. Used to fill NAVAID gaps not covered by FRA/OpenNav.
+
+- CSV URL: `https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/navaids.csv`
+- Decimal coordinates — no DMS parsing
+- Accepts `countries=` ISO alpha-2 list to scope fetch at source level (authoritative per-row `iso_country`, independent of the continent miscoding in the airports CSV)
+- Source field: `"ourairports"`, source_id: `"ourairports:{country}"`
+
+### FAA NASR Fixes (US-only, opt-in)
+~70,200 US named fixes (intersections, RNAV waypoints, reporting points) from the FAA 28-day NASR subscription. The 9,900-row OurAirports worldwide set covers NAVAIDs (VOR/NDB/DME) but NOT 5-letter intersections — FAA NASR fills that gap for the US.
+
+- Cycle index: `https://www.faa.gov/air_traffic/flight_info/aeronav/aero_data/NASR_Subscription/`
+- Direct download: `https://nfdc.faa.gov/webContent/28DaySub/extra/{DD}_{MonAbbr}_{YYYY}_FIX_CSV.zip` (no auth)
+- Auto-discovers cycle start date via `getNasr56EffectiveDate` JSON endpoint
+- Decimal coordinates; `ARTCC_ID_HIGH`/`_LOW` → `fir_codes` (comma-joined when they differ)
+- All emitted as `point_type="5LNC"`; source: `"faa_nasr"`, source_id: `"faa_nasr:{STATE}"`
+- Opt-in via `build_nav_db.py --include-faa` — doubles DB size (~12 MB → ~22 MB) so default build is European-scoped
+
+## Dedup and Country Scoping
+
+### Country-scoped OurAirports fetch
+`build_nav_db.py` derives the country list from the filtered `airports_df['iso_country'].unique()` and passes it to `OurAirportsNavaidSource(countries=...)`. With `--continents EU NA`, this scopes the worldwide CSV to ~90 countries, cutting ~4,000 out-of-scope NAVAIDs (AU, CN, BR, JP, etc.) before they ever enter the model.
+
+### `EuroAipModel.dedup_waypoints(tolerance_nm=0.5, source_priority=...)`
+Post-source cleanup pass that collapses near-duplicate candidates while preserving genuine geographic collisions.
+
+- Groups candidates by `name`, clusters by great-circle distance within `tolerance_nm`
+- Per cluster, keeps the candidate from the highest-priority source
+- Clusters > tolerance apart stay as distinct candidates (e.g. NDB `MA` exists in Germany, Spain, Canada, USA, Russia simultaneously — all kept)
+- Default priority: `eurocontrol_fra > opennav > ourairports > faa_nasr` (richer metadata sources win)
+- Type-mixed same-coord candidates (e.g. OurAirports says NDB, FRA says VORDME) resolve to FRA's VORDME — more authoritative classification supersedes outdated entries
+
+Invoked after all sources in `build_nav_db.py`. Typical effect on a European build: 34k → 26k rows (−25%), with zero < 0.5 nm near-duplicates remaining and ~870 genuine global collisions preserved.
 
 ## Database Schema
 
@@ -139,6 +190,13 @@ Field-level change tracking with AIRAC tagging, same pattern as `airports_change
 - **~8,100 not 26,000**: The Excel has ~26,667 rows but many are duplicates across FIRs. Deduplication by name yields ~8,100 unique waypoints.
 - **Not all waypoints exist**: Common waypoints like BILGO may not be in the FRA dataset if they're not FRA-significant. Use OpenNav as supplementary source for broader coverage.
 - **KnownWaypoints handles missing table**: Older databases without `waypoints` table result in an empty store (no crash).
+- **SID/STAR names tokenize as UNKNOWN**: Identifiers like `PERUS1N`, `SOKDU1V`, `KATHY1V` don't match the strict 2–5 letter waypoint regex, so they stay UNKNOWN and are dropped from the resolved waypoint list. This is intentional — SIDs/STARs are procedures, not points, and the DB doesn't carry their endpoints under that name.
+- **AIRWAY vs WAYPOINT demotion is DB-grounded**: `Y8` classifies as AIRWAY by grammar but also exists as an NDB in some nav DBs. The resolver promotes AIRWAY/UNKNOWN → WAYPOINT only when `resolve_point` finds a hit — and the detour gate then filters the far-off candidate. Both passes are needed; removing either one regresses real routes.
+- **Inline DMS coordinates classify as UNKNOWN**: Tokens like `4830N/00210E` split on `/`, leaving `4830N` as value and `00210E` as qualifier. The resolver skips them (no DB name match). Field-15 consumers that care about inline coords must read them off the raw token.
+- **Rejected ≠ unresolved**: `Route.rejected_waypoints` = DB hit but coords too far off the route (detour gate). Unresolved waypoints are just dropped with a warning; only rejections are structurally preserved for caller inspection.
+- **FAA NASR is fixes only, not NAVAIDs**: The `FIX.zip` dataset covers named waypoints (intersections, RNAV points). US NAVAIDs (VOR/NDB/DME) are in a separate `NAV.zip` — the OurAirports NAVAIDs source already covers them, so no need to fetch `NAV.zip` today.
+- **Country filter vs continent filter**: OurAirports NAVAIDs are scoped by `iso_country` (authoritative per-row), not by `continent` (which has known miscoding — e.g. `LE*` Spanish airports tagged `AF`). The build derives the country list from the filtered airports and passes it to the source.
+- **Dedup preserves same-name different-location candidates**: 2-letter NDB idents (`MA`, `PA`) are reused globally. Dedup clusters by coord distance, so each regional instance survives as a separate candidate. The detour gate at resolve time picks the right one per route.
 
 ## References
 
@@ -146,4 +204,4 @@ Field-level change tracking with AIRAC tagging, same pattern as `airports_change
 - Database schema: [database_quick_reference.md](./database_quick_reference.md)
 - Query patterns: [query_api_architecture.md](./query_api_architecture.md)
 - Swift architecture: [swift_architecture.md](./swift_architecture.md)
-- Key code: `euro_aip/models/waypoint.py`, `euro_aip/sources/eurocontrol_fra.py`, `Sources/RZFlight/KnownWaypoints.swift`
+- Key code: `euro_aip/models/waypoint.py`, `euro_aip/models/field15.py`, `euro_aip/models/route_resolver.py`, `euro_aip/models/euro_aip_model.py` (`dedup_waypoints`), `euro_aip/sources/eurocontrol_fra.py`, `euro_aip/sources/ourairports_navaids.py`, `euro_aip/sources/faa_nasr_fix.py`, `Sources/RZFlight/KnownWaypoints.swift`
