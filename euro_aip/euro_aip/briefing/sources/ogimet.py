@@ -39,8 +39,15 @@ class OgimetSource:
     """
 
     BASE_URL = "https://www.ogimet.com/display_metars2.php"
+    FORM_URL = "https://www.ogimet.com/metars.phtml.en"
     DEFAULT_TIMEOUT = 30
-    USER_AGENT = "euro-aip/1.0 (aviation weather tool)"
+    # Ogimet returns an empty stub page to non-browser clients. A realistic UA
+    # plus a warm-up visit to the form page (which sets ogimet_serverid) is
+    # required to get actual data.
+    USER_AGENT = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0 Safari/537.36"
+    )
 
     def __init__(
         self,
@@ -49,7 +56,13 @@ class OgimetSource:
     ):
         self._session = session or requests.Session()
         self._timeout = timeout
+        self._warmed_up = False
         self._session.headers.setdefault("User-Agent", self.USER_AGENT)
+        self._session.headers.setdefault(
+            "Accept",
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        )
+        self._session.headers.setdefault("Accept-Language", "en-US,en;q=0.9")
 
     def fetch_history(
         self,
@@ -120,8 +133,12 @@ class OgimetSource:
             "send": "send",
         }
         try:
+            self._ensure_warmed_up()
             response = self._session.get(
-                self.BASE_URL, params=params, timeout=self._timeout
+                self.BASE_URL,
+                params=params,
+                timeout=self._timeout,
+                headers={"Referer": self.FORM_URL},
             )
             if response.status_code == 204:
                 return ""
@@ -130,6 +147,20 @@ class OgimetSource:
         except Exception as e:
             logger.warning("Ogimet fetch failed for %s: %s", icao, e)
             return ""
+
+    def _ensure_warmed_up(self) -> None:
+        """Visit the form page once per session to pick up ogimet_serverid.
+
+        Without this cookie ogimet returns an empty page skeleton instead
+        of METAR data, regardless of User-Agent.
+        """
+        if self._warmed_up:
+            return
+        try:
+            self._session.get(self.FORM_URL, timeout=self._timeout)
+        except Exception as e:
+            logger.debug("Ogimet warm-up failed (continuing): %s", e)
+        self._warmed_up = True
 
     def _parse_html(self, html: str) -> List[dict]:
         """
