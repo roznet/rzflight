@@ -25,6 +25,7 @@ sources/
 ├── opennav.py               # OpenNavSource (scrapes per-country waypoint pages)
 ├── ourairports_navaids.py   # OurAirportsNavaidSource (worldwide NAVAIDs CSV; country-filterable)
 ├── faa_nasr_fix.py          # FAANasrFixSource (US 70k named fixes from NASR subscription)
+├── eurocontrol_sdo.py       # EurocontrolSDOSource (EAD/SDO HTML exports; manual download, ~98k EU+NA fixes)
 
 utils/
 ├── dms_parser.py            # FRA DMS, OpenNav DMS, ICAO route coordinate parsers
@@ -131,6 +132,16 @@ Worldwide NAVAIDs (~9,900 across 231 countries) from the OurAirports `navaids.cs
 - Accepts `countries=` ISO alpha-2 list to scope fetch at source level (authoritative per-row `iso_country`, independent of the continent miscoding in the airports CSV)
 - Source field: `"ourairports"`, source_id: `"ourairports:{country}"`
 
+### Eurocontrol SDO Designated Points (manual export, opt-in)
+~98,000 ICAO 5-letter waypoints across Europe + North America, sourced from the Eurocontrol European AIS Database (EAD) SDO Reporting tool. Most authoritative European source — fed upstream by national ANSPs (DFS, AVINOR, DHMI, ENAIRE, NAV CANADA, FAA via "FAA LOADER", etc.).
+
+- Download (behind EAD login, manual): SDO Reporting → Designated Points → Hemisphere North/East and North/West
+- Format: HTML table; coords mix four formats in one file (DDMMSS, DDMMSS.s, DDMM[.m], decimal degrees)
+- Filtered to `Type=ICAO` rows only — `OTHER` (runway-relative procedure points), `ADHP` (aerodrome holding), `COORD` (10° grid points) are skipped by default but `types=...` accepts them if needed
+- Bounding-box scoped to Europe (lat 30-75, lon -30 to 50) + North America (lat 15-75, lon -180 to -50); ~18k Asia/Africa/Pacific rows skipped
+- Source: `"eurocontrol_sdo"`, source_id: `"eurocontrol_sdo:{originator_slug}"` (e.g. `eurocontrol_sdo:NAV_CANADA`)
+- Local-file-only — no auto-fetch (would need scraping a logged-in session). Drop new exports into `data/eurocontrol_sdo/*.html` (gitignored) and run `build_nav_db.py --include-sdo`. The committed `nav.db` is the authoritative artefact for downstream consumers.
+
 ### FAA NASR Fixes (US-only, opt-in)
 ~70,200 US named fixes (intersections, RNAV waypoints, reporting points) from the FAA 28-day NASR subscription. The 9,900-row OurAirports worldwide set covers NAVAIDs (VOR/NDB/DME) but NOT 5-letter intersections — FAA NASR fills that gap for the US.
 
@@ -152,7 +163,7 @@ Post-source cleanup pass that collapses near-duplicate candidates while preservi
 - Groups candidates by `name`, clusters by great-circle distance within `tolerance_nm`
 - Per cluster, keeps the candidate from the highest-priority source
 - Clusters > tolerance apart stay as distinct candidates (e.g. NDB `MA` exists in Germany, Spain, Canada, USA, Russia simultaneously — all kept)
-- Default priority: `eurocontrol_fra > opennav > ourairports > faa_nasr` (richer metadata sources win)
+- Default priority: `eurocontrol_fra > eurocontrol_sdo > opennav > ourairports > faa_nasr` (richer metadata sources win; SDO is authoritative upstream but lacks the FIR/level metadata of FRA)
 - Type-mixed same-coord candidates (e.g. OurAirports says NDB, FRA says VORDME) resolve to FRA's VORDME — more authoritative classification supersedes outdated entries
 
 Invoked after all sources in `build_nav_db.py`. Typical effect on a European build: 34k → 26k rows (−25%), with zero < 0.5 nm near-duplicates remaining and ~870 genuine global collisions preserved.
@@ -204,4 +215,4 @@ Field-level change tracking with AIRAC tagging, same pattern as `airports_change
 - Database schema: [database_quick_reference.md](./database_quick_reference.md)
 - Query patterns: [query_api_architecture.md](./query_api_architecture.md)
 - Swift architecture: [swift_architecture.md](./swift_architecture.md)
-- Key code: `euro_aip/models/waypoint.py`, `euro_aip/models/field15.py`, `euro_aip/models/route_resolver.py`, `euro_aip/models/euro_aip_model.py` (`dedup_waypoints`), `euro_aip/sources/eurocontrol_fra.py`, `euro_aip/sources/ourairports_navaids.py`, `euro_aip/sources/faa_nasr_fix.py`, `Sources/RZFlight/KnownWaypoints.swift`
+- Key code: `euro_aip/models/waypoint.py`, `euro_aip/models/field15.py`, `euro_aip/models/route_resolver.py`, `euro_aip/models/euro_aip_model.py` (`dedup_waypoints`), `euro_aip/sources/eurocontrol_fra.py`, `euro_aip/sources/eurocontrol_sdo.py`, `euro_aip/sources/ourairports_navaids.py`, `euro_aip/sources/faa_nasr_fix.py`, `Sources/RZFlight/KnownWaypoints.swift`

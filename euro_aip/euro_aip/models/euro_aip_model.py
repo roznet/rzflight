@@ -257,7 +257,13 @@ class EuroAipModel:
             Dict with ``kept`` and ``dropped`` row counts.
         """
         if source_priority is None:
-            source_priority = ["eurocontrol_fra", "opennav", "ourairports", "faa_nasr"]
+            source_priority = [
+                "eurocontrol_fra",
+                "eurocontrol_sdo",
+                "opennav",
+                "ourairports",
+                "faa_nasr",
+            ]
         rank = {src: i for i, src in enumerate(source_priority)}
         low = len(source_priority)
 
