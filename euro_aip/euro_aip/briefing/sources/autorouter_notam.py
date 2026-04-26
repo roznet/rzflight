@@ -21,6 +21,9 @@ logger = logging.getLogger(__name__)
 _PAGE_LIMIT = 100
 # Maximum ICAOs per request to avoid URL length issues
 _ICAO_BATCH_SIZE = 20
+# API returns lat/lon as Garmin semicircles (2**31 = 180°), per
+# https://www.autorouter.aero/wiki/api/notams/
+_SEMICIRCLES_PER_DEGREE = (2 ** 31) / 180.0
 
 
 class AutorouterNotamSource:
@@ -169,10 +172,14 @@ class AutorouterNotamSource:
         # Category from Q-code
         category = NotamCategory.from_q_code(q_code) if q_code else None
 
-        # Coordinates
-        lat = row.get("lat")
-        lon = row.get("lon")
-        coordinates = (lat, lon) if lat is not None and lon is not None else None
+        # Coordinates: API returns Garmin semicircles, convert to decimal degrees.
+        lat_raw = row.get("lat")
+        lon_raw = row.get("lon")
+        if lat_raw is not None and lon_raw is not None:
+            coordinates = (lat_raw / _SEMICIRCLES_PER_DEGREE,
+                           lon_raw / _SEMICIRCLES_PER_DEGREE)
+        else:
+            coordinates = None
 
         # Validity times (unix epoch → datetime UTC)
         start_epoch = row.get("startvalidity")
