@@ -20,6 +20,8 @@ from .procedure_collection import ProcedureCollection
 from .navpoint import NavPoint
 from .waypoint import Waypoint
 from .waypoint_collection import WaypointCollection
+from .fir import FIR
+from .fir_collection import FIRCollection
 from .border_crossing_entry import BorderCrossingEntry
 from .validation import ValidationResult, ValidationError, ModelValidationError
 from .model_transaction import ModelTransaction
@@ -42,6 +44,8 @@ __all__ = [
     'NavPoint',
     'Waypoint',
     'WaypointCollection',
+    'FIR',
+    'FIRCollection',
     'RouteResolver',
     'BorderCrossingEntry',
     # Queryable collections

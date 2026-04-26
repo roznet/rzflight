@@ -13,9 +13,11 @@ from .procedure import Procedure
 from .border_crossing_entry import BorderCrossingEntry
 from .navpoint import NavPoint
 from .waypoint import Waypoint
+from .fir import FIR
 from .airport_collection import AirportCollection
 from .procedure_collection import ProcedureCollection
 from .waypoint_collection import WaypointCollection
+from .fir_collection import FIRCollection
 from .model_transaction import ModelTransaction
 from .airport_builder import AirportBuilder
 from .validation import ValidationResult, ModelValidationError
@@ -27,6 +29,20 @@ if TYPE_CHECKING:
 import math
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_latlon(point: Any) -> tuple:
+    """Best-effort (lat, lon) extraction from NavPoint, Airport, or similar.
+
+    Returns ``(None, None)`` if neither pattern is found.
+    """
+    lat = getattr(point, "latitude", None)
+    if lat is None:
+        lat = getattr(point, "latitude_deg", None)
+    lon = getattr(point, "longitude", None)
+    if lon is None:
+        lon = getattr(point, "longitude_deg", None)
+    return lat, lon
 
 @dataclass
 class EuroAipModel:
@@ -43,6 +59,9 @@ class EuroAipModel:
 
     # Waypoint data store: map from waypoint name to list of candidates
     _waypoints: Dict[str, List[Waypoint]] = field(default_factory=dict)
+
+    # FIR data store: map from FIR ICAO code to FIR boundary object
+    _firs: Dict[str, FIR] = field(default_factory=dict)
 
     # Border crossing data: map from country ISO to airport name to entry
     border_crossing_points: Dict[str, Dict[str, BorderCrossingEntry]] = field(default_factory=dict)
@@ -230,6 +249,118 @@ class EuroAipModel:
             else:
                 added += 1
         return {"added": added, "updated": updated}
+
+    # ========================================================================
+    # FIR API
+    # ========================================================================
+
+    @property
+    def firs(self) -> FIRCollection:
+        """Queryable collection of all Flight Information Regions.
+
+        Examples:
+            model.firs.by_icao("LFFF")
+            model.firs.containing_point(lon=2.5, lat=49.0)
+            "EGTT" in model.firs
+        """
+        return FIRCollection(list(self._firs.values()))
+
+    def add_fir(self, fir: FIR) -> None:
+        """Add or replace a FIR boundary in the model (keyed by ICAO)."""
+        existing = self._firs.get(fir.icao)
+        fir.created_at = (existing.created_at if existing else fir.created_at) or datetime.now()
+        fir.updated_at = datetime.now()
+        self._firs[fir.icao] = fir
+        if fir.source:
+            self.sources_used.add(fir.source)
+        self.updated_at = datetime.now()
+
+    def get_fir(self, icao: str) -> Optional[FIR]:
+        """Get a FIR by ICAO code, or None if not present."""
+        return self._firs.get(icao.upper())
+
+    def bulk_add_firs(self, firs: List[FIR]) -> Dict[str, int]:
+        """Add multiple FIRs at once.
+
+        Returns:
+            Dict with 'added' and 'updated' counts.
+        """
+        added = 0
+        updated = 0
+        for fir in firs:
+            existed = fir.icao in self._firs
+            self.add_fir(fir)
+            if existed:
+                updated += 1
+            else:
+                added += 1
+        return {"added": added, "updated": updated}
+
+    def firs_along_route(
+        self,
+        route_points: List[Union[NavPoint, "Airport"]],
+        corridor_nm: float = 25.0,
+        sample_step_nm: float = 5.0,
+    ) -> List[str]:
+        """Find FIRs whose boundaries the route corridor traverses.
+
+        Samples the route polyline at ``sample_step_nm`` intervals and tests each
+        sample against FIR polygons (with bbox prefilter padded by ``corridor_nm``
+        so a route that clips a FIR's edge still counts).
+
+        Args:
+            route_points: list of NavPoints or Airport objects (anything with
+                ``latitude``/``longitude`` or ``latitude_deg``/``longitude_deg``).
+            corridor_nm: corridor half-width used to expand each FIR's bbox for
+                the prefilter — does NOT widen the polygon test itself, just the
+                bbox candidate set.
+            sample_step_nm: spacing between sampled route points.
+
+        Returns:
+            Sorted list of unique FIR ICAO codes intersected by the route.
+        """
+        from ..utils.geometry import sample_polyline, bbox_pad, bbox_intersects
+
+        # Normalise to (lon, lat) pairs
+        polyline: List[tuple] = []
+        for p in route_points:
+            lat, lon = _extract_latlon(p)
+            if lat is None or lon is None:
+                continue
+            polyline.append((lon, lat))
+
+        if not polyline:
+            return []
+
+        # Single-point "route" (e.g. a query for one airport): just test the point
+        if len(polyline) == 1:
+            lon, lat = polyline[0]
+            return sorted({fir.icao for fir in self._firs.values() if fir.contains(lon, lat)})
+
+        samples = sample_polyline(polyline, sample_step_nm)
+
+        # Compute the route bbox padded by corridor_nm; FIRs whose own bbox
+        # doesn't intersect this can be skipped entirely.
+        lons = [p[0] for p in samples]
+        lats = [p[1] for p in samples]
+        route_bbox = (min(lons), min(lats), max(lons), max(lats))
+        padded = bbox_pad(route_bbox, corridor_nm)
+
+        candidate_firs = [
+            fir for fir in self._firs.values()
+            if fir.bbox and bbox_intersects(fir.bbox, padded)
+        ]
+        if not candidate_firs:
+            return []
+
+        hit: Set[str] = set()
+        for lon, lat in samples:
+            for fir in candidate_firs:
+                if fir.icao in hit:
+                    continue  # already accounted for
+                if fir.contains(lon, lat):
+                    hit.add(fir.icao)
+        return sorted(hit)
 
     def dedup_waypoints(
         self,

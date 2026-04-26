@@ -16,6 +16,7 @@ from ..models.aip_entry import AIPEntry
 from ..models.border_crossing_entry import BorderCrossingEntry
 from ..models.border_crossing_change import BorderCrossingChange
 from ..models.waypoint import Waypoint
+from ..models.fir import FIR
 from .field_definitions import AirportFields, RunwayFields, SchemaManager, ProcedureFields, WaypointFields
 
 logger = logging.getLogger(__name__)
@@ -294,6 +295,29 @@ class DatabaseStorage:
             conn.execute('CREATE INDEX idx_border_crossing_source ON border_crossing_points (source)')
             conn.execute('CREATE INDEX idx_border_crossing_points_changes_time ON border_crossing_points_changes (changed_at)')
 
+            # FIRs table — polygons stored as GeoJSON-coordinate JSON; bbox columns
+            # for cheap spatial prefilter (no spatial extension required).
+            conn.execute('''
+                CREATE TABLE firs (
+                    icao TEXT NOT NULL PRIMARY KEY,
+                    name TEXT,
+                    polygons_json TEXT NOT NULL,
+                    bbox_min_lon REAL NOT NULL,
+                    bbox_min_lat REAL NOT NULL,
+                    bbox_max_lon REAL NOT NULL,
+                    bbox_max_lat REAL NOT NULL,
+                    is_oceanic INTEGER DEFAULT 0,
+                    region TEXT,
+                    label_lon REAL,
+                    label_lat REAL,
+                    source TEXT,
+                    created_at TEXT,
+                    updated_at TEXT
+                )
+            ''')
+            conn.execute('CREATE INDEX idx_firs_bbox ON firs (bbox_min_lon, bbox_min_lat, bbox_max_lon, bbox_max_lat)')
+            conn.execute('CREATE INDEX idx_firs_source ON firs (source)')
+
             # Waypoint indexes
             conn.execute('CREATE INDEX idx_waypoints_name ON waypoints (name)')
             conn.execute('CREATE INDEX idx_waypoints_type ON waypoints (point_type)')
@@ -428,6 +452,32 @@ class DatabaseStorage:
                 cursor.execute('CREATE INDEX idx_waypoints_changes_name ON waypoints_changes (waypoint_name)')
                 conn.commit()
 
+            # Create firs table if missing
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='firs'")
+            if not cursor.fetchone():
+                logger.info("Creating firs table")
+                cursor.execute('''
+                    CREATE TABLE firs (
+                        icao TEXT NOT NULL PRIMARY KEY,
+                        name TEXT,
+                        polygons_json TEXT NOT NULL,
+                        bbox_min_lon REAL NOT NULL,
+                        bbox_min_lat REAL NOT NULL,
+                        bbox_max_lon REAL NOT NULL,
+                        bbox_max_lat REAL NOT NULL,
+                        is_oceanic INTEGER DEFAULT 0,
+                        region TEXT,
+                        label_lon REAL,
+                        label_lat REAL,
+                        source TEXT,
+                        created_at TEXT,
+                        updated_at TEXT
+                    )
+                ''')
+                cursor.execute('CREATE INDEX idx_firs_bbox ON firs (bbox_min_lon, bbox_min_lat, bbox_max_lon, bbox_max_lat)')
+                cursor.execute('CREATE INDEX idx_firs_source ON firs (source)')
+                conn.commit()
+
             # Migrate if needed
             new_version = self.schema_manager.migrate_schema(conn, current_version)
             
@@ -490,6 +540,10 @@ class DatabaseStorage:
             # Save waypoints
             if model._waypoints:
                 self._save_waypoints(conn, model._waypoints)
+
+            # Save FIRs
+            if model._firs:
+                self._save_firs(conn, model._firs)
 
             # Save border crossing data
             border_crossing_points = model.get_all_border_crossing_points()
@@ -1005,6 +1059,88 @@ class DatabaseStorage:
         logger.debug(f"Loaded {len(waypoints)} waypoints from database")
         return waypoints
 
+    # ========================================================================
+    # FIR save/load methods
+    # ========================================================================
+
+    def _save_firs(self, conn: sqlite3.Connection, firs: Dict[str, FIR]) -> None:
+        """Save FIRs to the database (full overwrite per ICAO; no change tracking).
+
+        FIR boundaries change rarely; we store the polygons as JSON and rely on
+        the bbox columns for cheap spatial prefilter. Updates are idempotent
+        via INSERT OR REPLACE keyed on icao.
+        """
+        for fir in firs.values():
+            bbox = fir.bbox or fir._compute_bbox()
+            polygons_json = json.dumps(fir.polygons)
+            conn.execute('''
+                INSERT OR REPLACE INTO firs
+                (icao, name, polygons_json,
+                 bbox_min_lon, bbox_min_lat, bbox_max_lon, bbox_max_lat,
+                 is_oceanic, region, label_lon, label_lat,
+                 source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                fir.icao, fir.name, polygons_json,
+                bbox[0], bbox[1], bbox[2], bbox[3],
+                1 if fir.is_oceanic else 0,
+                fir.region, fir.label_lon, fir.label_lat,
+                fir.source,
+                (fir.created_at or datetime.now()).isoformat(),
+                (fir.updated_at or datetime.now()).isoformat(),
+            ))
+
+    def _load_firs(self, conn: sqlite3.Connection) -> List[FIR]:
+        """Load all FIRs from the database."""
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='firs'")
+        if not cursor.fetchone():
+            return []
+
+        firs: List[FIR] = []
+        cursor = conn.execute('SELECT * FROM firs')
+        for row in cursor.fetchall():
+            row_dict = dict(row)
+            try:
+                polygons = json.loads(row_dict['polygons_json'])
+            except (TypeError, json.JSONDecodeError):
+                logger.warning("Failed to decode polygons for FIR %s", row_dict.get('icao'))
+                continue
+
+            bbox = (
+                row_dict['bbox_min_lon'], row_dict['bbox_min_lat'],
+                row_dict['bbox_max_lon'], row_dict['bbox_max_lat'],
+            )
+
+            created_at = row_dict.get('created_at')
+            if isinstance(created_at, str):
+                try:
+                    created_at = datetime.fromisoformat(created_at)
+                except ValueError:
+                    created_at = datetime.now()
+            updated_at = row_dict.get('updated_at')
+            if isinstance(updated_at, str):
+                try:
+                    updated_at = datetime.fromisoformat(updated_at)
+                except ValueError:
+                    updated_at = datetime.now()
+
+            firs.append(FIR(
+                icao=row_dict['icao'],
+                polygons=polygons,
+                name=row_dict.get('name'),
+                is_oceanic=bool(row_dict.get('is_oceanic')),
+                region=row_dict.get('region'),
+                label_lon=row_dict.get('label_lon'),
+                label_lat=row_dict.get('label_lat'),
+                source=row_dict.get('source', 'vatspy'),
+                bbox=bbox,
+                created_at=created_at or datetime.now(),
+                updated_at=updated_at or datetime.now(),
+            ))
+
+        logger.debug("Loaded %d FIRs from database", len(firs))
+        return firs
+
     def _get_current_waypoint(self, conn: sqlite3.Connection, name: str, source_id: str = "") -> Optional[Dict]:
         """Get current waypoint data by composite key (name, source_id)."""
         cursor = conn.execute('SELECT * FROM waypoints WHERE name = ? AND source_id = ?', (name, source_id))
@@ -1198,6 +1334,11 @@ class DatabaseStorage:
             waypoints = self._load_waypoints(conn)
             if waypoints:
                 model.bulk_add_waypoints(waypoints)
+
+            # Load FIRs
+            firs = self._load_firs(conn)
+            if firs:
+                model.bulk_add_firs(firs)
 
             # Load border crossing data
             border_crossing_points = self.load_border_crossing_data()
