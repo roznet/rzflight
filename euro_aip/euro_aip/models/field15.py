@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import List, Optional
 
+from euro_aip.utils.dms_parser import is_icao_coordinate
+
 
 class TokenKind(Enum):
     WAYPOINT = "waypoint"
@@ -27,6 +29,11 @@ class TokenKind(Enum):
     SPEED_LEVEL = "speed_level"
     FLIGHT_RULE = "flight_rule"
     DIRECT = "direct"
+    # Inline ICAO coordinate, e.g. ``4830N00210E`` (11ch DM) or
+    # ``483012N0021034E`` (15ch DMS). A real route point — no DB lookup
+    # needed, the lat/lon is in the token. Treated like a WAYPOINT by
+    # ``waypoints_of`` and the route resolver.
+    COORDINATE = "coordinate"
     UNKNOWN = "unknown"
 
 
@@ -72,6 +79,12 @@ def _classify(value: str) -> TokenKind:
         return TokenKind.AIRWAY
     if _WAYPOINT_RE.match(value):
         return TokenKind.WAYPOINT
+    # Coord check runs after the named-point checks: the regexes above
+    # are letter-led (`[A-Z]`, `[NMK]`), so they can't accidentally match
+    # a leading-digit coord like ``4830N00210E``. Order is just for
+    # consistency with "named first, geometric last".
+    if is_icao_coordinate(value):
+        return TokenKind.COORDINATE
     return TokenKind.UNKNOWN
 
 
@@ -126,11 +139,20 @@ def parse_field15(route_string: str) -> List[RouteToken]:
     return tokens
 
 
+_ROUTE_POINT_KINDS = (TokenKind.WAYPOINT, TokenKind.COORDINATE)
+
+
 def waypoints_of(tokens: List[RouteToken]) -> List[str]:
-    """Return just the waypoint names, in order."""
-    return [t.value for t in tokens if t.kind is TokenKind.WAYPOINT]
+    """Return just the route-point names, in order.
+
+    Includes both named waypoints and inline coordinates — both are
+    real points the resolver can place on the map. The function name
+    is kept for backwards compatibility; "route points" would be more
+    accurate now.
+    """
+    return [t.value for t in tokens if t.kind in _ROUTE_POINT_KINDS]
 
 
 def annotations_of(tokens: List[RouteToken]) -> List[RouteToken]:
-    """Return every non-waypoint token, in order (for debug/feedback)."""
-    return [t for t in tokens if t.kind is not TokenKind.WAYPOINT]
+    """Return every token that isn't a route point, in order (for debug/feedback)."""
+    return [t for t in tokens if t.kind not in _ROUTE_POINT_KINDS]

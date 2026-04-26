@@ -31,8 +31,15 @@ from euro_aip.models.field15 import (
     ("BILGO", TokenKind.WAYPOINT),   # 5-letter named fix
     ("DVR", TokenKind.WAYPOINT),     # 3-letter VOR
     ("MID", TokenKind.WAYPOINT),     # ambiguous but a valid point name
+    # Inline ICAO coordinates (FPL field 15)
+    ("4830N00210E", TokenKind.COORDINATE),       # DM, 11 chars
+    ("4629N01541E", TokenKind.COORDINATE),       # DM, 11 chars
+    ("483012N0021034E", TokenKind.COORDINATE),   # DMS, 15 chars
+    ("4830s00210w", TokenKind.COORDINATE),       # lowercase still classifies (uppercased before _classify)
     ("23NM", TokenKind.UNKNOWN),     # US-style fix, out of scope
     ("FOO1BAR", TokenKind.UNKNOWN),
+    ("4830N0021Z", TokenKind.UNKNOWN),  # bad hemisphere letter — not a coord
+    ("4830N0021", TokenKind.UNKNOWN),   # too short — not a coord
 ])
 def test_classify_each_kind(text, kind):
     tokens = parse_field15(text)
@@ -165,6 +172,13 @@ def test_round_trip_up_to_whitespace_normalization():
 def test_waypoints_of_excludes_all_non_waypoints():
     tokens = parse_field15("N0175F160 EGTF DCT UL612 IFR BILGO LSGS")
     assert waypoints_of(tokens) == ["EGTF", "BILGO", "LSGS"]
+
+
+def test_waypoints_of_includes_inline_coordinates():
+    """Inline coords are real route points and must flow through ``waypoints_of``
+    so they're handled like any other middle waypoint by the resolver."""
+    tokens = parse_field15("EDFE DCT LUGEM DCT 4629N01541E DCT LJSK")
+    assert waypoints_of(tokens) == ["EDFE", "LUGEM", "4629N01541E", "LJSK"]
 
 
 def test_annotations_of_returns_route_tokens_not_strings():

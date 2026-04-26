@@ -20,6 +20,7 @@ from euro_aip.models.field15 import (
     parse_field15,
     waypoints_of,
 )
+from euro_aip.utils.dms_parser import is_icao_coordinate, parse_icao_coordinate
 
 if TYPE_CHECKING:
     from euro_aip.models.euro_aip_model import EuroAipModel
@@ -78,16 +79,22 @@ class RouteResolver:
     def resolve_point(self, name: str) -> Optional[RoutePoint]:
         """Resolve a single name to a RoutePoint (first candidate, no proximity).
 
-        Tries airport first, then waypoint. For proximity-aware resolution,
-        use resolve_point_near() instead.
+        Tries inline coord, then airport, then waypoint. For proximity-aware
+        resolution, use resolve_point_near() instead.
 
         Args:
-            name: ICAO code or waypoint name
+            name: ICAO code, waypoint name, or inline ICAO coordinate
+                (``DDMM[NS]DDDMM[EW]`` / ``DDMMSS[NS]DDDMMSS[EW]``).
 
         Returns:
             RoutePoint with coordinates, or None if not found
         """
         name_upper = name.upper().strip()
+
+        # Inline coordinate — geometry, no DB lookup
+        coord_point = self._coord_point(name_upper)
+        if coord_point is not None:
+            return coord_point
 
         # Try airport first
         airport = self.model.airports.where(ident=name_upper).first()
@@ -110,6 +117,25 @@ class RouteResolver:
             )
 
         return None
+
+    @staticmethod
+    def _coord_point(name_upper: str) -> Optional[RoutePoint]:
+        """If ``name_upper`` is an inline ICAO coordinate, return its RoutePoint.
+
+        The token itself becomes the point name so it round-trips back into
+        the route string verbatim. ``point_type="coordinate"`` lets callers
+        distinguish geometric points from named ones (useful for icons,
+        labels, and skipping nav-DB cross-references).
+        """
+        if not is_icao_coordinate(name_upper):
+            return None
+        lat, lon = parse_icao_coordinate(name_upper)
+        return RoutePoint(
+            name=name_upper,
+            latitude=lat,
+            longitude=lon,
+            point_type="coordinate",
+        )
 
     def resolve_point_near(
         self,
@@ -138,6 +164,11 @@ class RouteResolver:
             RoutePoint with coordinates, or None if not found.
         """
         name_upper = name.upper().strip()
+
+        # Inline coordinate — geometry, no candidates to disambiguate
+        coord_point = self._coord_point(name_upper)
+        if coord_point is not None:
+            return coord_point
 
         # Try airport first (airports are unique by ICAO)
         airport = self.model.airports.where(ident=name_upper).first()

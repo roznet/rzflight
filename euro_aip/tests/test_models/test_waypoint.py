@@ -512,6 +512,52 @@ class TestRouteResolver:
         assert route.destination == "LSGS"
         assert route.waypoints == ["VESAN"]
 
+    # --- Inline ICAO coordinates (FPL field 15 GPS waypoints) ---
+
+    def test_resolve_point_inline_coordinate_dm(self, model):
+        """11-char DM coord resolves geometrically without a DB hit."""
+        resolver = RouteResolver(model)
+        point = resolver.resolve_point("4830N00210E")
+        assert point is not None
+        assert point.point_type == "coordinate"
+        assert point.name == "4830N00210E"
+        assert abs(point.latitude - 48.5) < 0.001
+        assert abs(point.longitude - 2.1667) < 0.001
+
+    def test_resolve_point_inline_coordinate_dms(self, model):
+        """15-char DMS coord resolves with seconds precision."""
+        resolver = RouteResolver(model)
+        point = resolver.resolve_point("483012N0021034E")
+        assert point is not None
+        assert point.point_type == "coordinate"
+        assert abs(point.latitude - 48.5033) < 0.001
+        assert abs(point.longitude - 2.1761) < 0.001
+
+    def test_resolve_route_with_inline_coordinate(self, model):
+        """A coord between two named points is treated as a regular middle waypoint."""
+        # EDFE-like dep / LSGS dest: 4630N00800E (~46.5N, 8E) sits between Sion and Fairoaks
+        resolver = RouteResolver(model)
+        route = resolver.resolve("EGTF VESAN 4630N00800E LSGS")
+        assert route.waypoints == ["VESAN", "4630N00800E"]
+        assert len(route.waypoint_coords) == 2
+        assert route.waypoint_coords[1].name == "4630N00800E"
+        assert route.waypoint_coords[1].point_type == "coordinate"
+        assert abs(route.waypoint_coords[1].latitude - 46.5) < 0.001
+        assert abs(route.waypoint_coords[1].longitude - 8.0) < 0.001
+
+    def test_resolve_coord_at_endpoints(self, model):
+        """Coordinate as departure or destination still works (uncommon but legal)."""
+        resolver = RouteResolver(model)
+        route = resolver.resolve("4830N00210E EGTF LSGS")
+        assert route.departure_coords is not None
+        assert abs(route.departure_coords[0] - 48.5) < 0.001
+
+    def test_invalid_coord_shape_stays_unresolved(self, model):
+        """A token that *looks* like a coord but has bad hemispheres is UNKNOWN
+        and falls through to the no-DB-match path."""
+        resolver = RouteResolver(model)
+        assert resolver.resolve_point("4830N0021Z") is None
+
 
 # ========================================================================
 # Detour Filter Tests
