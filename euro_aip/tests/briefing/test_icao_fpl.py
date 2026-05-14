@@ -228,6 +228,44 @@ class TestFPLIFR:
         assert fpl.eet_minutes == 90
 
 
+SAMPLE_FPL_WITH_FIELD_19 = """(FPL-GABCD-IG
+-S22T/L-SYBDGR/EB1U2
+-EGTF0730
+-N0164F100 GWC DCT NELKO DCT LORKU DCT ABDUS DCT BETUV DCT ERCOZ
+-LFRQ0134
+-DOF/260516 PBN/B2D2S1
+-P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)"""
+
+
+class TestFPLField19:
+    """Regression: FPLs that include Field 19 (supplementary info, e.g. -P/TBN R/E J/...)
+    add an extra slot that used to be mis-attributed to Field 10, shifting all
+    subsequent fields by one and producing garbage departure/destination/route."""
+
+    def test_departure_when_field19_present(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_WITH_FIELD_19)
+        assert fpl is not None
+        assert fpl.route.departure == "EGTF"
+
+    def test_destination_when_field19_present(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_WITH_FIELD_19)
+        assert fpl.route.destination == "LFRQ"
+
+    def test_route_waypoints_when_field19_present(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_WITH_FIELD_19)
+        assert "GWC" in fpl.route.waypoints
+        assert "NELKO" in fpl.route.waypoints
+        assert "ERCOZ" in fpl.route.waypoints
+
+    def test_altitude_when_field19_present(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_WITH_FIELD_19)
+        assert fpl.altitude_feet == 10000
+
+    def test_aircraft_type_when_field19_present(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_WITH_FIELD_19)
+        assert fpl.aircraft_type == "S22T"
+
+
 class TestFPLMinimal:
     """Tests for minimal FPL with few fields."""
 

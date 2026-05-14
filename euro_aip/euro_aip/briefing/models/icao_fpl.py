@@ -208,8 +208,15 @@ def parse_icao_fpl(
     _parse_field8(fields[1], result)
     _parse_field9(fields[2], result)
 
-    # Field 10 (equipment) may cause an extra split
-    if len(fields) > 7:
+    # Field 10 (equipment) occupies its own slot only when the source used a
+    # space-separated dash between fields 9 and 10. Otherwise field 9 embeds
+    # equipment via an internal "-" (e.g. "S22T/L-SBDGORVY/LB2"), which
+    # _parse_field9 already split out. Without the embedded-equipment check,
+    # an FPL that includes Field 19 (supplementary, e.g. "-P/TBN R/E J/...")
+    # adds an extra slot that gets mis-attributed to field 10 — shifting
+    # departure/route/destination by one slot and producing garbage results.
+    field9_embeds_field10 = "-" in fields[2]
+    if not field9_embeds_field10 and len(fields) > 7:
         _parse_field10(fields[3], result)
         field13_idx = 4
     else:
