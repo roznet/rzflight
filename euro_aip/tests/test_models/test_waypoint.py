@@ -664,3 +664,20 @@ class TestDetourFilter:
         assert d["rejected_waypoints"]
         route2 = Route.from_dict(d)
         assert route2.rejected_waypoints == route.rejected_waypoints
+
+    def test_round_trip_route_accepts_middle_waypoint(self, model):
+        """When dep == dest, leg_nm is 0 — middle waypoints must not be
+        rejected by a degenerate detour gate."""
+        r = RouteResolver(model)
+        route = r.resolve("EGKK TERMN EGKK")
+        assert route.waypoints == ["TERMN"]
+        assert route.rejected_waypoints == []
+
+    def test_round_trip_route_with_far_middle_still_accepted(self, model):
+        """No 'direct route' exists for a loop, so the detour gate is
+        disabled on the degenerate leg — even FAROFF (Spain, ~700 nm from
+        EGKK) passes when it's the only middle waypoint."""
+        r = RouteResolver(model)
+        route = r.resolve("EGKK FAROFF EGKK")
+        assert route.waypoints == ["FAROFF"]
+        assert route.rejected_waypoints == []

@@ -315,32 +315,36 @@ class RouteResolver:
                 logger.warning("Could not resolve waypoint: %s", token)
                 continue
 
-            # Detour gate — only applies when we have both anchors
+            # Detour gate — only applies when we have both anchors AND a
+            # real leg between them. For closed-loop routes (dep == dest)
+            # leg_nm collapses to 0 and the detour metric reduces to
+            # 2·d(ref, candidate), which would reject every middle point.
             if reference is not None and forward is not None:
-                candidate_np = NavPoint(
-                    latitude=point.latitude,
-                    longitude=point.longitude,
-                    name=point.name,
-                )
                 _, leg_nm = reference.haversine_distance(forward)
-                detour = NavPoint.detour_nm(reference, candidate_np, forward)
-                threshold = self._detour_threshold_nm(leg_nm)
-                if detour > threshold:
-                    rejected.append({
-                        "name": token,
-                        "reason": "detour_exceeds_threshold",
-                        "detour_nm": round(detour, 1),
-                        "leg_nm": round(leg_nm, 1),
-                        "threshold_nm": round(threshold, 1),
-                    })
-                    logger.warning(
-                        "Route '%s': rejecting %s — detour %.0f nm exceeds "
-                        "threshold %.0f nm on %.0f nm leg (%s→%s)",
-                        route_string, token, detour, threshold, leg_nm,
-                        reference.name, forward.name,
+                if leg_nm >= 1.0:
+                    candidate_np = NavPoint(
+                        latitude=point.latitude,
+                        longitude=point.longitude,
+                        name=point.name,
                     )
-                    # Do not advance reference — keep anchoring on last good point
-                    continue
+                    detour = NavPoint.detour_nm(reference, candidate_np, forward)
+                    threshold = self._detour_threshold_nm(leg_nm)
+                    if detour > threshold:
+                        rejected.append({
+                            "name": token,
+                            "reason": "detour_exceeds_threshold",
+                            "detour_nm": round(detour, 1),
+                            "leg_nm": round(leg_nm, 1),
+                            "threshold_nm": round(threshold, 1),
+                        })
+                        logger.warning(
+                            "Route '%s': rejecting %s — detour %.0f nm exceeds "
+                            "threshold %.0f nm on %.0f nm leg (%s→%s)",
+                            route_string, token, detour, threshold, leg_nm,
+                            reference.name, forward.name,
+                        )
+                        # Do not advance reference — keep anchoring on last good point
+                        continue
 
             waypoint_names.append(token)
             # Override point_type for intermediate points
