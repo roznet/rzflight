@@ -49,6 +49,10 @@ from euro_aip.briefing.weather import (
     RouteWeatherService,
     RouteWeatherResult,
     RouteAirportWeather,
+    SigmetReport,
+    RouteSigmetService,
+    RouteSigmetResult,
+    RouteSigmet,
 )
 
 __all__ = [
@@ -81,4 +85,8 @@ __all__ = [
     'RouteWeatherService',
     'RouteWeatherResult',
     'RouteAirportWeather',
+    'SigmetReport',
+    'RouteSigmetService',
+    'RouteSigmetResult',
+    'RouteSigmet',
 ]
