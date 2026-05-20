@@ -1,22 +1,25 @@
-"""Aviation Weather (aviationweather.gov) API source for live METAR/TAF data."""
+"""Aviation Weather (aviationweather.gov) API source for live METAR/TAF/SIGMET data."""
 
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import requests
 
 from euro_aip.briefing.weather.models import WeatherReport
 from euro_aip.briefing.weather.parser import WeatherParser
+from euro_aip.briefing.weather.sigmet import SigmetReport
 
 logger = logging.getLogger(__name__)
 
 
 class AvWxSource:
     """
-    Fetch live METAR and TAF data from the aviationweather.gov API.
+    Fetch live METAR, TAF and SIGMET data from the aviationweather.gov API.
 
-    Returns raw text format, parsed via WeatherParser into WeatherReport objects.
-    Supports batching for large ICAO lists (API limit ~400 per request).
+    METAR/TAF are returned as raw text and parsed via WeatherParser into
+    WeatherReport objects; SIGMETs are fetched as JSON and parsed into
+    SigmetReport objects. Supports batching for large ICAO lists
+    (API limit ~400 per request).
 
     Example:
         source = AvWxSource()
@@ -107,6 +110,52 @@ class AvWxSource:
         tafs = self.fetch_tafs(icaos)
         return metars + tafs
 
+    def fetch_isigmet(
+        self,
+        region: str = "eur",
+        hazard: Optional[str] = None,
+        level: Optional[int] = None,
+        date: Optional[str] = None,
+    ) -> List[SigmetReport]:
+        """
+        Fetch international (FIR) SIGMETs from the isigmet endpoint.
+
+        Args:
+            region: Region code (default ``"eur"`` for European FIRs).
+            hazard: Optional hazard filter, e.g. ``"turb"`` or ``"ice"``.
+            level: Optional flight level filter (matches SIGMETs within ±3000 ft
+                of this level), per the AWC ``level`` parameter.
+            date: Optional ISO timestamp to query historical SIGMETs.
+
+        Returns:
+            List of parsed SigmetReport objects. Empty on any fetch/parse failure.
+        """
+        params: dict = {"format": "json"}
+        if region:
+            params["region"] = region
+        if hazard:
+            params["hazard"] = hazard
+        if level is not None:
+            params["level"] = str(level)
+        if date:
+            params["date"] = date
+
+        payload = self._fetch_json("isigmet", params)
+        if not isinstance(payload, list):
+            if payload:
+                logger.warning("AvWx isigmet returned unexpected payload type: %s", type(payload))
+            return []
+
+        reports = []
+        for entry in payload:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                reports.append(SigmetReport.from_awc(entry, source="avwx"))
+            except Exception as e:
+                logger.warning("Failed to parse SIGMET entry: %s", e)
+        return reports
+
     def _fetch_raw(self, endpoint: str, params: dict) -> str:
         """
         Make HTTP GET request and return raw text.
@@ -123,6 +172,25 @@ class AvWxSource:
         except Exception as e:
             logger.warning("AvWx fetch failed for %s: %s", endpoint, e)
             return ""
+
+    def _fetch_json(self, endpoint: str, params: dict) -> Any:
+        """
+        Make HTTP GET request and return parsed JSON.
+
+        Handles 204 (no data) by returning an empty list. Returns an empty list
+        on any request or decode failure, matching the graceful-failure pattern
+        of the raw-text fetchers.
+        """
+        url = f"{self.BASE_URL}/{endpoint}"
+        try:
+            response = self._session.get(url, params=params, timeout=self._timeout)
+            if response.status_code == 204:
+                return []
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.warning("AvWx JSON fetch failed for %s: %s", endpoint, e)
+            return []
 
     def _batches(self, icaos: List[str]):
         """Yield batches of ICAOs respecting the API batch size limit."""

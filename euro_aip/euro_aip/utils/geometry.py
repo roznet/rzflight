@@ -124,6 +124,58 @@ def bbox_pad(box: Tuple[float, float, float, float], nm: float) -> Tuple[float, 
     return (min_lon - pad_lon, min_lat - pad_lat, max_lon + pad_lon, max_lat + pad_lat)
 
 
+def point_to_segment_nm(plon: float, plat: float,
+                        alon: float, alat: float,
+                        blon: float, blat: float) -> float:
+    """Shortest distance (nm) from a point to a segment A→B.
+
+    Uses a local equirectangular projection centred on the point's latitude,
+    which is accurate at corridor scales (tens of nm) and avoids the cost of a
+    full geodesic cross-track calculation.
+    """
+    ky = NM_PER_DEGREE_LAT
+    kx = NM_PER_DEGREE_LAT * math.cos(math.radians(plat))
+    ax, ay = (alon - plon) * kx, (alat - plat) * ky
+    bx, by = (blon - plon) * kx, (blat - plat) * ky
+    dx, dy = bx - ax, by - ay
+    seg_len2 = dx * dx + dy * dy
+    if seg_len2 <= 1e-12:
+        return math.hypot(ax, ay)
+    t = -(ax * dx + ay * dy) / seg_len2
+    t = max(0.0, min(1.0, t))
+    cx, cy = ax + t * dx, ay + t * dy
+    return math.hypot(cx, cy)
+
+
+def min_distance_point_to_multipolygon_nm(
+    lon: float, lat: float,
+    polygons: Sequence[Sequence[Sequence[Tuple[float, float]]]],
+) -> float:
+    """Minimum distance (nm) from a point to the boundary of a multipolygon.
+
+    Considers every ring (outer and holes) of every polygon. Returns ``inf`` if
+    there is no usable geometry. Note this is the distance to the *boundary*: a
+    point strictly inside a polygon still returns a positive value, so callers
+    that care about containment should test :func:`point_in_multipolygon` first.
+    """
+    best = math.inf
+    for poly in polygons:
+        for ring in poly:
+            n = len(ring)
+            if n == 0:
+                continue
+            if n == 1:
+                best = min(best, haversine_nm(lat, lon, ring[0][1], ring[0][0]))
+                continue
+            for i in range(n):
+                alon, alat = ring[i]
+                blon, blat = ring[(i + 1) % n]
+                d = point_to_segment_nm(lon, lat, alon, alat, blon, blat)
+                if d < best:
+                    best = d
+    return best
+
+
 def sample_polyline(points: Sequence[Tuple[float, float]], step_nm: float) -> List[Tuple[float, float]]:
     """Sample a polyline at fixed nm intervals along its great-circle distance.
 

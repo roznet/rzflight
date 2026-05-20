@@ -10,14 +10,21 @@ from euro_aip.briefing.weather.models import WeatherType, FlightCategory
 class MockResponse:
     """Minimal mock for requests.Response."""
 
-    def __init__(self, text="", status_code=200):
+    def __init__(self, text="", status_code=200, json_data=None):
         self.text = text
         self.status_code = status_code
+        self._json_data = json_data
 
     def raise_for_status(self):
         if self.status_code >= 400:
             from requests.exceptions import HTTPError
             raise HTTPError(f"HTTP {self.status_code}")
+
+    def json(self):
+        if self._json_data is None:
+            import json
+            return json.loads(self.text)
+        return self._json_data
 
 
 def make_session(response_text="", status_code=200):
@@ -26,6 +33,100 @@ def make_session(response_text="", status_code=200):
     session.headers = {}
     session.get.return_value = MockResponse(response_text, status_code)
     return session
+
+
+def make_json_session(json_data, status_code=200):
+    """Create a mock session returning a fixed JSON payload."""
+    session = MagicMock()
+    session.headers = {}
+    session.get.return_value = MockResponse(status_code=status_code, json_data=json_data)
+    return session
+
+
+SAMPLE_ISIGMET = [
+    {
+        "icaoId": "EGTT",
+        "firId": "EGTT",
+        "firName": "LONDON",
+        "validTimeFrom": "2026-05-20 10:00:00",
+        "validTimeTo": "2026-05-20 14:00:00",
+        "dir": "NE",
+        "spd": 15,
+        "hazard": "TURB",
+        "qualifier": "SEV",
+        "base": 10000,
+        "top": 24000,
+        "coords": [
+            {"lat": 51.0, "lon": -2.0},
+            {"lat": 52.0, "lon": -2.0},
+            {"lat": 52.0, "lon": 0.0},
+            {"lat": 51.0, "lon": 0.0},
+            {"lat": 51.0, "lon": -2.0},
+        ],
+        "rawSigmet": "EGTT SIGMET 01 VALID 201000/201400 SEV TURB",
+    }
+]
+
+
+class TestFetchIsigmet:
+    """Test SIGMET fetching and parsing."""
+
+    def test_single_sigmet(self):
+        session = make_json_session(SAMPLE_ISIGMET)
+        source = AvWxSource(session=session)
+
+        sigmets = source.fetch_isigmet()
+
+        assert len(sigmets) == 1
+        assert sigmets[0].fir_id == "EGTT"
+        assert sigmets[0].hazard == "TURB"
+        assert sigmets[0].source == "avwx"
+
+    def test_default_params(self):
+        session = make_json_session([])
+        source = AvWxSource(session=session)
+        source.fetch_isigmet()
+
+        params = session.get.call_args[1]["params"]
+        assert params["format"] == "json"
+        assert params["region"] == "eur"
+
+    def test_hazard_param_forwarded(self):
+        session = make_json_session([])
+        source = AvWxSource(session=session)
+        source.fetch_isigmet(hazard="turb")
+
+        params = session.get.call_args[1]["params"]
+        assert params["hazard"] == "turb"
+
+    def test_level_param_forwarded(self):
+        session = make_json_session([])
+        source = AvWxSource(session=session)
+        source.fetch_isigmet(level=10000)
+
+        params = session.get.call_args[1]["params"]
+        assert params["level"] == "10000"
+
+    def test_204_no_content(self):
+        session = make_session("", status_code=204)
+        source = AvWxSource(session=session)
+        assert source.fetch_isigmet() == []
+
+    def test_http_error_returns_empty(self):
+        session = make_json_session([], status_code=500)
+        source = AvWxSource(session=session)
+        assert source.fetch_isigmet() == []
+
+    def test_unexpected_payload_returns_empty(self):
+        session = make_json_session({"error": "bad request"})
+        source = AvWxSource(session=session)
+        assert source.fetch_isigmet() == []
+
+    def test_skips_non_dict_entries(self):
+        session = make_json_session([SAMPLE_ISIGMET[0], "garbage", 42])
+        source = AvWxSource(session=session)
+        sigmets = source.fetch_isigmet()
+        assert len(sigmets) == 1
 
 
 class TestFetchMetars:
