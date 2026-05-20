@@ -147,6 +147,11 @@ class TestFromAwc:
         s = SigmetReport.from_awc(sample_awc_entry(hazard="ice"))
         assert s.hazard == "ICE"
 
+    def test_stationary_direction_normalised_to_none(self):
+        # AWC sends "-" for a stationary/unknown system; the docstring promises None.
+        assert SigmetReport.from_awc(sample_awc_entry(dir="-")).direction is None
+        assert SigmetReport.from_awc(sample_awc_entry(dir="")).direction is None
+
     def test_missing_fields_tolerated(self):
         s = SigmetReport.from_awc({"firId": "LFFF"})
         assert s.fir_id == "LFFF"
@@ -232,6 +237,43 @@ class TestValidity:
             valid_to=datetime(2026, 5, 20, 14, tzinfo=timezone.utc),
         )
         assert s.is_valid_at(datetime(2026, 5, 20, 9, tzinfo=timezone.utc)) is False
+
+
+class TestOverlapsTime:
+    def _sigmet(self):
+        return SigmetReport(
+            valid_from=datetime(2026, 5, 20, 10, tzinfo=timezone.utc),
+            valid_to=datetime(2026, 5, 20, 14, tzinfo=timezone.utc),
+        )
+
+    def _dt(self, hour):
+        return datetime(2026, 5, 20, hour, tzinfo=timezone.utc)
+
+    def test_window_overlapping_start(self):
+        assert self._sigmet().overlaps_time(self._dt(8), self._dt(11)) is True
+
+    def test_window_fully_inside(self):
+        assert self._sigmet().overlaps_time(self._dt(11), self._dt(13)) is True
+
+    def test_window_entirely_before(self):
+        assert self._sigmet().overlaps_time(self._dt(6), self._dt(9)) is False
+
+    def test_window_entirely_after(self):
+        assert self._sigmet().overlaps_time(self._dt(15), self._dt(18)) is False
+
+    def test_open_query_always_overlaps(self):
+        assert self._sigmet().overlaps_time(None, None) is True
+
+    def test_only_lower_bound(self):
+        # period starts at 13:00 with no end -> overlaps a SIGMET valid until 14:00
+        assert self._sigmet().overlaps_time(self._dt(13), None) is True
+        assert self._sigmet().overlaps_time(self._dt(15), None) is False
+
+    def test_sigmet_with_no_window_always_overlaps(self):
+        assert SigmetReport().overlaps_time(self._dt(10), self._dt(11)) is True
+
+    def test_naive_query_assumed_utc(self):
+        assert self._sigmet().overlaps_time(datetime(2026, 5, 20, 11), datetime(2026, 5, 20, 13)) is True
 
 
 class TestRoundTrip:

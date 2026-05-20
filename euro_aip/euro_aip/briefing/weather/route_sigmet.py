@@ -2,9 +2,12 @@
 
 Mirrors :class:`RouteWeatherService`: resolve a route to geometry, query the
 SIGMET source, then filter to the hazards that actually intersect the route
-corridor and altitude band. Filtering runs in three stages, cheapest first:
+corridor, altitude band and (optionally) a time window. Filtering runs in
+stages, cheapest first:
 
-1. **Vertical filter** — drop SIGMETs whose layer misses the altitude band.
+1. **Time + vertical filter** — drop SIGMETs whose validity window misses the
+   requested ``[from_datetime, to_datetime]`` period, or whose layer misses the
+   altitude band.
 2. **FIR prefilter** — the FIRs the route crosses (``model.firs_along_route``)
    give a cheap candidate test against each SIGMET's ``fir_id``.
 3. **Geometry refine** — densely sample the route and measure each sample
@@ -17,6 +20,7 @@ enroute span) for a client to order and present SIGMETs along the route.
 
 import logging
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import List, Optional, Tuple, TYPE_CHECKING
 
 from euro_aip.utils.geometry import (
@@ -68,6 +72,8 @@ class RouteSigmetResult:
         corridor_nm: Corridor half-width used for matching, in nautical miles.
         altitude_band_ft: ``(low_ft, high_ft)`` band tested vertically; either
             bound may be None (open-ended).
+        time_window: ``(from_datetime, to_datetime)`` validity window tested;
+            either bound may be None (open-ended).
         route_firs: FIR ICAO codes the route corridor crosses.
         sigmets: Matched SIGMETs, sorted by nearest enroute distance.
     """
@@ -75,6 +81,7 @@ class RouteSigmetResult:
     route_icaos: List[str]
     corridor_nm: float
     altitude_band_ft: Tuple[Optional[int], Optional[int]]
+    time_window: Tuple[Optional[datetime], Optional[datetime]] = (None, None)
     route_firs: List[str] = field(default_factory=list)
     sigmets: List[RouteSigmet] = field(default_factory=list)
 
@@ -125,6 +132,8 @@ class RouteSigmetService:
         corridor_nm: float,
         model: "EuroAipModel",
         altitude_band_ft: Tuple[Optional[int], Optional[int]] = (None, None),
+        from_datetime: Optional[datetime] = None,
+        to_datetime: Optional[datetime] = None,
         hazard: Optional[str] = None,
         region: str = "eur",
         sample_step_nm: float = 5.0,
@@ -138,14 +147,23 @@ class RouteSigmetService:
             model: EuroAipModel providing airport coordinates and FIR boundaries.
             altitude_band_ft: ``(low_ft, high_ft)`` band to test; either may be
                 None for open-ended.
+            from_datetime: Start of the period of interest. SIGMETs whose validity
+                ends before this are dropped. None = no lower bound. Naive
+                datetimes are assumed UTC.
+            to_datetime: End of the period of interest. SIGMETs whose validity
+                starts after this are dropped. None = no upper bound. Naive
+                datetimes are assumed UTC.
             hazard: Optional hazard filter passed to the source (``"turb"``/``"ice"``).
-            region: SIGMET region code (default ``"eur"``).
+            region: SIGMET region code, forwarded to the source. AWC currently
+                ignores it (returns the global set); geographic filtering here is
+                done by route geometry, so this rarely matters.
             sample_step_nm: Route sampling interval for geometry refinement.
 
         Returns:
             RouteSigmetResult with matched SIGMETs sorted by enroute distance.
         """
         low_ft, high_ft = altitude_band_ft
+        time_window = (from_datetime, to_datetime)
         route_points = self._resolve_route_points(route_icaos, model)
 
         if not route_points:
@@ -154,6 +172,7 @@ class RouteSigmetService:
                 route_icaos=route_icaos,
                 corridor_nm=corridor_nm,
                 altitude_band_ft=altitude_band_ft,
+                time_window=time_window,
             )
 
         # Stage 2 (FIR prefilter) inputs: which FIRs does the corridor cross?
@@ -173,7 +192,9 @@ class RouteSigmetService:
 
         matched: List[RouteSigmet] = []
         for sigmet in sigmets:
-            # Stage 1: vertical filter.
+            # Stage 1: time + vertical filter.
+            if not sigmet.overlaps_time(from_datetime, to_datetime):
+                continue
             if not sigmet.overlaps_altitude(low_ft, high_ft):
                 continue
 
@@ -211,6 +232,7 @@ class RouteSigmetService:
             route_icaos=route_icaos,
             corridor_nm=corridor_nm,
             altitude_band_ft=altitude_band_ft,
+            time_window=time_window,
             route_firs=sorted(route_firs),
             sigmets=matched,
         )

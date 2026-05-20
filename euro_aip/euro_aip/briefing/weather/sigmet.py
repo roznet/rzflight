@@ -154,6 +154,11 @@ class SigmetReport:
         hazard = data.get("hazard")
         qualifier = data.get("qualifier")
         direction = data.get("dir")
+        if isinstance(direction, str):
+            # AWC encodes a stationary/unknown system as "-"; normalise to None.
+            direction = direction.strip().upper() or None
+            if direction == "-":
+                direction = None
         return cls(
             raw_text=data.get("rawSigmet") or data.get("rawAirSigmet") or "",
             fir_id=fir_id,
@@ -165,7 +170,7 @@ class SigmetReport:
             top_ft=_parse_level(data.get("top")),
             valid_from=_parse_time(data.get("validTimeFrom")),
             valid_to=_parse_time(data.get("validTimeTo")),
-            direction=direction.strip().upper() if isinstance(direction, str) else direction,
+            direction=direction,
             speed_kt=_parse_level(data.get("spd")),
             coords=_parse_coords(data.get("coords")),
             source=source,
@@ -214,6 +219,30 @@ class SigmetReport:
         if self.valid_from is not None and when < self.valid_from:
             return False
         if self.valid_to is not None and when > self.valid_to:
+            return False
+        return True
+
+    def overlaps_time(
+        self,
+        from_dt: Optional[datetime],
+        to_dt: Optional[datetime],
+    ) -> bool:
+        """Whether the SIGMET's validity window overlaps ``[from_dt, to_dt]``.
+
+        Mirrors :meth:`overlaps_altitude`: open-ended bounds (None) on either the
+        SIGMET or the query are treated permissively, so an unconstrained query
+        always overlaps. Naive datetimes are assumed UTC.
+        """
+        def _utc(dt: Optional[datetime]) -> Optional[datetime]:
+            if dt is None:
+                return None
+            return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+
+        s_from, s_to = _utc(self.valid_from), _utc(self.valid_to)
+        q_from, q_to = _utc(from_dt), _utc(to_dt)
+        if q_to is not None and s_from is not None and s_from > q_to:
+            return False
+        if q_from is not None and s_to is not None and q_from > s_to:
             return False
         return True
 

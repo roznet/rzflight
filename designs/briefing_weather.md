@@ -17,11 +17,13 @@ Ported from `rzflight-save/python/weather/weather.py` — kept the valuable logi
 
 ```
 euro_aip/briefing/weather/
-├── models.py       # WeatherReport, FlightCategory, WindComponents, WeatherType
-├── parser.py       # WeatherParser — wraps metar_taf_parser library
-├── analysis.py     # WeatherAnalyzer — flight categories, wind math, TAF matching
-├── collection.py   # WeatherCollection(QueryableCollection[WeatherReport])
-└── __init__.py     # Public API exports
+├── models.py        # WeatherReport, FlightCategory, WindComponents, WeatherType
+├── parser.py        # WeatherParser — wraps metar_taf_parser library
+├── analysis.py      # WeatherAnalyzer — flight categories, wind math, TAF matching
+├── collection.py    # WeatherCollection(QueryableCollection[WeatherReport])
+├── sigmet.py        # SigmetReport model + AWC isigmet parser
+├── route_sigmet.py  # RouteSigmetService — SIGMETs intersecting a route corridor
+└── __init__.py      # Public API exports
 ```
 
 **Key design**: TAF trends are nested `WeatherReport` objects (same fields as main report), not a separate class. This eliminates complex attribute-copying logic from the old code.
@@ -99,6 +101,67 @@ tafs = source.fetch_tafs("EGLL", date(2026, 4, 7))
 ```
 
 Ogimet scrapes HTML from `display_metars2.php`. It automatically fixes TAF validity dates (the parser infers year/month from `now()`, but for historical data it uses the actual report datetime from ogimet). Results are sorted chronologically.
+
+## SIGMETs
+
+SIGMETs (Significant Meteorological Information) warn of in-flight hazards — turbulence, icing, convection, mountain waves, volcanic ash — bounded by a polygon and a vertical band over a FIR. They are modelled separately from `WeatherReport` (they are area/FIR hazards, not point observations) and follow the same Source → Model pattern.
+
+Scope is **international (FIR) SIGMETs only** — AIRMET is deliberately out of scope.
+
+### SigmetReport (`sigmet.py`)
+
+Parsed from aviationweather.gov's `/api/data/isigmet` JSON. Coordinates use the euro_aip `(lon, lat)` convention so the polygon plugs straight into `euro_aip.utils.geometry` and the FIR machinery.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `raw_text` | `str` | Original SIGMET bulletin (`rawSigmet`) |
+| `fir_id` / `fir_name` | `str` / `str?` | Issuing FIR ICAO id and name |
+| `icao_id` | `str?` | Issuing office, if distinct from the FIR |
+| `hazard` | `str?` | `TURB`, `ICE`, `TS`, `MTW`, `VA`, … |
+| `qualifier` | `str?` | Intensity/coverage: `SEV`, `EMBD`, `ISOL`, … |
+| `base_ft` / `top_ft` | `int?` | Vertical band, **feet MSL** (None if unknown) |
+| `valid_from` / `valid_to` | `datetime?` | Validity window (aware UTC) |
+| `direction` / `speed_kt` | `str?` / `int?` | Movement (None if stationary/unknown) |
+| `coords` | `List[(lon, lat)]` | Polygon outline |
+
+Geometry helpers mirror `FIR`: `polygons` (multipolygon shape), `bbox`, `contains_point`, `overlaps_altitude(low, high)`, `is_valid_at(when)`. `to_dict`/`from_dict` round-trip like `WeatherReport`. The parser is defensive — every field tolerates a missing key, and the level/time helpers accept the encodings AWC has shipped (epoch / ISO time; feet / `FL340` / `SFC`) — so the Sept-2025 schema change (dropped `isigmetId`) degrades gracefully.
+
+```python
+from euro_aip.briefing.sources import AvWxSource
+sigmets = AvWxSource().fetch_isigmet(hazard="turb")  # server-side hazard filter
+```
+
+### RouteSigmetService (`route_sigmet.py`)
+
+Mirrors `RouteWeatherService`: resolve a route to geometry, fetch SIGMETs, then keep only those intersecting the route corridor, altitude band and (optional) time window. Filter stages, cheapest first:
+
+1. **Time + vertical** — drop SIGMETs whose validity misses the requested `(from_datetime, to_datetime)` window (`overlaps_time`) or whose layer misses `altitude_band_ft` (`overlaps_altitude`). Both window bounds are optional; naive datetimes are assumed UTC.
+2. **FIR prefilter** — `model.firs_along_route` gives the route's FIRs; a SIGMET's `fir_id` membership is a cheap candidate signal (and the fallback when a SIGMET has no usable polygon).
+3. **Geometry refine** (authoritative when geometry exists) — densely `sample_polyline` the route, bbox-prefilter, then test each sample for polygon containment / corridor distance, recording perpendicular distance and the enroute extent affected.
+
+```python
+from datetime import datetime, timezone, timedelta
+from euro_aip.briefing.weather.route_sigmet import RouteSigmetService
+
+etd = datetime.now(timezone.utc)
+result = RouteSigmetService().fetch_route_sigmets(
+    ["LFPG", "LGAV"], corridor_nm=100, model=model, altitude_band_ft=(0, 45000),
+    from_datetime=etd, to_datetime=etd + timedelta(hours=3),  # period of interest
+)
+for rs in result.sigmets:  # sorted by nearest enroute distance
+    print(rs.sigmet.fir_id, rs.sigmet.hazard, rs.min_distance_nm,
+          rs.enroute_distance_from_nm, rs.enroute_distance_to_nm)
+```
+
+Note the AWC feed sometimes carries upcoming SIGMETs (issued ahead of validity), so a time window matched to the planned ETA/ETA-band is the way to keep only the hazards relevant to the flight.
+
+### AWC isigmet API behaviour (verified live, 2026-05-20)
+
+- **`base`/`top` are feet MSL** (`base: 30000` ↔ raw `FL300`), matching `base_ft`/`top_ft`. `FL`-prefixed strings are still converted.
+- **`region` is ignored** by the endpoint — every value returns the same global set (~125 SIGMETs). Filter geographically on the client; `RouteSigmetService` does this via route geometry.
+- **`hazard` filters server-side** (`turb`/`ice`/`conv`/…).
+- **`level` is a flight level (hundreds of feet)**: `level=100` = FL100 = 10,000 ft — not feet.
+- **`validTimeFrom`/`validTimeTo` are epoch seconds**; `dir` uses `"-"` for stationary (normalised to `None`); `spd` is a numeric string or `"UNK"` (→ `None`).
 
 ## Data Models
 

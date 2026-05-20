@@ -121,10 +121,15 @@ class AvWxSource:
         Fetch international (FIR) SIGMETs from the isigmet endpoint.
 
         Args:
-            region: Region code (default ``"eur"`` for European FIRs).
-            hazard: Optional hazard filter, e.g. ``"turb"`` or ``"ice"``.
-            level: Optional flight level filter (matches SIGMETs within ±3000 ft
-                of this level), per the AWC ``level`` parameter.
+            region: Region code, kept for forward-compatibility. NB: the AWC
+                isigmet endpoint currently ignores it and always returns the
+                global SIGMET set — filter geographically on the client
+                (RouteSigmetService does this via route geometry).
+            hazard: Optional hazard filter (server-side), e.g. ``"turb"``,
+                ``"ice"`` or ``"conv"``.
+            level: Optional flight-level filter (server-side), in hundreds of
+                feet — e.g. ``100`` means FL100 (10,000 ft), not 100 ft. Matches
+                SIGMETs whose vertical band brackets that level.
             date: Optional ISO timestamp to query historical SIGMETs.
 
         Returns:

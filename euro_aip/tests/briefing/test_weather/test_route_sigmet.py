@@ -1,5 +1,6 @@
 """Tests for RouteSigmetService."""
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 from euro_aip.briefing.weather.route_sigmet import (
@@ -11,7 +12,8 @@ from euro_aip.briefing.weather.sigmet import SigmetReport
 from euro_aip.models.navpoint import NavPoint
 
 
-def make_sigmet(fir_id, coords, base_ft=10000, top_ft=24000, hazard="TURB"):
+def make_sigmet(fir_id, coords, base_ft=10000, top_ft=24000, hazard="TURB",
+                valid_from=None, valid_to=None):
     return SigmetReport(
         raw_text=f"{fir_id} SIGMET",
         fir_id=fir_id,
@@ -20,6 +22,8 @@ def make_sigmet(fir_id, coords, base_ft=10000, top_ft=24000, hazard="TURB"):
         base_ft=base_ft,
         top_ft=top_ft,
         coords=coords,
+        valid_from=valid_from,
+        valid_to=valid_to,
         source="avwx",
     )
 
@@ -172,6 +176,56 @@ class TestFirFallback:
             ROUTE, corridor_nm=25, model=model, altitude_band_ft=(0, 18000),
         )
         assert result.sigmets == []
+
+
+def _utc(hour):
+    return datetime(2026, 5, 20, hour, tzinfo=timezone.utc)
+
+
+class TestTimeFilter:
+    def _on_route(self, valid_from, valid_to):
+        return make_sigmet(
+            "EGTT", box(0.8, 50.3, 1.2, 50.7),
+            valid_from=valid_from, valid_to=valid_to,
+        )
+
+    def test_window_before_validity_excluded(self):
+        s = self._on_route(_utc(10), _utc(14))
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        service = RouteSigmetService(source=make_source([s]))
+        result = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model, altitude_band_ft=(0, 18000),
+            from_datetime=_utc(6), to_datetime=_utc(9),
+        )
+        assert result.sigmets == []
+
+    def test_window_overlapping_validity_included(self):
+        s = self._on_route(_utc(10), _utc(14))
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        service = RouteSigmetService(source=make_source([s]))
+        result = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model, altitude_band_ft=(0, 18000),
+            from_datetime=_utc(12), to_datetime=_utc(16),
+        )
+        assert len(result.sigmets) == 1
+
+    def test_no_window_includes_all(self):
+        s = self._on_route(_utc(10), _utc(14))
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        service = RouteSigmetService(source=make_source([s]))
+        result = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model, altitude_band_ft=(0, 18000),
+        )
+        assert len(result.sigmets) == 1
+
+    def test_time_window_recorded_in_result(self):
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        service = RouteSigmetService(source=make_source([]))
+        result = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model,
+            from_datetime=_utc(10), to_datetime=_utc(14),
+        )
+        assert result.time_window == (_utc(10), _utc(14))
 
 
 class TestResultMetadata:
