@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 import pytest
+from requests.exceptions import Timeout
 
 from euro_aip.briefing.sources.avwx import AvWxSource
 from euro_aip.briefing.weather.models import WeatherType, FlightCategory
@@ -372,3 +373,56 @@ class TestErrorHandling:
         call_kwargs = session.get.call_args
         ids = call_kwargs[1]["params"]["ids"]
         assert ids == "EGLL,LFPG"
+
+
+class TestRetry:
+    """Retry behaviour on transient failures (timeouts, connection errors, 5xx)."""
+
+    VALID_METAR = "METAR EGLL 211250Z 27010KT 9999 SCT030 BKN045 15/08 Q1020"
+
+    def test_retries_then_succeeds(self):
+        session = make_session()
+        session.get.side_effect = [
+            Timeout("read timed out"),
+            MockResponse(self.VALID_METAR),
+        ]
+        source = AvWxSource(session=session, retry_backoff=0)
+
+        reports = source.fetch_metars(["EGLL"])
+
+        assert len(reports) == 1
+        assert reports[0].icao == "EGLL"
+        assert session.get.call_count == 2  # one failure + one success
+
+    def test_exhausts_retries_returns_empty(self):
+        session = make_session()
+        session.get.side_effect = Timeout("read timed out")
+        source = AvWxSource(session=session, max_retries=2, retry_backoff=0)
+
+        reports = source.fetch_metars(["EGLL"])
+
+        assert reports == []
+        assert session.get.call_count == 3  # max_retries + 1
+
+    def test_no_retry_when_disabled(self):
+        session = make_session()
+        session.get.side_effect = Timeout("read timed out")
+        source = AvWxSource(session=session, max_retries=0, retry_backoff=0)
+
+        reports = source.fetch_metars(["EGLL"])
+
+        assert reports == []
+        assert session.get.call_count == 1
+
+    def test_5xx_is_retried(self):
+        session = make_session()
+        session.get.side_effect = [
+            MockResponse("", status_code=503),
+            MockResponse(self.VALID_METAR),
+        ]
+        source = AvWxSource(session=session, retry_backoff=0)
+
+        reports = source.fetch_metars(["EGLL"])
+
+        assert len(reports) == 1
+        assert session.get.call_count == 2

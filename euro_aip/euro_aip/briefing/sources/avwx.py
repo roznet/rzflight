@@ -1,6 +1,7 @@
 """Aviation Weather (aviationweather.gov) API source for live METAR/TAF/SIGMET data."""
 
 import logging
+import time
 from typing import Any, List, Optional
 
 import requests
@@ -31,16 +32,30 @@ class AvWxSource:
     BASE_URL = "https://aviationweather.gov/api/data"
     BATCH_SIZE = 400
     DEFAULT_TIMEOUT = 15
+    DEFAULT_MAX_RETRIES = 2
+    DEFAULT_RETRY_BACKOFF = 0.5
     USER_AGENT = "euro-aip/1.0 (aviation weather tool)"
 
-    def __init__(self, session: Optional[requests.Session] = None, timeout: int = DEFAULT_TIMEOUT):
+    def __init__(
+        self,
+        session: Optional[requests.Session] = None,
+        timeout: int = DEFAULT_TIMEOUT,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        retry_backoff: float = DEFAULT_RETRY_BACKOFF,
+    ):
         """
         Args:
             session: Optional requests.Session for dependency injection (testing).
             timeout: HTTP request timeout in seconds.
+            max_retries: Extra attempts on transient failures (timeouts,
+                connection errors, 5xx). 0 disables retrying.
+            retry_backoff: Base seconds for linear backoff between attempts
+                (attempt N waits ``retry_backoff * N``).
         """
         self._session = session or requests.Session()
         self._timeout = timeout
+        self._max_retries = max(0, max_retries)
+        self._retry_backoff = retry_backoff
         self._session.headers.setdefault("User-Agent", self.USER_AGENT)
 
     def fetch_metars(self, icaos: List[str], hours: float = 3) -> List[WeatherReport]:
@@ -161,6 +176,36 @@ class AvWxSource:
                 logger.warning("Failed to parse SIGMET entry: %s", e)
         return reports
 
+    def _get_with_retry(self, url: str, params: dict) -> requests.Response:
+        """GET ``url`` with retries on transient failures.
+
+        aviationweather.gov intermittently read-times-out; because METAR/TAF
+        are fetched in batches of up to ``BATCH_SIZE``, a single un-retried
+        timeout silently drops a whole batch of airports for that ingest cycle.
+        Retries cover connection errors, read timeouts, and 5xx responses
+        (4xx are returned as-is — retrying a client error won't help). Raises
+        the last exception if every attempt fails, so callers keep their
+        existing fail-open (return empty) behaviour.
+        """
+        last_exc: Exception = RuntimeError("no request attempted")
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = self._session.get(url, params=params, timeout=self._timeout)
+                if response.status_code < 500:
+                    return response
+                last_exc = requests.HTTPError(
+                    f"{response.status_code} Server Error", response=response,
+                )
+            except requests.RequestException as e:
+                last_exc = e
+            if attempt < self._max_retries:
+                logger.debug(
+                    "AvWx GET attempt %d/%d failed (%s) — retrying",
+                    attempt + 1, self._max_retries + 1, last_exc,
+                )
+                time.sleep(self._retry_backoff * (attempt + 1))
+        raise last_exc
+
     def _fetch_raw(self, endpoint: str, params: dict) -> str:
         """
         Make HTTP GET request and return raw text.
@@ -169,7 +214,7 @@ class AvWxSource:
         """
         url = f"{self.BASE_URL}/{endpoint}"
         try:
-            response = self._session.get(url, params=params, timeout=self._timeout)
+            response = self._get_with_retry(url, params)
             if response.status_code == 204:
                 return ""
             response.raise_for_status()
@@ -188,7 +233,7 @@ class AvWxSource:
         """
         url = f"{self.BASE_URL}/{endpoint}"
         try:
-            response = self._session.get(url, params=params, timeout=self._timeout)
+            response = self._get_with_retry(url, params)
             if response.status_code == 204:
                 return []
             response.raise_for_status()
