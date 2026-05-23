@@ -16,7 +16,7 @@ from typing import List, Optional
 from datetime import datetime
 
 
-__version__ = '0.10.1'
+__version__ = '0.10.2'
 __all__ = [
     'Airport',
     'NavPoint',
