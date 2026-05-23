@@ -148,9 +148,13 @@ class RouteWeatherService:
                 enroute_distance_nm=entry.get("enroute_distance_nm"),
             )
 
-        # Ensure route airports are always included
+        # Ensure route airports are always included. Route waypoints may be
+        # navaids, intersections or lat/lon points (e.g. "5117N00009E"); only
+        # 4-letter ICAO codes are real airports with METAR/TAF — skip the rest.
         for icao in route_icaos:
             icao_upper = icao.upper()
+            if not (len(icao_upper) == 4 and icao_upper.isalpha()):
+                continue
             if icao_upper not in airport_infos:
                 airport_infos[icao_upper] = RouteAirportWeather(
                     icao=icao_upper,

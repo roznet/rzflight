@@ -198,6 +198,21 @@ class TestRouteWeatherService:
         assert "EGLL" in icaos
         assert "LFPG" in icaos
 
+    def test_non_airport_route_waypoints_excluded(self):
+        """Route navaids/intersections/lat-lon points are not real airports and
+        must not be added to the weather query (a malformed id 400s the batch)."""
+        model = make_model([])
+        source = make_source([])
+
+        service = RouteWeatherService(source=source)
+        result = service.fetch_route_weather(
+            ["EGLL", "OCK", "5117N00009E", "RINTI", "LFPG"],
+            corridor_nm=25, model=model,
+        )
+
+        icaos = {a.icao for a in result.airports}
+        assert icaos == {"EGLL", "LFPG"}
+
     def test_reports_distributed_by_icao(self):
         nearby = [
             {"airport": make_airport("EGLL"), "segment_distance_nm": 0.0,

@@ -243,8 +243,22 @@ class AvWxSource:
             return []
 
     def _batches(self, icaos: List[str]):
-        """Yield batches of ICAOs respecting the API batch size limit."""
-        cleaned = [icao.strip().upper() for icao in icaos if icao.strip()]
+        """Yield batches of valid ICAOs respecting the API batch size limit.
+
+        Drops anything that isn't a 4-letter ICAO code. The API returns HTTP 400
+        for the whole request if a single id is malformed (e.g. a lat/lon route
+        waypoint like ``5117N00009E``), which would silently zero out every
+        airport in the batch — so non-ICAO ids are filtered out before sending.
+        """
+        cleaned = []
+        for icao in icaos:
+            token = icao.strip().upper()
+            if not token:
+                continue
+            if len(token) == 4 and token.isalpha():
+                cleaned.append(token)
+            else:
+                logger.debug("AvWx skipping non-ICAO id: %r", token)
         for i in range(0, len(cleaned), self.BATCH_SIZE):
             yield cleaned[i:i + self.BATCH_SIZE]
 

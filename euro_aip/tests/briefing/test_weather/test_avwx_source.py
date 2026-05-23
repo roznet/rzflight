@@ -44,6 +44,13 @@ def make_json_session(json_data, status_code=200):
     return session
 
 
+def synthetic_icaos(n):
+    """Generate n unique, valid (4-letter, all-alpha) ICAO-shaped codes."""
+    import string
+    a = string.ascii_uppercase
+    return ["Q" + a[i // 676 % 26] + a[i // 26 % 26] + a[i % 26] for i in range(n)]
+
+
 SAMPLE_ISIGMET = [
     {
         "icaoId": "EGTT",
@@ -310,7 +317,7 @@ class TestBatching:
         source = AvWxSource(session=session)
 
         # 500 ICAOs should split into 2 batches (400 + 100)
-        icaos = [f"X{i:03d}" for i in range(500)]
+        icaos = synthetic_icaos(500)
         source.fetch_metars(icaos)
 
         assert session.get.call_count == 2
@@ -319,10 +326,22 @@ class TestBatching:
         session = make_session("")
         source = AvWxSource(session=session)
 
-        icaos = [f"X{i:03d}" for i in range(400)]
+        icaos = synthetic_icaos(400)
         source.fetch_metars(icaos)
 
         assert session.get.call_count == 1
+
+    def test_non_icao_ids_filtered(self):
+        """Non-ICAO ids (navaids, intersections, lat/lon waypoints) are dropped
+        so a single malformed id can't 400 the whole batch."""
+        session = make_session("")
+        source = AvWxSource(session=session)
+
+        # Mix of valid ICAOs and route waypoints that must be filtered out.
+        ids = ["EGTF", "LSGS", "OCK", "5117N00009E", "RINTI", "DJL"]
+        batches = list(source._batches(ids))
+
+        assert batches == [["EGTF", "LSGS"]]
 
 
 class TestFetchWeather:
