@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "route": {
+    "departure": "EGTK",
+    "destination": "LSGS",
+    "alternates": [
+      "LSGG"
+    ],
+    "waypoints": [
+      "BILGO",
+      "XIDIL"
+    ],
+    "departure_coords": [
+      51.83,
+      -1.32
+    ],
+    "destination_coords": [
+      46.22,
+      7.33
+    ],
+    "alternate_coords": {
+      "LSGG": [
+        46.24,
+        6.11
+      ]
+    },
+    "waypoint_coords": [
+      {
+        "name": "BILGO",
+        "latitude": 48.5,
+        "longitude": 2.17,
+        "point_type": "waypoint"
+      },
+      {
+        "name": "XIDIL",
+        "latitude": 47.1,
+        "longitude": 5.4,
+        "point_type": "waypoint"
+      }
+    ],
+    "rejected_waypoints": [],
+    "aircraft_type": "P28A",
+    "departure_time": "2026-06-01T09:00:00+00:00",
+    "arrival_time": "2026-06-01T11:15:00+00:00",
+    "flight_level": null,
+    "cruise_altitude_ft": 8000
+  },
+  "name": "Oxford -> Sion",
+  "source": {
+    "app": "weather",
+    "flight_id": "egtk_lsgs-2026-06-01-a1b2",
+    "share_code": "Ab3xY9k2"
+  },
+  "aircraft": {
+    "registration": "HB-ABC",
+    "type": "P28A"
+  }
+}

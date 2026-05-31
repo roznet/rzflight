@@ -4,7 +4,8 @@
 > that round-trips between the Python server (`euro_aip`) and the Swift apps (`RZFlight`),
 > so flights can be exported from one flyfun app and imported into another.
 
-**Status:** Proposed (design only — not yet implemented).
+**Status:** Implemented (v1) in both `RZFlight` (Swift) and `euro_aip` (Python). Per-app
+adoption (weather emit, forms/brief import) tracked separately.
 **Home:** rzflight, in both `RZFlight` (Swift) and `euro_aip` (Python), alongside `Route`.
 
 ## Intent

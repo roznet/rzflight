@@ -21,7 +21,7 @@ Two packages released independently from this repo with separate tag conventions
 
 ### RZFlight Swift Package
 Aviation calculations, airport data management, and flight planning for iOS/macOS. Wind calculations, runway selection, METAR integration, spatial airport/waypoint queries, route resolution, and native PDF briefing parsing.
-Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `Waypoint`, `KnownWaypoints`, `RoutePointResolver`, `ICAOFlightPlanParser`, `Briefing`, `Notam`, `ForeFlightParser`
+Key exports: `Airport`, `Runway`, `Procedure`, `RunwayWindModel`, `KnownAirports`, `Waypoint`, `KnownWaypoints`, `RoutePointResolver`, `ICAOFlightPlanParser`, `Briefing`, `Notam`, `ForeFlightParser`, `Route`, `FlightExchange`
 
 **Documentation:**
 - `swift_package.md` - Package overview, quick start
@@ -58,7 +58,7 @@ Documentation for European AIP web sources and data retrieval.
 
 ### Python Euro AIP Briefing
 Flight briefing data extraction, NOTAM filtering, and weather analysis. Parse ForeFlight PDFs, fetch live or historical METARs/TAFs, extract NOTAMs, and filter with fluent API.
-Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSource`, `AutorouterNotamSource`, `AutorouterGrametSource`, `AvWxSource`, `OgimetSource`, `ICAOFlightPlan`, `parse_icao_fpl`, `CategorizationPipeline`, `WeatherReport`, `FlightCategory`, `Route`, `RoutePoint`
+Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSource`, `AutorouterNotamSource`, `AutorouterGrametSource`, `AvWxSource`, `OgimetSource`, `ICAOFlightPlan`, `parse_icao_fpl`, `CategorizationPipeline`, `WeatherReport`, `FlightCategory`, `Route`, `RoutePoint`, `FlightExchange`
 
 **Documentation (load in order of need):**
 - `briefing.md` - Overview, architecture, usage examples (read FIRST)

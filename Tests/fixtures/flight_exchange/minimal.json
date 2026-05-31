@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "route": {
+    "departure": "EGTF",
+    "destination": "EGLL",
+    "alternates": [],
+    "waypoints": [],
+    "departure_coords": null,
+    "destination_coords": null,
+    "alternate_coords": {},
+    "waypoint_coords": [],
+    "rejected_waypoints": [],
+    "aircraft_type": null,
+    "departure_time": null,
+    "arrival_time": null,
+    "flight_level": null,
+    "cruise_altitude_ft": null
+  }
+}
