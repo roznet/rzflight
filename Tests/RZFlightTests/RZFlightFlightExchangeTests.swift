@@ -173,5 +173,14 @@ final class RZFlightFlightExchangeTests: XCTestCase {
         XCTAssertEqual(a.route.departureTime, b.route.departureTime, file: file, line: line)
         XCTAssertEqual(a.route.arrivalTime, b.route.arrivalTime, file: file, line: line)
         XCTAssertEqual(a.route.waypointCoords, b.route.waypointCoords, file: file, line: line)
+        // Scalar coords must also survive the round-trip, not just waypointCoords.
+        XCTAssertEqual(a.route.departureCoordinate?.latitude, b.route.departureCoordinate?.latitude, file: file, line: line)
+        XCTAssertEqual(a.route.departureCoordinate?.longitude, b.route.departureCoordinate?.longitude, file: file, line: line)
+        XCTAssertEqual(a.route.destinationCoordinate?.latitude, b.route.destinationCoordinate?.latitude, file: file, line: line)
+        XCTAssertEqual(a.route.destinationCoordinate?.longitude, b.route.destinationCoordinate?.longitude, file: file, line: line)
+        for icao in a.route.alternates {
+            XCTAssertEqual(a.route.coordinate(for: icao)?.latitude, b.route.coordinate(for: icao)?.latitude, file: file, line: line)
+            XCTAssertEqual(a.route.coordinate(for: icao)?.longitude, b.route.coordinate(for: icao)?.longitude, file: file, line: line)
+        }
     }
 }

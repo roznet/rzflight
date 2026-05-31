@@ -95,17 +95,18 @@ class FlightExchange:
         ``aircraft.type`` is ignored on import — ``route.aircraft_type`` is the
         source of truth, and ``to_dict`` re-mirrors it on the way out.
         """
-        source = data.get('source') or {}
-        aircraft = data.get('aircraft') or {}
-
-        # Reject unknown (newer) schema versions — a v2 payload may carry
-        # breaking changes this build can't interpret. See design doc.
+        # Reject unknown (newer) schema versions before touching any fields —
+        # a v2 payload may carry breaking changes this build can't interpret.
+        # See design doc.
         version = data.get('schema_version', SCHEMA_VERSION)
         if version > SCHEMA_VERSION:
             raise ValueError(
                 f"Unsupported FlightExchange schema_version {version} "
                 f"(max supported {SCHEMA_VERSION})"
             )
+
+        source = data.get('source') or {}
+        aircraft = data.get('aircraft') or {}
 
         return cls(
             route=Route.from_dict(data['route']),
