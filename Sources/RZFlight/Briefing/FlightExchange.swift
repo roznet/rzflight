@@ -100,6 +100,15 @@ public struct FlightExchange: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion)
             ?? FlightExchange.currentSchemaVersion
+        // Reject unknown (newer) schema versions — a v2 payload may carry
+        // breaking changes this build can't interpret. See design doc.
+        guard self.schemaVersion <= FlightExchange.currentSchemaVersion else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .schemaVersion, in: container,
+                debugDescription: "Unsupported FlightExchange schema_version "
+                    + "\(self.schemaVersion) (max supported "
+                    + "\(FlightExchange.currentSchemaVersion))")
+        }
         self.source = try container.decodeIfPresent(Source.self, forKey: .source)
         self.name = try container.decodeIfPresent(String.self, forKey: .name)
         self.route = try container.decode(Route.self, forKey: .route)
