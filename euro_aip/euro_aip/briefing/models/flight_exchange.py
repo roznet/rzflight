@@ -98,9 +98,18 @@ class FlightExchange:
         source = data.get('source') or {}
         aircraft = data.get('aircraft') or {}
 
+        # Reject unknown (newer) schema versions — a v2 payload may carry
+        # breaking changes this build can't interpret. See design doc.
+        version = data.get('schema_version', SCHEMA_VERSION)
+        if version > SCHEMA_VERSION:
+            raise ValueError(
+                f"Unsupported FlightExchange schema_version {version} "
+                f"(max supported {SCHEMA_VERSION})"
+            )
+
         return cls(
             route=Route.from_dict(data['route']),
-            schema_version=data.get('schema_version', SCHEMA_VERSION),
+            schema_version=version,
             name=data.get('name'),
             aircraft_registration=aircraft.get('registration'),
             source_app=source.get('app'),

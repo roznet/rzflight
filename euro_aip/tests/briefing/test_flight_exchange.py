@@ -124,6 +124,15 @@ class TestFromDict:
         fx = FlightExchange.from_dict(d)
         assert fx.schema_version == SCHEMA_VERSION
 
+    def test_rejects_newer_schema_version(self):
+        """A newer (unknown) schema version is rejected, not silently decoded."""
+        d = {
+            "schema_version": SCHEMA_VERSION + 1,
+            "route": Route(departure="EGTF", destination="EGLL").to_dict(),
+        }
+        with pytest.raises(ValueError):
+            FlightExchange.from_dict(d)
+
     def test_null_source_and_aircraft(self):
         d = {
             "schema_version": 1,
@@ -165,3 +174,17 @@ class TestParityFixtures:
         assert fx.name is None
         assert fx.aircraft_registration is None
         assert fx.source_app is None
+
+    def test_decodes_swift_style_z_timestamps(self):
+        """Swift's JSONEncoder.iso8601 emits a 'Z' suffix; Python emits +00:00.
+
+        Guards the Swift -> Python import direction: a payload exported by a
+        Swift app must decode here. Relies on datetime.fromisoformat accepting
+        'Z' (Python >= 3.11; package requires >= 3.12).
+        """
+        data = load_fixture("full.json")
+        data["route"]["departure_time"] = "2026-06-01T09:00:00Z"
+        data["route"]["arrival_time"] = "2026-06-01T11:15:00Z"
+        fx = FlightExchange.from_dict(data)
+        assert fx.route.departure_time == datetime(2026, 6, 1, 9, 0, 0, tzinfo=timezone.utc)
+        assert fx.route.arrival_time == datetime(2026, 6, 1, 11, 15, 0, tzinfo=timezone.utc)

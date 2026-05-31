@@ -17,8 +17,13 @@ final class RZFlightFlightExchangeTests: XCTestCase {
     /// Shared cross-platform parity fixtures live at the repo root so both the
     /// Swift and Python test suites read the exact same JSON.
     static func fixturesDirectory() -> URL {
-        // #file == <repo>/Tests/RZFlightTests/RZFlightFlightExchangeTests.swift
-        return URL(fileURLWithPath: #file)
+        // The fixtures intentionally live at <repo>/Tests/fixtures so the Python
+        // and Swift suites read the byte-identical files. That path sits outside
+        // the test target's directory, so it can't be an SPM `Bundle.module`
+        // resource — resolve it relative to this source file instead.
+        // Use #filePath (always a full filesystem path) rather than #file, which
+        // can be a concise module-relative string under some build settings.
+        return URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // RZFlightTests
             .deletingLastPathComponent()   // Tests
             .deletingLastPathComponent()   // <repo>
@@ -136,6 +141,15 @@ final class RZFlightFlightExchangeTests: XCTestCase {
         """.data(using: .utf8)!
         let fx = try FlightExchange.decode(from: json)
         XCTAssertEqual(fx.schemaVersion, FlightExchange.currentSchemaVersion)
+    }
+
+    /// A payload from a newer (unknown) schema version is rejected rather than
+    /// silently decoded — the design doc says consumers reject unknown versions.
+    func testRejectsNewerSchemaVersion() throws {
+        let json = """
+        { "schema_version": 999, "route": { "departure": "EGTF", "destination": "EGLL" } }
+        """.data(using: .utf8)!
+        XCTAssertThrowsError(try FlightExchange.decode(from: json))
     }
 
     // MARK: - Helpers
