@@ -49,6 +49,11 @@ class RouteResolver:
     DEFAULT_DETOUR_COEF = 0.5
     DEFAULT_DETOUR_CAP_NM = 300.0
 
+    # Departure/destination within this distance are treated as the same
+    # point — a closed-loop (local) flight returning to origin. The detour
+    # gate is meaningless on such routes (see resolve()).
+    CLOSED_LOOP_TOLERANCE_NM = 1.0
+
     def __init__(
         self,
         model: 'EuroAipModel',
@@ -300,13 +305,37 @@ class RouteResolver:
                 name=dep_point.name,
             )
 
+        # Closed-loop detection. A local flight that returns to its origin
+        # (e.g. "EGTF OCK BIG OCK EGTF") has departure ≈ destination, so the
+        # direct route collapses to a zero-length leg. The detour gate, which
+        # measures each middle point against the reference→destination leg,
+        # would then flag *every* outbound waypoint as a maximal detour and
+        # reject it — by definition, nothing on a loop lies on the (nonexistent)
+        # direct line. On such routes we:
+        #   1. disable the detour rejection gate (keep all resolved middles), and
+        #   2. drop the `forward` anchor for disambiguation, so multi-candidate
+        #      names (e.g. SFD: UK vs Venezuela) fall back to
+        #      closest-to-last-resolved-point. That tracks the loop's actual
+        #      path, whereas "minimise detour back to origin" would bias every
+        #      pick toward the origin regardless of where the leg really goes.
+        is_closed_loop = False
+        if dep_point is not None and dest_point is not None:
+            dep_np = NavPoint(
+                latitude=dep_point.latitude,
+                longitude=dep_point.longitude,
+                name=dep_point.name,
+            )
+            _, dep_dest_nm = dep_np.haversine_distance(forward)
+            is_closed_loop = dep_dest_nm < self.CLOSED_LOOP_TOLERANCE_NM
+        disambig_forward = None if is_closed_loop else forward
+
         waypoint_names: List[str] = []
         waypoint_coords: List[RoutePoint] = []
         unresolved: List[str] = []
         rejected: List[dict] = []
         for token in middle_tokens:
             if reference is not None:
-                point = self.resolve_point_near(token, reference, forward=forward)
+                point = self.resolve_point_near(token, reference, forward=disambig_forward)
             else:
                 point = self.resolve_point(token)
 
@@ -316,10 +345,10 @@ class RouteResolver:
                 continue
 
             # Detour gate — only applies when we have both anchors AND a
-            # real leg between them. For closed-loop routes (dep == dest)
-            # leg_nm collapses to 0 and the detour metric reduces to
-            # 2·d(ref, candidate), which would reject every middle point.
-            if reference is not None and forward is not None:
+            # real leg between them. Disabled for closed-loop routes
+            # (dep ≈ dest): the direct route collapses, so the metric would
+            # flag every outbound waypoint as a maximal detour and reject it.
+            if reference is not None and forward is not None and not is_closed_loop:
                 _, leg_nm = reference.haversine_distance(forward)
                 if leg_nm >= 1.0:
                     candidate_np = NavPoint(

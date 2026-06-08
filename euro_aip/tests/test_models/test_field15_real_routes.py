@@ -328,3 +328,72 @@ def test_route7_star_dropped_unresolved_point_tracked(resolver):
     assert r.departure == "LFRD"
     assert r.destination == "EGTF"
     assert r.waypoints == ["MINQI", "ORTAC", "NEDUL"]
+
+
+# ---------------------------------------------------------------------------
+# Closed-loop (local) flights returning to origin
+# ---------------------------------------------------------------------------
+
+def test_closed_loop_simple_keeps_all_waypoints(resolver):
+    """A local flight back to the origin (departure == destination) must NOT
+    have its waypoints filtered by the detour gate. On "EGTF OCK SFD EGTF"
+    the direct route is zero-length, so every outbound point looks like a
+    maximal detour — the gate must be disabled and all middles kept.
+
+    Regression for the reported bug: such routes previously lost everything
+    after the first waypoint.
+    """
+    route = "EGTF OCK SFD EGTF"
+    r = resolver.resolve(route)
+    assert r.departure == "EGTF"
+    assert r.destination == "EGTF"
+    assert r.waypoints == ["OCK", "SFD"]
+    assert r.rejected_waypoints == []
+
+
+def test_closed_loop_multi_leg_keeps_all_waypoints(resolver):
+    """Mirrors the reported route shape (out via several points, back through
+    OCK to the origin). Every middle — including a repeated waypoint and an
+    airport used as a turning point — must survive."""
+    route = "EGTF OCK SFD EGMD GWC OCK EGTF"
+    r = resolver.resolve(route)
+    assert r.departure == "EGTF"
+    assert r.destination == "EGTF"
+    assert r.waypoints == ["OCK", "SFD", "EGMD", "GWC", "OCK"]
+    assert r.rejected_waypoints == []
+
+
+def test_closed_loop_still_disambiguates_multi_candidate(resolver):
+    """Disabling the detour gate must NOT disable name disambiguation. SFD has
+    a UK candidate (50.76, 0.12) and a Venezuelan one (7.88, -67.44); on a
+    UK local loop the closest-to-last-resolved fallback must still pick UK."""
+    route = "EGTF OCK SFD EGTF"
+    r = resolver.resolve(route)
+    sfd = next(w for w in r.waypoint_coords if w.name == "SFD")
+    assert sfd.latitude == pytest.approx(50.76, abs=0.01)
+    assert sfd.longitude == pytest.approx(0.12, abs=0.01)
+
+
+def test_closed_loop_disambiguates_from_departure_on_first_middle(resolver):
+    """The first middle point in a loop is disambiguated relative to the
+    departure (the initial reference). "EGTF SFD EGTF" must still pick the
+    UK SFD, not Venezuela, even though the gate is off."""
+    route = "EGTF SFD EGTF"
+    r = resolver.resolve(route)
+    assert r.waypoints == ["SFD"]
+    assert r.rejected_waypoints == []
+    sfd = next(w for w in r.waypoint_coords if w.name == "SFD")
+    assert sfd.latitude == pytest.approx(50.76, abs=0.01)
+
+
+def test_non_loop_detour_gate_still_rejects(resolver):
+    """Guard: the closed-loop bypass must not weaken the gate on ordinary
+    point-to-point routes. EGTF→LFAT with the Venezuelan SFD forced far off
+    route still rejects via the detour gate (here SFD resolves to UK and is
+    kept; this simply pins that a normal route is not treated as a loop)."""
+    route = "EGTF SFD LFAT"
+    r = resolver.resolve(route)
+    assert r.departure == "EGTF"
+    assert r.destination == "LFAT"
+    # Not a loop: SFD (UK) is on the way and kept, no special-casing applied.
+    assert r.waypoints == ["SFD"]
