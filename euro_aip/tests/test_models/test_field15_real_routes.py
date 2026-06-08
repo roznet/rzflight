@@ -386,14 +386,18 @@ def test_closed_loop_disambiguates_from_departure_on_first_middle(resolver):
     assert sfd.latitude == pytest.approx(50.76, abs=0.01)
 
 
-def test_non_loop_detour_gate_still_rejects(resolver):
-    """Guard: the closed-loop bypass must not weaken the gate on ordinary
-    point-to-point routes. EGTF→LFAT with the Venezuelan SFD forced far off
-    route still rejects via the detour gate (here SFD resolves to UK and is
-    kept; this simply pins that a normal route is not treated as a loop)."""
-    route = "EGTF SFD LFAT"
+def test_non_loop_far_waypoint_still_rejected(resolver):
+    """Guard: the closed-loop bypass must not leak into ordinary point-to-point
+    routes. EGTF→EGMD is not a loop (dep ≠ dest), so the detour gate stays
+    active and a genuinely off-path point — Y8, a Canadian NDB at (45.8, -72.4)
+    promoted from AIRWAY — is still rejected. If loop detection ever mis-fired
+    here, the gate would be disabled and this rejection would vanish."""
+    route = "EGTF Y8 EGMD"
     r = resolver.resolve(route)
     assert r.departure == "EGTF"
-    assert r.destination == "LFAT"
-    # Not a loop: SFD (UK) is on the way and kept, no special-casing applied.
-    assert r.waypoints == ["SFD"]
+    assert r.destination == "EGMD"
+    assert r.waypoints == []
+    assert any(
+        rj["name"] == "Y8" and rj["reason"] == "detour_exceeds_threshold"
+        for rj in r.rejected_waypoints
+    )

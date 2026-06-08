@@ -318,14 +318,12 @@ class RouteResolver:
         #      closest-to-last-resolved-point. That tracks the loop's actual
         #      path, whereas "minimise detour back to origin" would bias every
         #      pick toward the origin regardless of where the leg really goes.
+        # When both endpoints resolve, `reference` is the departure NavPoint
+        # (set just above) and `forward` is the destination, so the distance
+        # between them is the direct-route length.
         is_closed_loop = False
         if dep_point is not None and dest_point is not None:
-            dep_np = NavPoint(
-                latitude=dep_point.latitude,
-                longitude=dep_point.longitude,
-                name=dep_point.name,
-            )
-            _, dep_dest_nm = dep_np.haversine_distance(forward)
+            _, dep_dest_nm = reference.haversine_distance(forward)
             is_closed_loop = dep_dest_nm < self.CLOSED_LOOP_TOLERANCE_NM
         disambig_forward = None if is_closed_loop else forward
 
