@@ -54,25 +54,32 @@ def sun_events(
 ) -> Dict[str, Optional[datetime]]:
     """Sunrise/sunset (depression=0) or dawn/dusk (depression=6 civil), all UTC.
 
-    Returns ``None`` for an event that does not occur on this date (polar day
-    or polar night), where astral raises ``ValueError``.
+    The result always has the **fixed keys** ``"morning"`` and ``"evening"`` so
+    callers never have to guess which key name a given ``depression`` produced:
 
-    The result keys are ``("sunrise", "sunset")`` for ``depression == 0`` and
-    ``("dawn", "dusk")`` otherwise, so callers can read the relevant pair.
+    - ``depression == 0`` → ``morning`` = sunrise, ``evening`` = sunset
+    - ``depression > 0``  → ``morning`` = dawn,    ``evening`` = dusk
+      (e.g. ``depression=6`` for civil twilight)
+
+    Each value is ``None`` when that event does not occur on this date (polar day
+    or polar night), where astral raises ``ValueError``. ``depression`` must be
+    ``>= 0`` (degrees the sun centre sits *below* the horizon); a negative value
+    is a programming error and raises ``ValueError`` rather than being masked.
     """
+    if depression < 0.0:
+        raise ValueError(
+            f"depression must be >= 0 (degrees below the horizon), got {depression}"
+        )
+
     obs = Observer(lat, lon)
 
-    if depression <= 0.0:
-        morning_key, evening_key = "sunrise", "sunset"
-
+    if depression == 0.0:
         def _morning() -> Optional[datetime]:
             return sunrise(obs, on)
 
         def _evening() -> Optional[datetime]:
             return sunset(obs, on)
     else:
-        morning_key, evening_key = "dawn", "dusk"
-
         def _morning() -> Optional[datetime]:
             return dawn(obs, on, depression=depression)
 
@@ -86,4 +93,4 @@ def sun_events(
             # Sun never reaches the requested depression today (polar day/night).
             return None
 
-    return {morning_key: _safe(_morning), evening_key: _safe(_evening)}
+    return {"morning": _safe(_morning), "evening": _safe(_evening)}

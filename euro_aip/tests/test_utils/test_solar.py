@@ -20,7 +20,7 @@ LONDON_LON = -0.1278
 class TestSunEvents:
     def test_known_sunrise_within_two_minutes(self):
         events = sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21))
-        sunrise = events["sunrise"]
+        sunrise = events["morning"]
         assert sunrise is not None
         # Published London sunrise on the solstice: 04:43 BST = 03:43 UTC.
         expected = datetime(2024, 6, 21, 3, 43, tzinfo=timezone.utc)
@@ -29,31 +29,40 @@ class TestSunEvents:
 
     def test_known_sunset_within_two_minutes(self):
         events = sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21))
-        sunset = events["sunset"]
+        sunset = events["evening"]
         assert sunset is not None
         expected = datetime(2024, 6, 21, 20, 21, tzinfo=timezone.utc)
         delta_min = abs((sunset - expected).total_seconds()) / 60.0
         assert delta_min <= 2.0, f"sunset off by {delta_min:.1f} min"
 
-    def test_civil_twilight_keys_and_ordering(self):
-        events = sun_events(
+    def test_keys_are_stable_regardless_of_depression(self):
+        # Fixed morning/evening keys whether asking for sunrise/sunset or
+        # civil dawn/dusk — no KeyError footgun for callers.
+        plain = sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21))
+        civil = sun_events(
             LONDON_LAT, LONDON_LON, date(2024, 6, 21), depression=CIVIL_TWILIGHT_DEG
         )
-        assert set(events.keys()) == {"dawn", "dusk"}
+        assert set(plain.keys()) == {"morning", "evening"}
+        assert set(civil.keys()) == {"morning", "evening"}
         # Civil dawn is before sunrise; civil dusk is after sunset.
-        plain = sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21))
-        assert events["dawn"] < plain["sunrise"]
-        assert events["dusk"] > plain["sunset"]
+        assert civil["morning"] < plain["morning"]
+        assert civil["evening"] > plain["evening"]
+
+    def test_negative_depression_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError):
+            sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21), depression=-6)
 
     def test_polar_night_returns_none(self):
         # Longyearbyen (78N) in deep winter: sun never rises.
         events = sun_events(78.22, 15.65, date(2024, 12, 21))
-        assert events["sunrise"] is None
-        assert events["sunset"] is None
+        assert events["morning"] is None
+        assert events["evening"] is None
 
     def test_returns_aware_utc(self):
         events = sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21))
-        assert events["sunrise"].tzinfo is not None
+        assert events["morning"].tzinfo is not None
 
 
 class TestSolarElevation:
