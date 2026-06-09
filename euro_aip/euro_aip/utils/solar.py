@@ -8,6 +8,12 @@ A single pair of primitives — :func:`solar_elevation` and
 :func:`solar_azimuth` — answers "where is the sun, seen from (lat, lon) at
 time T". :func:`sun_events` gives the day's sunrise/sunset (or civil
 dawn/dusk) for margin checks.
+
+.. note::
+   Unlike ``utils/geometry.py`` (which uses GeoJSON ``(lon, lat)`` order),
+   every function here takes ``(lat, lon)`` to match astral's ``Observer`` and
+   the usual solar-calculation convention. Don't copy a ``(lon, lat)`` tuple
+   from a geometry call into these — you'll get a plausible-but-wrong answer.
 """
 
 from __future__ import annotations

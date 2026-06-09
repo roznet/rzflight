@@ -2,6 +2,8 @@
 
 from datetime import date, datetime, timezone
 
+import pytest
+
 from euro_aip.utils.solar import (
     CIVIL_TWILIGHT_DEG,
     solar_azimuth,
@@ -49,8 +51,6 @@ class TestSunEvents:
         assert civil["evening"] > plain["evening"]
 
     def test_negative_depression_raises(self):
-        import pytest
-
         with pytest.raises(ValueError):
             sun_events(LONDON_LAT, LONDON_LON, date(2024, 6, 21), depression=-6)
 
