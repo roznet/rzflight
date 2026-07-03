@@ -63,38 +63,29 @@ class TestCrossingRequirements:
     # Acceptance criteria rows from the issue.
 
     def test_fr_gb_immigration_and_customs(self):
+        # GB is in neither bloc table -> full customs + immigration border.
         req = crossing_requirements("FR", "GB")
         assert req.immigration_required is True
         assert req.customs_required is True
-        assert req.from_known is True
-        assert req.to_known is False  # GB is in neither table
 
     def test_fr_ch_customs_only(self):
         req = crossing_requirements("FR", "CH")
         assert req.immigration_required is False
         assert req.customs_required is True
-        assert req.from_known is True
-        assert req.to_known is True
 
     def test_fr_ie_immigration_only(self):
         req = crossing_requirements("FR", "IE")
         assert req.immigration_required is True
         assert req.customs_required is False
-        assert req.from_known is True
-        assert req.to_known is True
 
     def test_fr_de_no_formalities(self):
         req = crossing_requirements("FR", "DE")
         assert req.immigration_required is False
         assert req.customs_required is False
-        assert req.from_known is True
-        assert req.to_known is True
 
-    def test_fr_unknown_to_not_known(self):
+    def test_fr_unknown_treated_as_third_country(self):
+        # A code in neither table is treated as outside every bloc -> both set.
         req = crossing_requirements("FR", "XX")
-        assert req.to_known is False
-        assert req.from_known is True
-        # Unknown destination is treated as outside every bloc -> both flags set.
         assert req.immigration_required is True
         assert req.customs_required is True
 
@@ -102,16 +93,12 @@ class TestCrossingRequirements:
         req = crossing_requirements("FR", "FR")
         assert req.immigration_required is False
         assert req.customs_required is False
-        assert req.from_known is True
-        assert req.to_known is True
 
     def test_same_unknown_country_no_border(self):
         # Identical codes mean a domestic flight, even for an unknown country.
         req = crossing_requirements("GB", "GB")
         assert req.immigration_required is False
         assert req.customs_required is False
-        assert req.from_known is False
-        assert req.to_known is False
 
     def test_case_insensitive_pair(self):
         assert crossing_requirements("fr", "de") == crossing_requirements("FR", "DE")
@@ -124,7 +111,6 @@ class TestCrossingRequirements:
         req = crossing_requirements("JE", "FR")
         assert req.immigration_required is True
         assert req.customs_required is True
-        assert req.from_known is False
 
 
 class TestAirportConvenienceProperties:

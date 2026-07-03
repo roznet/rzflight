@@ -110,8 +110,9 @@ req = crossing_requirements("FR", "CH")
 print(req.immigration_required)  # False (both Schengen)
 print(req.customs_required)      # True  (CH is outside the EU customs union)
 
-# Unknown countries surface as *_known=False rather than assuming an open border
-crossing_requirements("FR", "GB").to_known  # False
+# A country in neither bloc (e.g. GB after Brexit) reads as a full border
+req = crossing_requirements("FR", "GB")
+print(req.immigration_required, req.customs_required)  # True True
 
 # Derived airport convenience properties (from iso_country)
 model.airports['LSGG'].is_schengen           # True

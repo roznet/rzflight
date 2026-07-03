@@ -36,8 +36,6 @@ All predicates take ISO-3166-1 alpha-2 codes and are case-insensitive.
 CrossingRequirements(
     immigration_required: bool,  # not (both Schengen)
     customs_required: bool,      # not (both EU customs union)
-    from_known: bool,            # origin found in the reference tables
-    to_known: bool,              # destination found in the reference tables
 )
 ```
 
@@ -46,23 +44,24 @@ Rules:
 - `immigration_required = not (is_schengen(from) and is_schengen(to))`
 - `customs_required     = not (is_eu_customs_union(from) and is_eu_customs_union(to))`
 - Same country → both `False` (domestic flight, no border).
-- Unknown country → the `*_required` flags default to `True` (treated as outside
-  every bloc), but `from_known` / `to_known` is `False` so callers can report
-  "couldn't determine" rather than assume an open border.
+- A country in neither bloc table — a recognized third country like `GB`, or an
+  unrecognized code — is treated as outside every bloc, so both flags default to
+  `True`. That is correct for a third country and a safe over-flag for a bad
+  code. Callers that must reject bad codes should validate the ISO code (e.g.
+  via `is_known`, or their own airport metadata) before calling.
 
 ### Examples
 
 | From → To | immigration | customs | note |
 |-----------|:-----------:|:-------:|------|
-| FR → GB   | ✓ | ✓ | GB in neither table (`to_known=False`) |
+| FR → GB   | ✓ | ✓ | GB left both blocs → full border |
 | FR → CH   | ✗ | ✓ | Schengen but not EU-customs |
 | FR → IE   | ✓ | ✗ | EU-customs but not Schengen |
 | FR → DE   | ✗ | ✗ | both blocs |
 
 ```python
 >>> crossing_requirements("FR", "CH")
-CrossingRequirements(immigration_required=False, customs_required=True,
-                     from_known=True, to_known=True)
+CrossingRequirements(immigration_required=False, customs_required=True)
 ```
 
 ### Airport convenience properties

@@ -15,9 +15,9 @@ Schengen. So a France→Switzerland flight needs customs but no immigration,
 while France→Ireland needs immigration but no customs.
 
 All predicates take ISO-3166-1 alpha-2 country codes (case-insensitive).
-Unknown codes return ``False`` from the predicates but are surfaced through
-``from_known`` / ``to_known`` on :func:`crossing_requirements` so callers
-can say "couldn't determine" rather than silently assume an open border.
+A country outside both blocs (e.g. ``GB`` after leaving the EU, or the
+Channel Islands) reads as a full customs + immigration border, which is the
+correct — and safely conservative — answer for a border-formalities helper.
 
 .. note::
    **Review annually.** Bloc memberships change — Bulgaria and Romania
@@ -95,19 +95,16 @@ class CrossingRequirements:
             is not both-Schengen).
         customs_required: A customs declaration applies (i.e. the pair is not
             both-in-the-EU-customs-union).
-        from_known: The origin country was found in the reference tables.
-        to_known: The destination country was found in the reference tables.
 
-    When ``from_known`` or ``to_known`` is ``False`` the ``*_required`` flags
-    are computed as if the unknown country were outside every bloc (so they
-    default to ``True``). Callers that want to distinguish "definitely a border"
-    from "couldn't determine" should check the ``*_known`` flags first.
+    A country in neither bloc table — whether a recognized third country like
+    ``GB`` or an unrecognized code — is treated as outside every bloc, so the
+    ``*_required`` flags default to ``True``. That is the correct answer for a
+    third country and a safe over-flag for a bad code; callers that need to
+    reject unrecognized codes should validate the ISO code before calling.
     """
 
     immigration_required: bool
     customs_required: bool
-    from_known: bool
-    to_known: bool
 
 
 def crossing_requirements(from_cc: str, to_cc: str) -> CrossingRequirements:
@@ -119,8 +116,8 @@ def crossing_requirements(from_cc: str, to_cc: str) -> CrossingRequirements:
     - ``customs_required     = not (is_eu_customs_union(from) and is_eu_customs_union(to))``
     - Same country → both ``False`` (no domestic border), even for a country
       that is outside both blocs, and even if the code is unknown.
-    - Unknown country → ``from_known`` / ``to_known`` is ``False`` so callers can
-      report "couldn't determine" instead of assuming an open border.
+    - A country in neither bloc table (recognized third country or bad code) is
+      treated as outside every bloc, so both flags default to ``True``.
 
     Known edge cases the caller may want to special-case (the rule below does
     not encode them, because in aviation terms they are correct as-is):
@@ -134,16 +131,11 @@ def crossing_requirements(from_cc: str, to_cc: str) -> CrossingRequirements:
     f = _normalize(from_cc)
     t = _normalize(to_cc)
 
-    from_known = f in _KNOWN
-    to_known = t in _KNOWN
-
     # Same country (including an unknown-but-identical code) → no border.
     if f is not None and f == t:
         return CrossingRequirements(
             immigration_required=False,
             customs_required=False,
-            from_known=from_known,
-            to_known=to_known,
         )
 
     immigration_required = not (f in SCHENGEN and t in SCHENGEN)
@@ -152,6 +144,4 @@ def crossing_requirements(from_cc: str, to_cc: str) -> CrossingRequirements:
     return CrossingRequirements(
         immigration_required=immigration_required,
         customs_required=customs_required,
-        from_known=from_known,
-        to_known=to_known,
     )
