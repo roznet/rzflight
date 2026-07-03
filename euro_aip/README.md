@@ -24,6 +24,7 @@ The `euro_aip` library provides:
 - 💾 **Transactions** - Atomic updates with automatic rollback
 - ⚡ **Bulk Operations** - High-performance batch processing
 - 🏗️ **Builder Pattern** - Fluent API for constructing airports
+- 🛂 **Border Formalities** - Schengen / EU-customs membership + crossing-requirements helper
 - 🔄 **Full Backward Compatibility** - Legacy API still supported
 
 ### What Can You Use It For?
@@ -100,12 +101,30 @@ airport = model.airport_builder("EGLL") \
     .commit()
 ```
 
+#### Border Formalities - Crossing Requirements
+```python
+from euro_aip.borders import crossing_requirements, is_schengen
+
+# What border formalities apply for a France -> Switzerland flight?
+req = crossing_requirements("FR", "CH")
+print(req.immigration_required)  # False (both Schengen)
+print(req.customs_required)      # True  (CH is outside the EU customs union)
+
+# Unknown countries surface as *_known=False rather than assuming an open border
+crossing_requirements("FR", "GB").to_known  # False
+
+# Derived airport convenience properties (from iso_country)
+model.airports['LSGG'].is_schengen           # True
+model.airports['LSGG'].is_eu_customs_union   # False
+```
+
 ### Documentation
 
 Full documentation available in `designs/`:
 - **[Quick Start Guide](designs/QUICK_START.md)** - Get started in 5 minutes
 - **[Query API Documentation](designs/models_query_api_documentation.md)** - Complete query reference
 - **[Builder API Guide](designs/builder_api_guide.md)** - Building and modifying data
+- **[Border Formalities](designs/borders.md)** - Schengen / EU-customs membership & crossing requirements
 - **[Migration Guide](designs/migration_guide.md)** - Upgrading from legacy API
 
 ---
