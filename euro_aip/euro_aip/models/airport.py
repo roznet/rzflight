@@ -106,6 +106,32 @@ class Airport:
         from euro_aip.models.procedure_collection import ProcedureCollection
         return ProcedureCollection(self.procedures)
 
+    @property
+    def is_schengen(self) -> Optional[bool]:
+        """Whether this airport's country is in the Schengen area.
+
+        Derived from ``iso_country``. Returns ``None`` when the country is
+        unknown (missing or not in the reference tables) so callers can tell
+        "outside Schengen" apart from "couldn't determine".
+        """
+        from euro_aip.borders import is_known, is_schengen
+        if not self.iso_country or not is_known(self.iso_country):
+            return None
+        return is_schengen(self.iso_country)
+
+    @property
+    def is_eu_customs_union(self) -> Optional[bool]:
+        """Whether this airport's country is in the EU customs union.
+
+        Derived from ``iso_country``. Returns ``None`` when the country is
+        unknown (missing or not in the reference tables) so callers can tell
+        "outside the customs union" apart from "couldn't determine".
+        """
+        from euro_aip.borders import is_eu_customs_union, is_known
+        if not self.iso_country or not is_known(self.iso_country):
+            return None
+        return is_eu_customs_union(self.iso_country)
+
     def get_authority(self) -> str:
         """Get the authority for the airport."""
         # get the authority from the ICAO code first 2 letters
