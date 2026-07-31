@@ -78,7 +78,8 @@ class AirportFields:
     
     # Service fields
     SCHEDULED_SERVICE = FieldDefinition("scheduled_service", FieldType.STRING, description="Scheduled service status")
-    
+    MILITARY = FieldDefinition("military", FieldType.BOOLEAN, description="Military or joint-use aerodrome (best-effort, see MilitaryClassifier)")
+
     # Codes
     GPS_CODE = FieldDefinition("gps_code", FieldType.STRING, description="GPS code")
     IATA_CODE = FieldDefinition("iata_code", FieldType.STRING, description="IATA code")
@@ -105,6 +106,7 @@ class AirportFields:
         return [
             cls.ICAO_CODE, cls.NAME, cls.TYPE, cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.ELEVATION_FT,
             cls.CONTINENT, cls.ISO_COUNTRY, cls.ISO_REGION, cls.MUNICIPALITY, cls.SCHEDULED_SERVICE,
+            cls.MILITARY,
             cls.GPS_CODE, cls.IATA_CODE, cls.LOCAL_CODE, cls.HOME_LINK, cls.WIKIPEDIA_LINK, cls.KEYWORDS,
             cls.SOURCES, cls.CREATED_AT, cls.UPDATED_AT
         ]
@@ -267,8 +269,8 @@ class SchemaManager:
     """Manages database schema and migrations."""
     
     def __init__(self):
-        self.version = 1  # Current schema version
-    
+        self.version = 2  # Current schema version
+
     def get_create_table_sql(self, table_name: str, fields: List[FieldDefinition], primary_key: str = None) -> str:
         """Generate CREATE TABLE SQL from field definitions."""
         field_definitions = []
@@ -293,13 +295,25 @@ class SchemaManager:
         """Generate ALTER TABLE SQL to add a new field."""
         return f"ALTER TABLE {table_name} ADD COLUMN {field.name} {field.get_sql_type()}"
     
+    def add_column_if_missing(self, conn, table_name: str, field: FieldDefinition) -> bool:
+        """Add a column to an existing table unless it is already there.
+
+        Returns True if the column was added. Kept idempotent so a migration can
+        be re-run safely against a partially-migrated database.
+        """
+        cursor = conn.execute(f"PRAGMA table_info({table_name})")
+        existing = {row[1] for row in cursor.fetchall()}
+        if field.name in existing:
+            return False
+        conn.execute(self.get_alter_table_sql(table_name, field))
+        return True
+
     def migrate_schema(self, conn, current_version: int) -> int:
         """Migrate schema from current version to latest version."""
-        if current_version < 1:
-            # Add new fields in future migrations
-            # Example: Add weather_station field
-            # weather_field = AirportFields.WEATHER_STATION
-            # conn.execute(self.get_alter_table_sql("airports", weather_field))
-            pass
-        
+        if current_version < 2:
+            # v2: best-effort military flag on airports (see MilitaryClassifier).
+            # Existing rows stay NULL, which reads as "never classified" until
+            # the next build pass annotates them.
+            self.add_column_if_missing(conn, "airports", AirportFields.MILITARY)
+
         return self.version 

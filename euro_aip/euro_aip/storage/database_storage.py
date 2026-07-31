@@ -478,16 +478,31 @@ class DatabaseStorage:
                 cursor.execute('CREATE INDEX idx_firs_source ON firs (source)')
                 conn.commit()
 
-            # Migrate if needed
-            new_version = self.schema_manager.migrate_schema(conn, current_version)
-            
-            if new_version != current_version:
-                cursor.execute('''
-                    INSERT OR REPLACE INTO model_metadata (key, value, updated_at)
-                    VALUES (?, ?, ?)
-                ''', ('schema_version', str(new_version), datetime.now().isoformat()))
-                conn.commit()
-                logger.info(f"Migrated schema from version {current_version} to {new_version}")
+            # Migrate if needed.
+            #
+            # A reference database may legitimately be opened read-only — nav.db
+            # is shipped as a build artifact and deployed in place, so the
+            # serving process often cannot write it. Migrating is then
+            # impossible but must not be fatal: the loader tolerates columns
+            # that a migration could not add, so downgrade the failure to a
+            # warning and carry on serving the older schema.
+            try:
+                new_version = self.schema_manager.migrate_schema(conn, current_version)
+
+                if new_version != current_version:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO model_metadata (key, value, updated_at)
+                        VALUES (?, ?, ?)
+                    ''', ('schema_version', str(new_version), datetime.now().isoformat()))
+                    conn.commit()
+                    logger.info(f"Migrated schema from version {current_version} to {new_version}")
+            except sqlite3.OperationalError as e:
+                logger.warning(
+                    f"Could not migrate schema from version {current_version} "
+                    f"at {self.database_path}: {e}. Continuing with the existing "
+                    f"schema; fields added after version {current_version} will "
+                    f"read as unset."
+                )
     
     def _recreate_schema(self):
         """Drop all tables and recreate the schema."""
@@ -1360,14 +1375,22 @@ class DatabaseStorage:
         if not row:
             return None
         
-        # Create airport object using field definitions for proper type conversion
+        # Create airport object using field definitions for proper type conversion.
+        # Columns absent from the table read as unset rather than raising, so a
+        # database on an older schema that could not be migrated (e.g. opened
+        # read-only) still loads.
+        available_columns = set(row.keys())
         airport_data = {}
         for field in AirportFields.get_all_fields():
+            if field.name not in available_columns:
+                airport_data[field.name] = None
+                continue
+
             value = row[field.name]
-            
+
             # Use safe conversion to handle string "nan" values
             airport_data[field.name] = self._safe_convert_value(value, field.field_type.value)
-            
+
             # Special handling for datetime fields
             if field.field_type.value == "TEXT" and field.name in ['created_at', 'updated_at'] and airport_data[field.name]:
                 try:
@@ -1393,9 +1416,15 @@ class DatabaseStorage:
             local_code=airport_data['local_code'],
             home_link=airport_data['home_link'],
             wikipedia_link=airport_data['wikipedia_link'],
-            keywords=airport_data['keywords']
+            keywords=airport_data['keywords'],
+            # Stored as INTEGER 0/1; coerce back to bool so the model keeps its
+            # Optional[bool] contract. NULL (never classified) stays None.
+            military=(
+                None if airport_data['military'] is None
+                else bool(airport_data['military'])
+            )
         )
-        
+
         # Load sources
         if airport_data['sources']:
             for source in airport_data['sources'].split(','):

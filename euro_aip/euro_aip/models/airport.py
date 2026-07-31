@@ -38,7 +38,13 @@ class Airport:
     point_of_entry: Optional[bool] = None
     avgas : Optional[bool] = None
     jet_a : Optional[bool] = None
-    
+
+    # Best-effort military flag, derived by euro_aip.utils.MilitaryClassifier
+    # (no upstream dataset carries one). None means "never classified"; False
+    # means "classified, no military signal found" — not a positive assertion
+    # that the aerodrome is civil.
+    military: Optional[bool] = None
+
     # Derived runway characteristics
     has_hard_runway: Optional[bool] = None
     has_lighted_runway: Optional[bool] = None

@@ -307,6 +307,44 @@ class AirportCollection(QueryableCollection['Airport']):
             if a.point_of_entry
         ])
 
+    def military(self) -> 'AirportCollection':
+        """
+        Filter to aerodromes flagged as military or joint-use.
+
+        The flag is best-effort (see euro_aip.utils.MilitaryClassifier) and is
+        only populated on datasets that have been through a classification pass.
+
+        Returns:
+            New AirportCollection with military/joint-use aerodromes
+
+        Examples:
+            # German military fields
+            mil = airports.by_country("DE").military()
+        """
+        return AirportCollection([
+            a for a in self._items
+            if a.military
+        ])
+
+    def civil(self) -> 'AirportCollection':
+        """
+        Filter out aerodromes flagged as military or joint-use.
+
+        Airports whose flag was never populated (None) are kept — absence of a
+        military flag is not evidence of a military field.
+
+        Returns:
+            New AirportCollection without known military aerodromes
+
+        Examples:
+            # Candidate alternates, excluding air bases
+            alternates = airports.near_route(route, 20).civil()
+        """
+        return AirportCollection([
+            a for a in self._items
+            if not a.military
+        ])
+
     def with_min_runway_length(self, min_length_ft: int) -> 'AirportCollection':
         """
         Filter to airports with runway length at least min_length_ft.

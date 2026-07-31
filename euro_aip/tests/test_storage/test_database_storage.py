@@ -561,6 +561,100 @@ class TestDatabaseStorageEdgeCases:
         assert test_airport.name == 'Test Airport'
         assert test_airport.latitude_deg is None
     
+    def test_military_flag_round_trip(self, temp_db_path):
+        """Military flag survives save/load, including the unclassified case."""
+        storage = DatabaseStorage(temp_db_path)
+        model = EuroAipModel()
+
+        for icao, military in [('ETAR', True), ('EDDF', False), ('LFAT', None)]:
+            airport = Airport(ident=icao, name=f'{icao} Field', military=military)
+            airport.add_source('test_source')
+            model.add_airport(airport)
+        model.sources_used.add('test_source')
+
+        storage.save_model(model)
+        loaded = storage.load_model()
+
+        # Stored as INTEGER but must come back as bool, not 0/1, so callers can
+        # rely on the Optional[bool] contract.
+        assert loaded.airports['ETAR'].military is True
+        assert loaded.airports['EDDF'].military is False
+        assert loaded.airports['LFAT'].military is None
+
+    def test_military_column_added_by_migration(self, temp_db_path):
+        """A pre-v2 database gains the military column instead of erroring."""
+        import sqlite3
+
+        # Build a current-schema DB, then rewind it to look like v1: drop the
+        # column and reset the recorded version.
+        storage = DatabaseStorage(temp_db_path)
+        model = EuroAipModel()
+        airport = Airport(ident='EDDF', name='Frankfurt Main Airport')
+        airport.add_source('test_source')
+        model.add_airport(airport)
+        model.sources_used.add('test_source')
+        storage.save_model(model)
+
+        with sqlite3.connect(temp_db_path) as conn:
+            conn.execute('ALTER TABLE airports DROP COLUMN military')
+            conn.execute(
+                "UPDATE model_metadata SET value = '1' WHERE key = 'schema_version'"
+            )
+            cols = {r[1] for r in conn.execute('PRAGMA table_info(airports)')}
+            assert 'military' not in cols
+
+        # Re-opening runs the migration.
+        migrated = DatabaseStorage(temp_db_path)
+
+        with sqlite3.connect(temp_db_path) as conn:
+            cols = {r[1] for r in conn.execute('PRAGMA table_info(airports)')}
+            assert 'military' in cols
+            version = conn.execute(
+                "SELECT value FROM model_metadata WHERE key = 'schema_version'"
+            ).fetchone()[0]
+            assert version == '2'
+
+        # Existing rows read back as unclassified rather than as civil.
+        assert migrated.load_model().airports['EDDF'].military is None
+
+        # And the migration is safe to run again.
+        DatabaseStorage(temp_db_path)
+
+    def test_read_only_database_on_old_schema_still_loads(self, temp_db_path):
+        """A read-only pre-v2 database must load, not crash.
+
+        nav.db ships as a build artifact and is deployed in place, so the serving
+        process frequently cannot write it. Being unable to add a new column is
+        then expected, and must degrade to "the field reads as unset".
+        """
+        import os
+        import sqlite3
+
+        storage = DatabaseStorage(temp_db_path)
+        model = EuroAipModel()
+        airport = Airport(ident='EDDF', name='Frankfurt Main Airport', military=True)
+        airport.add_source('test_source')
+        model.add_airport(airport)
+        model.sources_used.add('test_source')
+        storage.save_model(model)
+
+        # Rewind to v1, then make the file unwritable.
+        with sqlite3.connect(temp_db_path) as conn:
+            conn.execute('ALTER TABLE airports DROP COLUMN military')
+            conn.execute(
+                "UPDATE model_metadata SET value = '1' WHERE key = 'schema_version'"
+            )
+        os.chmod(temp_db_path, 0o444)
+
+        try:
+            loaded = DatabaseStorage(temp_db_path).load_model()
+            assert 'EDDF' in loaded.airports
+            assert loaded.airports['EDDF'].name == 'Frankfurt Main Airport'
+            assert loaded.airports['EDDF'].military is None
+        finally:
+            # Restore write permission so the fixture can clean up.
+            os.chmod(temp_db_path, 0o644)
+
     def test_large_number_of_airports(self, temp_db_path):
         """Test handling of a large number of airports."""
         storage = DatabaseStorage(temp_db_path)

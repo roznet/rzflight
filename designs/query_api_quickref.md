@@ -51,6 +51,8 @@ model.airports.get('EGLL')        # By ICAO → Airport or None
 .with_fuel(avgas=True, jet_a=True) # Has both
 .with_scheduled_service()         # Commercial airline service
 .border_crossings()               # Official border crossing points
+.military()                       # Military / joint-use aerodromes
+.civil()                          # Excludes known military (keeps unclassified)
 ```
 
 ### Filter by Data
@@ -237,6 +239,7 @@ for country, airports in by_country.items():
 | `avgas` | `bool?` | Has AVGAS |
 | `jet_a` | `bool?` | Has Jet A |
 | `point_of_entry` | `bool?` | Border crossing |
+| `military` | `bool?` | Military/joint-use (best-effort; `None` = unclassified) |
 | `runways` | `List[Runway]` | Runway list |
 | `procedures` | `List[Procedure]` | Procedure list |
 | `aip_entries` | `List[AIPEntry]` | AIP data |

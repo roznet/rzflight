@@ -32,6 +32,7 @@ CREATE TABLE airports (
     iso_region TEXT,
     municipality TEXT,
     scheduled_service TEXT,
+    military INTEGER,           -- best-effort flag, see MilitaryClassifier
     gps_code TEXT,
     iata_code TEXT,
     local_code TEXT,
