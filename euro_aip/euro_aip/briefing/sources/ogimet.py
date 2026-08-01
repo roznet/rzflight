@@ -216,21 +216,23 @@ class OgimetSource:
             text = raw["report_data"]
             ref_time = raw["report_datetime"]
 
+            # ogimet knows each report's real datetime, so hand it to the
+            # parser as the reference.  Reports carry only a day-of-month, and
+            # for archive data "now" is the wrong month entirely.
             if raw["report_type"] == "TAF":
-                report = WeatherParser.parse_taf(text, source="ogimet")
+                report = WeatherParser.parse_taf(
+                    text, source="ogimet", reference=ref_time
+                )
             else:
-                report = WeatherParser.parse_metar(text, source="ogimet")
+                report = WeatherParser.parse_metar(
+                    text, source="ogimet", reference=ref_time
+                )
 
             if not report:
                 continue
 
-            # Override observation_time with the datetime from ogimet
-            # (more reliable than what the parser infers from day/hour)
+            # ogimet's timestamp is exact; the parser only sees DDHHMM.
             report.observation_time = ref_time
-
-            # Fix validity dates for historical data: the parser uses
-            # datetime.now() for year/month, but we need the actual date
-            self._fix_validity_dates(report, ref_time)
 
             results.append(report)
 
@@ -238,45 +240,3 @@ class OgimetSource:
         results.sort(key=lambda r: r.observation_time or datetime.min.replace(tzinfo=timezone.utc))
         return results
 
-    @staticmethod
-    def _fix_validity_dates(report: WeatherReport, ref_time: datetime) -> None:
-        """Fix year/month on validity dates that the parser built from now().
-
-        The metar_taf_parser only gets day/hour from TAF validity strings
-        (e.g. 1518/1624), so the parser fills in year/month from now().
-        For historical data we replace year/month based on the actual
-        report time from ogimet.
-        """
-        def _adjust(dt: Optional[datetime]) -> Optional[datetime]:
-            if dt is None:
-                return None
-            try:
-                return dt.replace(year=ref_time.year, month=ref_time.month)
-            except ValueError:
-                # Day doesn't exist in target month — likely spans to next month
-                next_month = ref_time.month % 12 + 1
-                next_year = ref_time.year + (1 if next_month == 1 else 0)
-                try:
-                    return dt.replace(year=next_year, month=next_month)
-                except ValueError:
-                    return dt
-
-        report.validity_start = _adjust(report.validity_start)
-        report.validity_end = _adjust(report.validity_end)
-
-        for trend in report.trends:
-            trend.validity_start = _adjust(trend.validity_start)
-            trend.validity_end = _adjust(trend.validity_end)
-            if (
-                trend.validity_start
-                and trend.validity_end
-                and trend.validity_end < trend.validity_start
-            ):
-                next_month = trend.validity_start.month % 12 + 1
-                next_year = trend.validity_start.year + (1 if next_month == 1 else 0)
-                try:
-                    trend.validity_end = trend.validity_end.replace(
-                        year=next_year, month=next_month
-                    )
-                except ValueError:
-                    pass

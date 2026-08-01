@@ -203,3 +203,69 @@ class TestParseHtml:
 
         reports = source.fetch_history("EGLL", date(2026, 4, 7))
         assert len(reports) == 1
+
+
+# A TAF issued at the very end of a month, whose validity window closes in the
+# next one (3123/0124 = 31st 23:00Z through the end of the 1st).
+MONTH_END_HTML = """
+<html><body>
+<table>
+  <table>
+    <caption>TAF from LFPG, Paris</caption>
+    <tr><td>TAF</td><td>31/03/2026 23:00</td><td>TAF LFPG 312300Z 3123/0124 24012KT 9999 FEW040</td></tr>
+  </table>
+</table>
+</body></html>
+"""
+
+
+class TestValidityAcrossMonthEnd:
+    """Archive TAFs whose validity window crosses into the next month.
+
+    The parser is given ogimet's real report datetime as its reference, so the
+    window resolves directly.  This previously went through a post-hoc
+    `.replace(year=, month=)` patch which forced both ends onto the reference's
+    month and so could not represent a month-crossing window at all — it
+    produced an end a month *before* the start.
+    """
+
+    def test_validity_window_crosses_into_next_month(self):
+        session = make_session(MONTH_END_HTML)
+        source = OgimetSource(session=session)
+
+        reports = source.fetch_history("LFPG", date(2026, 3, 31))
+        taf = next(r for r in reports if r.report_type == WeatherType.TAF)
+
+        assert taf.validity_start == datetime(2026, 3, 31, 23, 0, tzinfo=timezone.utc)
+        assert taf.validity_end == datetime(2026, 4, 2, 0, 0, tzinfo=timezone.utc)
+
+    def test_validity_end_is_after_start(self):
+        session = make_session(MONTH_END_HTML)
+        source = OgimetSource(session=session)
+
+        reports = source.fetch_history("LFPG", date(2026, 3, 31))
+        taf = next(r for r in reports if r.report_type == WeatherType.TAF)
+
+        assert taf.validity_end > taf.validity_start
+
+    def test_observation_time_still_comes_from_ogimet(self):
+        """ogimet's exact timestamp still wins over the parser's DDHHMM."""
+        session = make_session(MONTH_END_HTML)
+        source = OgimetSource(session=session)
+
+        reports = source.fetch_history("LFPG", date(2026, 3, 31))
+        taf = next(r for r in reports if r.report_type == WeatherType.TAF)
+
+        assert taf.observation_time == datetime(2026, 3, 31, 23, 0, tzinfo=timezone.utc)
+
+    def test_archive_validity_uses_report_year_not_current(self):
+        """A report from a previous year must not resolve into the current one."""
+        html = MONTH_END_HTML.replace("31/03/2026", "31/03/2021")
+        session = make_session(html)
+        source = OgimetSource(session=session)
+
+        reports = source.fetch_history("LFPG", date(2021, 3, 31))
+        taf = next(r for r in reports if r.report_type == WeatherType.TAF)
+
+        assert taf.validity_start == datetime(2021, 3, 31, 23, 0, tzinfo=timezone.utc)
+        assert taf.validity_end == datetime(2021, 4, 2, 0, 0, tzinfo=timezone.utc)
