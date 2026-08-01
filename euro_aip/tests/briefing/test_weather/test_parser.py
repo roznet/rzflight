@@ -1,8 +1,10 @@
 """Tests for weather parser."""
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
-from euro_aip.briefing.weather.parser import WeatherParser
+from euro_aip.briefing.weather.parser import WeatherParser, resolve_day_of_month
 from euro_aip.briefing.weather.models import WeatherType, FlightCategory
 
 
@@ -242,3 +244,162 @@ class TestSafeFractionParsing:
 
     def test_division_by_zero_returns_none(self):
         assert WeatherParser._safe_parse_fraction("1/0") is None
+
+
+class TestDayOfMonthResolution:
+    """Resolving a report's DDHHMM against the instant it was seen.
+
+    Reports carry only a day-of-month, so the month and year are inferred.
+    Assuming the *current* month is wrong at every month boundary — the bug
+    that stored 31 July observations as 31 August.
+    """
+
+    def test_same_month_is_unchanged(self):
+        ref = datetime(2026, 8, 15, 12, 30, tzinfo=timezone.utc)
+        assert resolve_day_of_month(15, 12, 25, ref) == datetime(
+            2026, 8, 15, 12, 25, tzinfo=timezone.utc
+        )
+
+    def test_previous_month_at_boundary(self):
+        """The regression: 312255Z seen just after midnight on 1 August."""
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        assert resolve_day_of_month(31, 22, 55, ref) == datetime(
+            2026, 7, 31, 22, 55, tzinfo=timezone.utc
+        )
+
+    def test_previous_year_at_january_boundary(self):
+        ref = datetime(2027, 1, 1, 0, 5, tzinfo=timezone.utc)
+        assert resolve_day_of_month(31, 23, 55, ref) == datetime(
+            2026, 12, 31, 23, 55, tzinfo=timezone.utc
+        )
+
+    @pytest.mark.parametrize("year,month", [(2026, 4), (2026, 6), (2026, 9), (2026, 11)])
+    def test_day_31_into_a_30_day_month(self, year, month):
+        """Previously raised ValueError and silently yielded None."""
+        ref = datetime(year, month, 1, 0, 0, 1, tzinfo=timezone.utc)
+        resolved = resolve_day_of_month(31, 23, 55, ref)
+        assert resolved is not None
+        assert resolved.day == 31
+        assert resolved < ref
+
+    def test_february_boundary_non_leap(self):
+        ref = datetime(2026, 3, 1, 0, 10, tzinfo=timezone.utc)
+        assert resolve_day_of_month(28, 23, 50, ref) == datetime(
+            2026, 2, 28, 23, 50, tzinfo=timezone.utc
+        )
+
+    def test_leap_day(self):
+        ref = datetime(2028, 3, 1, 0, 10, tzinfo=timezone.utc)
+        assert resolve_day_of_month(29, 23, 50, ref) == datetime(
+            2028, 2, 29, 23, 50, tzinfo=timezone.utc
+        )
+
+    def test_february_29_rejected_in_non_leap_year(self):
+        ref = datetime(2026, 3, 1, 0, 10, tzinfo=timezone.utc)
+        assert resolve_day_of_month(29, 23, 50, ref) is None
+
+    def test_far_future_candidate_rejected_in_favour_of_past(self):
+        """Same-month and next-month candidates are implausibly far ahead."""
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        assert resolve_day_of_month(20, 12, 0, ref, max_future=timedelta(hours=6)) == datetime(
+            2026, 7, 20, 12, 0, tzinfo=timezone.utc
+        )
+
+    def test_clock_skew_slightly_ahead_is_kept(self):
+        ref = datetime(2026, 8, 15, 12, 0, tzinfo=timezone.utc)
+        assert resolve_day_of_month(15, 12, 30, ref) == datetime(
+            2026, 8, 15, 12, 30, tzinfo=timezone.utc
+        )
+
+    def test_naive_reference_treated_as_utc(self):
+        ref = datetime(2026, 8, 1, 0, 0, 1)
+        assert resolve_day_of_month(31, 22, 55, ref) == datetime(
+            2026, 7, 31, 22, 55, tzinfo=timezone.utc
+        )
+
+
+class TestMetarObservationTime:
+    """End-to-end observation time resolution through parse_metar."""
+
+    def test_month_boundary_metar(self):
+        """LIPS 312255Z collected 2026-08-01 00:00:01 — the production case."""
+        raw = "METAR LIPS 312255Z 00000KT CAVOK 28/22 Q1013"
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        report = WeatherParser.parse_metar(raw, reference=ref)
+
+        assert report is not None
+        assert report.observation_time == datetime(
+            2026, 7, 31, 22, 55, tzinfo=timezone.utc
+        )
+
+    def test_observation_time_never_far_future(self):
+        raw = "METAR LIPS 312255Z 00000KT CAVOK 28/22 Q1013"
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        report = WeatherParser.parse_metar(raw, reference=ref)
+
+        assert report.observation_time <= ref + timedelta(hours=6)
+
+    def test_day_31_collected_on_1_june_survives(self):
+        """Used to hit ValueError -> observation_time None (silent data loss)."""
+        raw = "METAR LIPS 312255Z 00000KT CAVOK 28/22 Q1013"
+        ref = datetime(2026, 6, 1, 0, 0, 1, tzinfo=timezone.utc)
+        report = WeatherParser.parse_metar(raw, reference=ref)
+
+        assert report is not None
+        assert report.observation_time == datetime(
+            2026, 5, 31, 22, 55, tzinfo=timezone.utc
+        )
+
+    def test_defaults_to_now_when_no_reference(self):
+        raw = "METAR LFPG 211230Z 24015G25KT 9999 FEW040 18/09 Q1015"
+        report = WeatherParser.parse_metar(raw)
+
+        assert report is not None
+        assert report.observation_time is not None
+        assert report.observation_time <= datetime.now(timezone.utc) + timedelta(hours=6)
+
+
+class TestTafValidityAcrossMonths:
+    """TAF issue time and validity window resolution."""
+
+    def test_validity_window_spanning_month_end(self):
+        """Issued 31 July 23:00, window 3123/0124 closes on 1 August."""
+        raw = "TAF LFPG 312300Z 3123/0124 24012KT 9999 FEW040"
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        report = WeatherParser.parse_taf(raw, reference=ref)
+
+        assert report is not None
+        assert report.observation_time == datetime(
+            2026, 7, 31, 23, 0, tzinfo=timezone.utc
+        )
+        assert report.validity_start == datetime(
+            2026, 7, 31, 23, 0, tzinfo=timezone.utc
+        )
+        # 0124 = "day 01, hour 24" = end of 1 August = 2 August 00:00Z
+        assert report.validity_end == datetime(2026, 8, 2, 0, 0, tzinfo=timezone.utc)
+
+    def test_validity_end_is_after_start(self):
+        raw = "TAF LFPG 312300Z 3123/0124 24012KT 9999 FEW040"
+        ref = datetime(2026, 8, 1, 0, 0, 1, tzinfo=timezone.utc)
+        report = WeatherParser.parse_taf(raw, reference=ref)
+
+        assert report.validity_end > report.validity_start
+
+    def test_ordinary_validity_window_unaffected(self):
+        raw = "TAF LFPG 211100Z 2112/2218 24012KT 9999 FEW040"
+        ref = datetime(2026, 8, 21, 11, 5, tzinfo=timezone.utc)
+        report = WeatherParser.parse_taf(raw, reference=ref)
+
+        assert report.validity_start == datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
+        assert report.validity_end == datetime(2026, 8, 22, 18, 0, tzinfo=timezone.utc)
+        assert report.validity_end > report.validity_start
+
+    def test_hour_24_rolls_over_month_end(self):
+        """end_hour 24 on the last day of a month must not build day 32."""
+        raw = "TAF LFPG 301200Z 3012/3124 24012KT 9999 FEW040"
+        ref = datetime(2026, 7, 30, 12, 5, tzinfo=timezone.utc)
+        report = WeatherParser.parse_taf(raw, reference=ref)
+
+        assert report is not None
+        assert report.validity_start == datetime(2026, 7, 30, 12, 0, tzinfo=timezone.utc)
+        assert report.validity_end == datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc)

@@ -2,8 +2,8 @@
 
 import re
 import logging
-from datetime import datetime, time as dt_time, timezone
-from typing import Optional, List, Dict, Any
+from datetime import datetime, time as dt_time, timedelta, timezone
+from typing import Optional, List, Dict, Any, Iterator, Tuple
 
 from euro_aip.briefing.weather.models import WeatherReport, WeatherType, FlightCategory
 
@@ -11,6 +11,100 @@ logger = logging.getLogger(__name__)
 
 # Meters to statute miles conversion
 _METERS_TO_SM = 0.000621371
+
+# Observation and issue times are always in the recent past; anything further
+# ahead of the reference than this is treated as an implausible resolution.
+# A few hours of slack absorbs clock skew and delayed collection.
+_MAX_REPORT_FUTURE = timedelta(hours=6)
+
+# A TAF's validity window may legitimately open ahead of its issue time.
+_MAX_VALIDITY_START_FUTURE = timedelta(days=2)
+
+
+def _candidate_months(reference: datetime) -> Iterator[Tuple[int, int]]:
+    """Yield (year, month) for the month before, of, and after `reference`."""
+    base = reference.year * 12 + (reference.month - 1)
+    for delta in (-1, 0, 1):
+        year, month = divmod(base + delta, 12)
+        yield year, month + 1
+
+
+def resolve_day_of_month(
+    day: int,
+    hour: int,
+    minute: int,
+    reference: datetime,
+    *,
+    max_future: Optional[timedelta] = _MAX_REPORT_FUTURE,
+    day_offset: int = 0,
+) -> Optional[datetime]:
+    """Resolve a report's day-of-month to a full UTC datetime.
+
+    METAR/TAF timestamps encode only ``DDHHMM`` — the month and year have to
+    come from context.  Assuming the *current* month is wrong at every month
+    boundary: a METAR collected at 00:00 on 1 August carrying ``312255Z`` is
+    from 31 July, not 31 August.
+
+    Considers the previous, current and next month relative to ``reference``,
+    discards combinations that aren't real dates (31 June, or a day 32 from an
+    hour-24 rollover), drops anything more than ``max_future`` ahead of the
+    reference, and returns whichever surviving candidate sits closest to it.
+
+    ``day_offset`` is applied before those checks, so an hour-24 report can be
+    resolved on its stated day and then advanced without constructing an
+    impossible date.
+
+    Pass ``max_future=None`` for values that may legitimately lie well ahead of
+    the reference.
+
+    Returns None when no candidate is plausible.
+    """
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+
+    best: Optional[datetime] = None
+    for year, month in _candidate_months(reference):
+        try:
+            candidate = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        candidate += timedelta(days=day_offset)
+        if max_future is not None and candidate - reference > max_future:
+            continue
+        if best is None or abs(candidate - reference) < abs(best - reference):
+            best = candidate
+    return best
+
+
+def _resolve_day_at_or_after(
+    day: int,
+    hour: int,
+    minute: int,
+    not_before: datetime,
+    *,
+    day_offset: int = 0,
+) -> Optional[datetime]:
+    """Resolve a day-of-month to the earliest UTC datetime at or after `not_before`.
+
+    Used for a TAF validity end, which always runs forward from the window's
+    start — including across a month boundary, where "nearest" would pick the
+    preceding month and yield a backwards window.
+    """
+    if not_before.tzinfo is None:
+        not_before = not_before.replace(tzinfo=timezone.utc)
+
+    best: Optional[datetime] = None
+    for year, month in _candidate_months(not_before):
+        try:
+            candidate = datetime(year, month, day, hour, minute, tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        candidate += timedelta(days=day_offset)
+        if candidate < not_before:
+            continue
+        if best is None or candidate < best:
+            best = candidate
+    return best
 
 
 class WeatherParser:
@@ -27,13 +121,23 @@ class WeatherParser:
     """
 
     @classmethod
-    def parse_metar(cls, raw_text: str, source: str = "") -> Optional[WeatherReport]:
+    def parse_metar(
+        cls,
+        raw_text: str,
+        source: str = "",
+        reference: Optional[datetime] = None,
+    ) -> Optional[WeatherReport]:
         """
         Parse a METAR string.
 
         Args:
             raw_text: Raw METAR text (may include "METAR" or "SPECI" prefix)
             source: Data source identifier
+            reference: Instant the report was seen, used to resolve its
+                day-of-month to a full date. Defaults to now (UTC). Pass the
+                actual collection time when parsing stored or delayed reports,
+                otherwise a report read across a month boundary resolves to
+                the wrong month.
 
         Returns:
             WeatherReport or None if parsing fails
@@ -70,20 +174,30 @@ class WeatherParser:
         if parsed.nil:
             return None
 
-        report = cls._build_report_from_metar(parsed, report_type, raw_text, source)
+        report = cls._build_report_from_metar(
+            parsed, report_type, raw_text, source, reference or datetime.now(tz=timezone.utc)
+        )
         # Compute flight category
         from euro_aip.briefing.weather.analysis import WeatherAnalyzer
         report.flight_category = WeatherAnalyzer.flight_category(report)
         return report
 
     @classmethod
-    def parse_taf(cls, raw_text: str, source: str = "") -> Optional[WeatherReport]:
+    def parse_taf(
+        cls,
+        raw_text: str,
+        source: str = "",
+        reference: Optional[datetime] = None,
+    ) -> Optional[WeatherReport]:
         """
         Parse a TAF string.
 
         Args:
             raw_text: Raw TAF text (must include "TAF" prefix for the library)
             source: Data source identifier
+            reference: Instant the report was seen, used to resolve its
+                day-of-month to a full date. Defaults to now (UTC). See
+                :meth:`parse_metar`.
 
         Returns:
             WeatherReport or None if parsing fails
@@ -112,25 +226,33 @@ class WeatherParser:
         if parsed.nil or parsed.canceled:
             return None
 
-        report = cls._build_report_from_taf(parsed, raw_text, source)
+        report = cls._build_report_from_taf(
+            parsed, raw_text, source, reference or datetime.now(tz=timezone.utc)
+        )
         return report
 
     @classmethod
-    def parse_auto(cls, raw_text: str, source: str = "") -> Optional[WeatherReport]:
+    def parse_auto(
+        cls,
+        raw_text: str,
+        source: str = "",
+        reference: Optional[datetime] = None,
+    ) -> Optional[WeatherReport]:
         """
         Auto-detect METAR vs TAF and parse accordingly.
 
         Args:
             raw_text: Raw weather report text
             source: Data source identifier
+            reference: Instant the report was seen. See :meth:`parse_metar`.
 
         Returns:
             WeatherReport or None if parsing fails
         """
         text = raw_text.strip().upper()
         if text.startswith("TAF"):
-            return cls.parse_taf(raw_text, source)
-        return cls.parse_metar(raw_text, source)
+            return cls.parse_taf(raw_text, source, reference)
+        return cls.parse_metar(raw_text, source, reference)
 
     # --- Internal builders ---
 
@@ -141,19 +263,19 @@ class WeatherParser:
         report_type: WeatherType,
         raw_text: str,
         source: str,
+        reference: datetime,
     ) -> WeatherReport:
         """Build WeatherReport from a parsed Metar object."""
         obs_time = None
         if parsed.day is not None and parsed.time is not None:
-            now = datetime.now(tz=timezone.utc)
-            try:
-                obs_time = datetime(
-                    now.year, now.month, parsed.day,
-                    parsed.time.hour, parsed.time.minute,
-                    tzinfo=timezone.utc,
+            obs_time = resolve_day_of_month(
+                parsed.day, parsed.time.hour, parsed.time.minute, reference,
+            )
+            if obs_time is None:
+                logger.warning(
+                    "Could not resolve METAR observation time (day=%s) against %s: %s",
+                    parsed.day, reference.isoformat(), raw_text[:80],
                 )
-            except ValueError:
-                pass
 
         wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(parsed)
         vis_m, vis_sm = cls._extract_visibility(parsed)
@@ -190,24 +312,29 @@ class WeatherParser:
         parsed,
         raw_text: str,
         source: str,
+        reference: datetime,
     ) -> WeatherReport:
         """Build WeatherReport from a parsed TAF object."""
         obs_time = None
         if parsed.day is not None and parsed.time is not None:
-            now = datetime.now(tz=timezone.utc)
-            try:
-                obs_time = datetime(
-                    now.year, now.month, parsed.day,
-                    parsed.time.hour, parsed.time.minute,
-                    tzinfo=timezone.utc,
+            obs_time = resolve_day_of_month(
+                parsed.day, parsed.time.hour, parsed.time.minute, reference,
+            )
+            if obs_time is None:
+                logger.warning(
+                    "Could not resolve TAF issue time (day=%s) against %s: %s",
+                    parsed.day, reference.isoformat(), raw_text[:80],
                 )
-            except ValueError:
-                pass
 
         validity_start = None
         validity_end = None
         if hasattr(parsed, 'validity') and parsed.validity:
-            validity_start, validity_end = cls._extract_validity(parsed.validity)
+            # Anchor the window on the TAF's own issue time where we have it —
+            # a TAF issued on the 31st opens its window within hours, so the
+            # issue time disambiguates the month far better than "now" does.
+            validity_start, validity_end = cls._extract_validity(
+                parsed.validity, obs_time or reference
+            )
 
         wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(parsed)
         vis_m, vis_sm = cls._extract_visibility(parsed)
@@ -216,7 +343,7 @@ class WeatherParser:
         conditions = cls._extract_weather_conditions(parsed)
 
         # Build trends from TAF change groups
-        trends = cls._build_trends(parsed, source)
+        trends = cls._build_trends(parsed, source, obs_time or reference)
 
         report = WeatherReport(
             icao=parsed.station or "",
@@ -247,7 +374,7 @@ class WeatherParser:
         return report
 
     @classmethod
-    def _build_trends(cls, parsed_taf, source: str) -> List[WeatherReport]:
+    def _build_trends(cls, parsed_taf, source: str, reference: datetime) -> List[WeatherReport]:
         """Convert TAF change groups to nested WeatherReport list."""
         trends = []
         if not hasattr(parsed_taf, 'trends') or not parsed_taf.trends:
@@ -264,7 +391,7 @@ class WeatherParser:
             val_start = None
             val_end = None
             if hasattr(trend, 'validity') and trend.validity:
-                val_start, val_end = cls._extract_validity(trend.validity)
+                val_start, val_end = cls._extract_validity(trend.validity, reference)
 
             wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(trend)
             vis_m, vis_sm = cls._extract_visibility(trend)
@@ -520,14 +647,15 @@ class WeatherParser:
         return result
 
     @classmethod
-    def _extract_validity(cls, validity) -> tuple:
+    def _extract_validity(cls, validity, reference: datetime) -> tuple:
         """
         Extract validity period as (start_datetime, end_datetime).
 
-        Handles hour 24 conversion and month-crossing.
+        Handles hour-24 rollover and month-crossing. ``reference`` should be
+        the TAF's issue time where known, so a window that runs into the next
+        month resolves without special-casing: the end is simply the first
+        occurrence of its day-of-month at or after the start.
         """
-        now = datetime.now(tz=timezone.utc)
-
         start_day = getattr(validity, 'start_day', None)
         start_hour = getattr(validity, 'start_hour', None)
         start_minutes = getattr(validity, 'start_minutes', 0) or 0
@@ -535,14 +663,19 @@ class WeatherParser:
         if start_day is None or start_hour is None:
             return None, None
 
-        # Handle hour 24
+        # Hour 24 means midnight ending that day, i.e. 00:00 the next day.
+        # Resolve the stated day first and advance afterwards, so the last day
+        # of a month rolls over instead of producing an impossible day 32.
+        start_offset = 0
         if start_hour == 24:
             start_hour = 0
-            start_day += 1
+            start_offset = 1
 
-        try:
-            val_start = datetime(now.year, now.month, start_day, start_hour, start_minutes, tzinfo=timezone.utc)
-        except ValueError:
+        val_start = resolve_day_of_month(
+            start_day, start_hour, start_minutes, reference,
+            max_future=_MAX_VALIDITY_START_FUTURE, day_offset=start_offset,
+        )
+        if val_start is None:
             return None, None
 
         # End time (may not exist for FM trends)
@@ -552,34 +685,13 @@ class WeatherParser:
         if end_day is None or end_hour is None:
             return val_start, None
 
+        end_offset = 0
         if end_hour == 24:
             end_hour = 0
-            end_day += 1
+            end_offset = 1
 
-        try:
-            val_end = datetime(now.year, now.month, end_day, end_hour, tzinfo=timezone.utc)
-        except ValueError:
-            # Likely month-crossing: end_day is in next month
-            month = now.month + 1
-            year = now.year
-            if month > 12:
-                month = 1
-                year += 1
-            try:
-                val_end = datetime(year, month, end_day, end_hour, tzinfo=timezone.utc)
-            except ValueError:
-                return val_start, None
-
-        # Handle month-crossing: if end is before start, it spans months
-        if val_end < val_start:
-            month = now.month + 1
-            year = now.year
-            if month > 12:
-                month = 1
-                year += 1
-            try:
-                val_end = datetime(year, month, end_day, end_hour, tzinfo=timezone.utc)
-            except ValueError:
-                pass
+        val_end = _resolve_day_at_or_after(
+            end_day, end_hour, 0, val_start, day_offset=end_offset,
+        )
 
         return val_start, val_end
