@@ -89,13 +89,18 @@ KNOWN_MILITARY_ICAOS: Dict[str, str] = {
     'LFOA': 'Avord (BA 702) Air Base — AIP: NATO oil/hyd code; military-only fuel',
     'LFOE': 'Évreux-Fauville (BA 105) Air Base — AIP: NATO oil/hyd code; military-only fuel',
     'LFOJ': 'Orléans-Bricy (BA 123) Air Base — AIP: NATO oil/hyd code',
+    'LFMC': 'Le Luc-Le Cannet — AIP: MINISTRY OF DEFENCE (ALAT); MIL HEL only',
     'LFPV': 'Vélizy-Villacoublay Air Base — AIP: NATO oil/hyd code',
+    'LFQE': 'Lieutenant Étienne Mantoux Air Base — AIP: MINISTRY OF DEFENCE (ALAT)',
     'LFQP': 'Phalsbourg-Bourscheid Air Base — AIP: NATO oil/hyd code',
+    'LFRH': 'Lorient Lann-Bihoué — AIP: FNF ... MARINE (naval air base, civil terminal)',
     'LFRJ': 'Landivisiau Air Base — AIP: NATO oil/hyd code',
     'LFRL': 'Lanvéoc-Poulmic Air Base — AIP: NATO oil/hyd code; military-only fuel',
     'LFSI': 'Saint-Dizier – Robinson Air Base — AIP: NATO oil/hyd code',
     'LFSO': 'Nancy-Ochey (BA 133) Air Base — AIP: NATO oil/hyd code',
     'LFSX': 'Luxeuil-Saint-Sauveur (BA 116) Air Base — AIP: NATO oil/hyd code; military-only fuel',
+    'LFTH': 'Toulon-Hyères — AIP: MINISTRY OF DEFENCE (BAN Hyères, civil terminal)',
+    'LFBY': 'Dax Seyresse — AIP: MINISTRY OF DEFENCE (ALAT school)',
     # Greece
     'LGEL': 'Elefsis Air Base — AIP: military wording',
     'LGKV': 'Kavala/Amygdaleon — air base (joint use)',
@@ -115,6 +120,8 @@ KNOWN_MILITARY_ICAOS: Dict[str, str] = {
     'ENBO': 'Bodø — main air station',
     'ENDU': 'Bardufoss — air station',
     'ENOL': 'Ørland — main air station',
+    'ENKJ': 'Kjeller — AIP: CIV Kjeller Aero Senter / MIL Luftforsvaret',
+    'ENNA': 'Lakselv/Banak — AIP: MIL Luftforsvaret Royal Norwegian Air Force',
     'ENRY': 'Rygge — air station',
     # Portugal
     'LPAV': 'São Jacinto — Aveiro air base',
@@ -161,3 +168,23 @@ FORMER_MILITARY: Dict[str, str] = {
 
 # Alias matching the classifier's vocabulary.
 KNOWN_CIVIL_ICAOS = FORMER_MILITARY
+
+
+# Explicit joint civil/military declarations.
+#
+# Joint status is normally derived at classification time from whether the
+# aerodrome carries scheduled airline service -- a field with a civil terminal
+# has one, a closed base does not. That separates the two cleanly (verified: 22
+# joint vs 113 military-only across the flagged set, no misclassifications), but
+# it measures AIRLINE service, not GA access. An aerodrome open to civil GA
+# without any airline lands on the military-only side and would be excluded from
+# diversion candidates.
+#
+# List such fields here to force joint status. Entries win over the derivation.
+KNOWN_JOINT_USE: Dict[str, str] = {
+}
+
+# Aerodromes to force to military-only even though they carry scheduled service
+# (e.g. the service is military charter/AMC rather than civil).
+KNOWN_MILITARY_ONLY: Dict[str, str] = {
+}

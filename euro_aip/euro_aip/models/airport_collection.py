@@ -326,19 +326,75 @@ class AirportCollection(QueryableCollection['Airport']):
             if a.military
         ])
 
+    def military_only(self) -> 'AirportCollection':
+        """
+        Filter to military aerodromes that do NOT serve civil traffic.
+
+        These are the ones a civil flight cannot plan into — Ramstein, Le Luc,
+        Culdrose — as opposed to joint fields with a civil terminal.
+
+        Returns:
+            New AirportCollection with military-only aerodromes
+        """
+        return AirportCollection([
+            a for a in self._items
+            if a.military and not a.joint_use
+        ])
+
+    def joint_use(self) -> 'AirportCollection':
+        """
+        Filter to aerodromes serving both military and civil traffic.
+
+        Aalborg, Lorient, Thessaloniki: a military side alongside a civil
+        terminal. Usable by civil traffic, though often still PPR.
+
+        Returns:
+            New AirportCollection with joint civil/military aerodromes
+        """
+        return AirportCollection([
+            a for a in self._items
+            if a.military and a.joint_use
+        ])
+
+    def civil_accessible(self) -> 'AirportCollection':
+        """
+        Filter to aerodromes civil traffic can use — everything except
+        military-only fields.
+
+        This is the one to use for diversion and alternate candidates. It keeps
+        joint civil/military fields, which a plain "exclude military" filter
+        would wrongly drop, and keeps unclassified aerodromes, since absence of
+        a flag is not evidence of a military field.
+
+        Presence of civil operations is not permission to land: many joint
+        fields require PPR. Treat the result as candidates to assess, not as a
+        cleared list.
+
+        Returns:
+            New AirportCollection without military-only aerodromes
+
+        Examples:
+            # Diversion candidates along a route
+            alternates = airports.near_route(route, 20).civil_accessible()
+        """
+        return AirportCollection([
+            a for a in self._items
+            if a.is_civil_accessible
+        ])
+
     def civil(self) -> 'AirportCollection':
         """
-        Filter out aerodromes flagged as military or joint-use.
+        Filter out every aerodrome with a military operator, joint or not.
+
+        Stricter than :meth:`civil_accessible`, which keeps joint fields. Prefer
+        that one for diversion candidates; use this only when you genuinely want
+        nothing with a military presence.
 
         Airports whose flag was never populated (None) are kept — absence of a
         military flag is not evidence of a military field.
 
         Returns:
-            New AirportCollection without known military aerodromes
-
-        Examples:
-            # Candidate alternates, excluding air bases
-            alternates = airports.near_route(route, 20).civil()
+            New AirportCollection without any known military aerodromes
         """
         return AirportCollection([
             a for a in self._items

@@ -3,7 +3,9 @@ from .field_standardization_service import FieldStandardizationService
 from .military_aerodromes import (
     FORMER_MILITARY,
     KNOWN_CIVIL_ICAOS,
+    KNOWN_JOINT_USE,
     KNOWN_MILITARY_ICAOS,
+    KNOWN_MILITARY_ONLY,
 )
 from .military_classifier import (
     ICAO_PREFIX_RULES,
@@ -22,4 +24,6 @@ __all__ = [
     'KNOWN_MILITARY_ICAOS',
     'KNOWN_CIVIL_ICAOS',
     'FORMER_MILITARY',
+    'KNOWN_JOINT_USE',
+    'KNOWN_MILITARY_ONLY',
 ]

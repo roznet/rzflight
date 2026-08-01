@@ -1422,6 +1422,10 @@ class DatabaseStorage:
             military=(
                 None if airport_data['military'] is None
                 else bool(airport_data['military'])
+            ),
+            joint_use=(
+                None if airport_data['joint_use'] is None
+                else bool(airport_data['joint_use'])
             )
         )
 

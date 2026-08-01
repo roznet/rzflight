@@ -45,6 +45,28 @@ class Airport:
     # that the aerodrome is civil.
     military: Optional[bool] = None
 
+    # Whether a military aerodrome also serves civil traffic. Only meaningful
+    # when military is True, and None otherwise. The distinction matters
+    # operationally: Ramstein and Le Luc are closed to civil GA, while Aalborg
+    # and Lorient have civil terminals alongside the military side. Use
+    # is_civil_accessible rather than reading the pair directly.
+    joint_use: Optional[bool] = None
+
+    @property
+    def is_civil_accessible(self) -> bool:
+        """True unless this is a military aerodrome without civil traffic.
+
+        Intended for diversion/alternate filtering. Unclassified aerodromes
+        count as accessible — absence of a military flag is not evidence of one.
+
+        Note this reflects the presence of civil operations, not permission to
+        land: many joint fields still require PPR. Treat it as context for a
+        decision, not as the decision.
+        """
+        if not self.military:
+            return True
+        return bool(self.joint_use)
+
     # Derived runway characteristics
     has_hard_runway: Optional[bool] = None
     has_lighted_runway: Optional[bool] = None

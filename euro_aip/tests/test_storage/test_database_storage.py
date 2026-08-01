@@ -562,12 +562,14 @@ class TestDatabaseStorageEdgeCases:
         assert test_airport.latitude_deg is None
     
     def test_military_flag_round_trip(self, temp_db_path):
-        """Military flag survives save/load, including the unclassified case."""
+        """Military + joint-use survive save/load, including unclassified."""
         storage = DatabaseStorage(temp_db_path)
         model = EuroAipModel()
 
-        for icao, military in [('ETAR', True), ('EDDF', False), ('LFAT', None)]:
-            airport = Airport(ident=icao, name=f'{icao} Field', military=military)
+        for icao, military, joint in [('ETAR', True, False), ('EKYT', True, True),
+                                      ('EDDF', False, None), ('LFAT', None, None)]:
+            airport = Airport(ident=icao, name=f'{icao} Field', military=military,
+                              joint_use=joint)
             airport.add_source('test_source')
             model.add_airport(airport)
         model.sources_used.add('test_source')
@@ -577,12 +579,18 @@ class TestDatabaseStorageEdgeCases:
 
         # Stored as INTEGER but must come back as bool, not 0/1, so callers can
         # rely on the Optional[bool] contract.
-        assert loaded.airports['ETAR'].military is True
+        assert (loaded.airports['ETAR'].military, loaded.airports['ETAR'].joint_use) == (True, False)
+        assert (loaded.airports['EKYT'].military, loaded.airports['EKYT'].joint_use) == (True, True)
         assert loaded.airports['EDDF'].military is False
         assert loaded.airports['LFAT'].military is None
 
+        # The diversion predicate is what consumers actually use.
+        assert loaded.airports['ETAR'].is_civil_accessible is False
+        assert loaded.airports['EKYT'].is_civil_accessible is True
+        assert loaded.airports['LFAT'].is_civil_accessible is True
+
     def test_military_column_added_by_migration(self, temp_db_path):
-        """A pre-v2 database gains the military column instead of erroring."""
+        """A pre-v2 database gains military + joint_use instead of erroring."""
         import sqlite3
 
         # Build a current-schema DB, then rewind it to look like v1: drop the
@@ -597,22 +605,23 @@ class TestDatabaseStorageEdgeCases:
 
         with sqlite3.connect(temp_db_path) as conn:
             conn.execute('ALTER TABLE airports DROP COLUMN military')
+            conn.execute('ALTER TABLE airports DROP COLUMN joint_use')
             conn.execute(
                 "UPDATE model_metadata SET value = '1' WHERE key = 'schema_version'"
             )
             cols = {r[1] for r in conn.execute('PRAGMA table_info(airports)')}
-            assert 'military' not in cols
+            assert 'military' not in cols and 'joint_use' not in cols
 
         # Re-opening runs the migration.
         migrated = DatabaseStorage(temp_db_path)
 
         with sqlite3.connect(temp_db_path) as conn:
             cols = {r[1] for r in conn.execute('PRAGMA table_info(airports)')}
-            assert 'military' in cols
+            assert 'military' in cols and 'joint_use' in cols
             version = conn.execute(
                 "SELECT value FROM model_metadata WHERE key = 'schema_version'"
             ).fetchone()[0]
-            assert version == '2'
+            assert version == '3'
 
         # Existing rows read back as unclassified rather than as civil.
         assert migrated.load_model().airports['EDDF'].military is None
@@ -641,6 +650,7 @@ class TestDatabaseStorageEdgeCases:
         # Rewind to v1, then make the file unwritable.
         with sqlite3.connect(temp_db_path) as conn:
             conn.execute('ALTER TABLE airports DROP COLUMN military')
+            conn.execute('ALTER TABLE airports DROP COLUMN joint_use')
             conn.execute(
                 "UPDATE model_metadata SET value = '1' WHERE key = 'schema_version'"
             )

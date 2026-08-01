@@ -79,6 +79,7 @@ class AirportFields:
     # Service fields
     SCHEDULED_SERVICE = FieldDefinition("scheduled_service", FieldType.STRING, description="Scheduled service status")
     MILITARY = FieldDefinition("military", FieldType.BOOLEAN, description="Military or joint-use aerodrome (best-effort, see MilitaryClassifier)")
+    JOINT_USE = FieldDefinition("joint_use", FieldType.BOOLEAN, description="Military aerodrome that also serves civil traffic; NULL unless military")
 
     # Codes
     GPS_CODE = FieldDefinition("gps_code", FieldType.STRING, description="GPS code")
@@ -106,7 +107,7 @@ class AirportFields:
         return [
             cls.ICAO_CODE, cls.NAME, cls.TYPE, cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.ELEVATION_FT,
             cls.CONTINENT, cls.ISO_COUNTRY, cls.ISO_REGION, cls.MUNICIPALITY, cls.SCHEDULED_SERVICE,
-            cls.MILITARY,
+            cls.MILITARY, cls.JOINT_USE,
             cls.GPS_CODE, cls.IATA_CODE, cls.LOCAL_CODE, cls.HOME_LINK, cls.WIKIPEDIA_LINK, cls.KEYWORDS,
             cls.SOURCES, cls.CREATED_AT, cls.UPDATED_AT
         ]
@@ -269,7 +270,7 @@ class SchemaManager:
     """Manages database schema and migrations."""
     
     def __init__(self):
-        self.version = 2  # Current schema version
+        self.version = 3  # Current schema version
 
     def get_create_table_sql(self, table_name: str, fields: List[FieldDefinition], primary_key: str = None) -> str:
         """Generate CREATE TABLE SQL from field definitions."""
@@ -315,5 +316,10 @@ class SchemaManager:
             # Existing rows stay NULL, which reads as "never classified" until
             # the next build pass annotates them.
             self.add_column_if_missing(conn, "airports", AirportFields.MILITARY)
+
+        if current_version < 3:
+            # v3: split military into military + joint-use, so a diversion
+            # filter can keep aerodromes that have a civil terminal.
+            self.add_column_if_missing(conn, "airports", AirportFields.JOINT_USE)
 
         return self.version 

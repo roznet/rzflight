@@ -44,7 +44,12 @@ Usage:
 
     classifier = MilitaryClassifier()
     classifier.classify('ETAR').is_military  # True
-    classifier.annotate(airport)  # sets airport.military in place
+    classifier.annotate(airport)  # sets airport.military / joint_use in place
+
+Military aerodromes are further split by whether they also serve civil traffic:
+Ramstein and Le Luc are closed to civil GA, while Aalborg and Lorient have civil
+terminals. Use ``is_civil_accessible`` (or ``AirportCollection.civil_accessible``)
+for diversion candidates rather than reading the two flags directly.
 """
 
 
@@ -54,7 +59,9 @@ from typing import TYPE_CHECKING, Dict, FrozenSet, Optional, Tuple
 
 from euro_aip.utils.military_aerodromes import (
     KNOWN_CIVIL_ICAOS,
+    KNOWN_JOINT_USE,
     KNOWN_MILITARY_ICAOS,
+    KNOWN_MILITARY_ONLY,
 )
 
 if TYPE_CHECKING:
@@ -123,11 +130,19 @@ class MilitaryClassification:
             ``override_civil``, ``icao_prefix`` or ``none``. Suitable for
             grouping/logging a build breakdown.
         detail: What specifically matched (e.g. ``ET``, or the curated reason).
+        joint_use: Whether a military aerodrome also serves civil traffic.
+            ``None`` when not military, since the question does not apply.
     """
 
     is_military: bool
     rule: str
     detail: Optional[str] = None
+    joint_use: Optional[bool] = None
+
+    @property
+    def is_civil_accessible(self) -> bool:
+        """True unless military without civil traffic. See Airport.is_civil_accessible."""
+        return (not self.is_military) or bool(self.joint_use)
 
     @property
     def reason(self) -> str:
@@ -158,9 +173,17 @@ class MilitaryClassifier:
         if extra_civil:
             self.civil_overrides.update(extra_civil)
 
+        self.joint_use_overrides = dict(KNOWN_JOINT_USE)
+        self.military_only_overrides = dict(KNOWN_MILITARY_ONLY)
+
     # -- public API ---------------------------------------------------------
 
-    def classify(self, ident: str, name: Optional[str] = None) -> MilitaryClassification:
+    def classify(
+        self,
+        ident: str,
+        name: Optional[str] = None,
+        scheduled_service: Optional[str] = None,
+    ) -> MilitaryClassification:
         """Classify one aerodrome.
 
         Args:
@@ -169,6 +192,8 @@ class MilitaryClassifier:
                 the offline review tool, never to decide at runtime — see the
                 module docstring. Kept in the signature so callers can pass an
                 airport's fields without special-casing.
+            scheduled_service: OurAirports scheduled-service value. Used only to
+                decide joint use for an aerodrome already found to be military.
 
         Returns:
             A MilitaryClassification. Never None — an unmatched aerodrome comes
@@ -180,7 +205,10 @@ class MilitaryClassifier:
         if code in self.civil_overrides:
             return MilitaryClassification(False, 'override_civil', self.civil_overrides[code])
         if code in self.military_overrides:
-            return MilitaryClassification(True, 'override_military', self.military_overrides[code])
+            return MilitaryClassification(
+                True, 'override_military', self.military_overrides[code],
+                self._joint_use(code, scheduled_service),
+            )
 
         # 2. ICAO code conventions. Guard on a well-formed 4-letter ident so
         #    local codes sharing a prefix are not swept up — e.g. ETT1
@@ -188,9 +216,32 @@ class MilitaryClassifier:
         if len(code) == 4 and code.isalpha():
             for rule in ICAO_PREFIX_RULES:
                 if rule.matches(code):
-                    return MilitaryClassification(True, 'icao_prefix', rule.prefix)
+                    return MilitaryClassification(
+                        True, 'icao_prefix', rule.prefix,
+                        self._joint_use(code, scheduled_service),
+                    )
 
         return MilitaryClassification(False, 'none')
+
+    def _joint_use(self, code: str, scheduled_service: Optional[str]) -> bool:
+        """Decide whether a military aerodrome also serves civil traffic.
+
+        Scheduled airline service is the discriminator: a field with a civil
+        terminal carries it, a closed base does not. Verified across the flagged
+        set — 22 joint vs 113 military-only, no misclassifications, where an
+        IATA code alone would have failed (Ramstein has RMS, Brize Norton BZZ,
+        for military charter).
+
+        It measures airline service rather than GA access, so a field open to
+        civil GA but served by no airline reads as military-only. That errs
+        toward excluding a usable option rather than proposing a closed base;
+        the curated lists override it either way.
+        """
+        if code in self.joint_use_overrides:
+            return True
+        if code in self.military_only_overrides:
+            return False
+        return (scheduled_service or '').strip().lower() == 'yes'
 
     def is_military(self, ident: str, name: Optional[str] = None) -> bool:
         """Convenience wrapper returning just the verdict."""
@@ -198,7 +249,7 @@ class MilitaryClassifier:
 
     def classify_airport(self, airport: 'Airport') -> MilitaryClassification:
         """Classify an Airport model without mutating it."""
-        return self.classify(airport.ident, airport.name)
+        return self.classify(airport.ident, airport.name, airport.scheduled_service)
 
     def annotate(self, airport: 'Airport') -> MilitaryClassification:
         """Classify an Airport and store the verdict on ``airport.military``.
@@ -207,6 +258,7 @@ class MilitaryClassifier:
         """
         result = self.classify_airport(airport)
         airport.military = result.is_military
+        airport.joint_use = result.joint_use
         return result
 
     def annotate_all(self, airports) -> Dict[str, int]:

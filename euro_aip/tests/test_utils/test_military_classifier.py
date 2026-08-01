@@ -233,20 +233,84 @@ class TestAirportAnnotation:
         assert [a.military for a in airports] == [True, True, True, False, False]
 
 
+class TestJointUse:
+    """Military-only vs joint civil/military."""
+
+    @pytest.mark.parametrize('ident,sched,joint', [
+        ('ETAR', 'no', False),    # Ramstein — closed to civil
+        ('EGVN', 'no', False),    # Brize Norton — IATA BZZ but military charter
+        ('LFMC', 'no', False),    # Le Luc — MIL HEL only
+        ('EKYT', 'yes', True),    # Aalborg — civil terminal
+        ('LFRH', 'yes', True),    # Lorient Lann-Bihoué — civil terminal
+        ('LGTS', 'yes', True),    # Thessaloniki
+    ])
+    def test_scheduled_service_splits_joint_from_military_only(
+            self, classifier, ident, sched, joint):
+        result = classifier.classify(ident, None, sched)
+        assert result.is_military is True
+        assert result.joint_use is joint
+        assert result.is_civil_accessible is joint
+
+    def test_joint_use_is_none_when_not_military(self, classifier):
+        """The question does not apply to a civil aerodrome."""
+        result = classifier.classify('LFPG', None, 'yes')
+        assert result.is_military is False
+        assert result.joint_use is None
+        assert result.is_civil_accessible is True
+
+    def test_overrides_beat_the_scheduled_service_heuristic(self):
+        joint = MilitaryClassifier(extra_military={'XXXX': 'test'})
+        joint.joint_use_overrides['XXXX'] = 'civil GA, no airline'
+        assert joint.classify('XXXX', None, 'no').joint_use is True
+
+        milonly = MilitaryClassifier(extra_military={'YYYY': 'test'})
+        milonly.military_only_overrides['YYYY'] = 'service is military charter'
+        assert milonly.classify('YYYY', None, 'yes').joint_use is False
+
+    def test_annotate_sets_both_fields(self, classifier):
+        airport = Airport(ident='EKYT', name='Aalborg Airport',
+                          scheduled_service='yes')
+        classifier.annotate(airport)
+        assert airport.military is True
+        assert airport.joint_use is True
+        assert airport.is_civil_accessible is True
+
+        closed = Airport(ident='ETAR', name='Ramstein', scheduled_service='no')
+        classifier.annotate(closed)
+        assert (closed.military, closed.joint_use) == (True, False)
+        assert closed.is_civil_accessible is False
+
+
 class TestCollectionFilters:
-    """AirportCollection.military() / .civil()."""
+    """military() / military_only() / joint_use() / civil_accessible() / civil()."""
 
     def _collection(self):
         from euro_aip.models.airport_collection import AirportCollection
         return AirportCollection([
-            Airport(ident='ETAR', name='Ramstein Air Base', military=True),
+            Airport(ident='ETAR', name='Ramstein', military=True, joint_use=False),
+            Airport(ident='EKYT', name='Aalborg', military=True, joint_use=True),
             Airport(ident='LFPG', name='Charles de Gaulle', military=False),
             Airport(ident='LFAT', name='Le Touquet'),  # never classified
         ])
 
-    def test_military_filter(self):
-        assert [a.ident for a in self._collection().military()] == ['ETAR']
+    def test_military_covers_both_kinds(self):
+        assert [a.ident for a in self._collection().military()] == ['ETAR', 'EKYT']
 
-    def test_civil_filter_keeps_unclassified(self):
-        """None is 'unknown', not 'military' — dropping it would hide airports."""
+    def test_military_only_excludes_joint(self):
+        assert [a.ident for a in self._collection().military_only()] == ['ETAR']
+
+    def test_joint_use_filter(self):
+        assert [a.ident for a in self._collection().joint_use()] == ['EKYT']
+
+    def test_civil_accessible_keeps_joint_and_unclassified(self):
+        """The diversion filter: drops only fields civil traffic cannot use."""
+        assert [a.ident for a in self._collection().civil_accessible()] == [
+            'EKYT', 'LFPG', 'LFAT']
+
+    def test_civil_is_stricter_than_civil_accessible(self):
+        """civil() drops joint fields too — usually not what you want."""
         assert [a.ident for a in self._collection().civil()] == ['LFPG', 'LFAT']
+
+    def test_filters_partition_the_set(self):
+        c = self._collection()
+        assert c.military_only().count() + c.civil_accessible().count() == c.count()
