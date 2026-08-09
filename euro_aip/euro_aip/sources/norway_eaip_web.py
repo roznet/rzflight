@@ -28,10 +28,20 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
 
     This source fetches Norwegian AIP data from the official Avinor web interface.
     It uses the same Eurocontrol MakeAIP format as UK, so the EGC parser can be reused.
+
+    Unlike the other eAIP web sources, Avinor only serves the editions listed on its
+    publication history page (the current one, plus the next once published). The
+    requested AIRAC date is therefore treated as a preference: if Avinor does not
+    serve it, the closest edition they do serve is used instead. See
+    `effective_airac_date` for the edition actually fetched.
     """
 
     # Norwegian airports start with EN
     AIRPORT_LINK_PATTERN = re.compile(r"EN-AD-2\.(EN[A-Z]{2})-en-GB\.html")
+    # Publication index in a discovered URL, e.g. https://.../no/AIP/View/Index/154
+    INDEX_URL_PATTERN = re.compile(r"^(?P<base>.*/View/Index/\d+)")
+    # AIRAC edition root linked from the publication history page
+    AIRAC_ROOT_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})-AIRAC/")
     SUPPORTED_PREFIXES = ["EN"]
 
     def supported_icao_prefixes(self) -> List[str]:
@@ -40,7 +50,6 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
 
     # Stable entry point that redirects to the current index
     AIP_ROOT_URL = "https://aim-prod.avinor.no/no/AIP/"
-    AIP_HOST = "https://aim-prod.avinor.no"
 
     def __init__(self, cache_dir: str, airac_date: str):
         """
@@ -53,6 +62,8 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         super().__init__(cache_dir)
         self.airac_date = airac_date
         self._base_url = None
+        self._available_airac_dates = None
+        self._effective_airac_date = None
         self._validate_airac_date()
 
     def _validate_airac_date(self):
@@ -62,35 +73,89 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         except ValueError:
             raise ValueError(f"Invalid AIRAC date format: {self.airac_date}. Expected YYYY-MM-DD")
 
-    def _discover_base_url(self) -> str:
-        """Discover the current base URL by following the stable redirect.
+    def _discover_publication(self) -> None:
+        """Discover the current publication index and the AIRAC editions it serves.
 
-        https://aim-prod.avinor.no/no/AIP/ redirects to /no/AIP/View/Index/{N}
-        where {N} is the current publication index (changes each AIRAC cycle).
+        https://aim-prod.avinor.no/no/AIP/ redirects to /no/AIP/View/Index/{N}, where
+        {N} is the current publication index, and that in turn redirects to the
+        publication history page. That page links one AIRAC root per edition Avinor
+        actually serves, which is not necessarily the cycle we asked for.
         """
-        resp = requests.head(self.AIP_ROOT_URL, allow_redirects=False, timeout=10)
-        if resp.status_code in (301, 302) and 'Location' in resp.headers:
-            location = resp.headers['Location']
-            # Location is relative like /no/AIP/View/Index/152
-            if location.startswith('/'):
-                return f"{self.AIP_HOST}{location}"
-            return location
-        # Fallback: try GET if HEAD is not allowed
-        resp = requests.get(self.AIP_ROOT_URL, allow_redirects=False, timeout=10)
-        if resp.status_code in (301, 302) and 'Location' in resp.headers:
-            location = resp.headers['Location']
-            if location.startswith('/'):
-                return f"{self.AIP_HOST}{location}"
-            return location
-        raise RuntimeError(f"Could not discover Norway eAIP base URL from {self.AIP_ROOT_URL} (HTTP {resp.status_code})")
+        resp = requests.get(self.AIP_ROOT_URL, allow_redirects=True, timeout=30)
+        resp.raise_for_status()
+
+        match = self.INDEX_URL_PATTERN.match(resp.url)
+        if not match:
+            raise RuntimeError(
+                f"Could not discover Norway eAIP base URL: {self.AIP_ROOT_URL} resolved to {resp.url}"
+            )
+
+        self._base_url = match.group('base')
+        self._available_airac_dates = self._parse_available_airac_dates(resp.text)
+        logger.info(
+            f"Discovered Norway eAIP base URL: {self._base_url} "
+            f"(editions: {', '.join(self._available_airac_dates) or 'none listed'})"
+        )
+
+    def _parse_available_airac_dates(self, html: str) -> List[str]:
+        """Extract the AIRAC edition dates linked from the publication history page."""
+        soup = BeautifulSoup(html, 'html.parser')
+
+        dates = set()
+        for a in soup.find_all('a', href=True):
+            m = self.AIRAC_ROOT_PATTERN.search(a['href'])
+            if m:
+                dates.add(m.group(1))
+
+        return sorted(dates)
+
+    def _resolve_airac_date(self) -> str:
+        """Pick the served AIRAC edition closest to the requested one.
+
+        Avinor retires editions as soon as they are superseded, so a requested cycle
+        can be absent either because it is not published yet or because it is already
+        gone. Prefer the newest served edition at or before the requested date, and
+        only reach forwards when there is nothing older.
+        """
+        available = self.available_airac_dates
+
+        if not available:
+            logger.warning(
+                f"Norway eAIP listed no AIRAC editions; assuming requested {self.airac_date}"
+            )
+            return self.airac_date
+
+        if self.airac_date in available:
+            return self.airac_date
+
+        older = [d for d in available if d < self.airac_date]
+        chosen = older[-1] if older else available[0]
+        logger.warning(
+            f"Norway eAIP does not serve AIRAC {self.airac_date} "
+            f"(available: {', '.join(available)}); using {chosen} instead"
+        )
+        return chosen
 
     @property
     def base_url(self) -> str:
         """Current base URL, discovered on first access."""
         if self._base_url is None:
-            self._base_url = self._discover_base_url()
-            logger.info(f"Discovered Norway eAIP base URL: {self._base_url}")
+            self._discover_publication()
         return self._base_url
+
+    @property
+    def available_airac_dates(self) -> List[str]:
+        """AIRAC editions Avinor currently serves, oldest first."""
+        if self._available_airac_dates is None:
+            self._discover_publication()
+        return self._available_airac_dates
+
+    @property
+    def effective_airac_date(self) -> str:
+        """AIRAC edition actually fetched, which may differ from the requested one."""
+        if self._effective_airac_date is None:
+            self._effective_airac_date = self._resolve_airac_date()
+        return self._effective_airac_date
 
     def _build_url(self, path: str) -> str:
         """
@@ -102,7 +167,7 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         Returns:
             Complete URL
         """
-        airac_root = f"{self.airac_date}-AIRAC"
+        airac_root = f"{self.effective_airac_date}-AIRAC"
         return f"{self.base_url}/{airac_root}/{path}"
 
     def _get_index_url(self) -> str:
@@ -124,10 +189,12 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         Returns:
             Human-readable cache key
         """
+        # Keyed on the effective date so cached pages are never attributed to a
+        # cycle Avinor did not actually serve them for.
         if identifier:
-            return f"{self.airac_date}_{resource_type}_{identifier}.html"
+            return f"{self.effective_airac_date}_{resource_type}_{identifier}.html"
         else:
-            return f"{self.airac_date}_{resource_type}.html"
+            return f"{self.effective_airac_date}_{resource_type}.html"
 
     def _fetch_with_cache(self, resource_type: str, identifier: str = None, url: str = None) -> bytes:
         """
@@ -257,13 +324,24 @@ class NorwayEAIPWebSource(CachedSource, SourceInterface):
         # Filter to only airports this source can handle
         airports = self.filter_airports(airports)
 
+        # Resolve up front so a discovery failure is reported once rather than
+        # once per airport, and so the log names the cycle we actually fetched.
+        try:
+            edition = self.effective_airac_date
+        except Exception as e:
+            logger.error(f"Could not resolve Norway eAIP edition, skipping source: {e}")
+            return
+
         if airports is None:
             airports = self.find_available_airports()
         if not airports:
             logger.warning("No Norwegian airports found via web index")
             return
 
-        logger.info(f"Updating model from Norway eAIP web source for {len(airports)} airports")
+        logger.info(
+            f"Updating model from Norway eAIP web source for {len(airports)} airports "
+            f"(AIRAC {edition})"
+        )
 
         for icao in airports:
             try:
