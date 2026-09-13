@@ -27,6 +27,10 @@ class Airport:
     iso_region: Optional[str] = None
     municipality: Optional[str] = None
     scheduled_service: Optional[str] = None
+    # A code this airport is also known by, typically the one it was listed
+    # under before its current ICAO code (Logroño: ident LERJ, alt_ident LELO).
+    # Some services still publish under it, so lookups fall back to it.
+    alt_ident: Optional[str] = None
     gps_code: Optional[str] = None
     iata_code: Optional[str] = None
     local_code: Optional[str] = None
@@ -568,6 +572,7 @@ class Airport:
             'iso_region': self.iso_region,
             'municipality': self.municipality,
             'scheduled_service': self.scheduled_service,
+            'alt_ident': self.alt_ident,
             'gps_code': self.gps_code,
             'iata_code': self.iata_code,
             'local_code': self.local_code,

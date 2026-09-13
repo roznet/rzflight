@@ -12,6 +12,7 @@ from .base import SourceInterface
 from ..models.euro_aip_model import EuroAipModel
 from ..models.airport import Airport
 from ..models.runway import Runway
+from ..utils.airport_codes import assign_airport_codes
 
 logger = logging.getLogger(__name__)
 
@@ -503,32 +504,35 @@ class WorldAirportsSource(CachedSource, SourceInterface):
             logger.error(f"Error fetching WorldAirports data: {e}")
             return
         
+        # Store each airport under its current ICAO code, not OurAirports' own
+        # ident (a placeholder like GB-0007 for Enstone, or a superseded code)
+        airports_df = assign_airport_codes(airports_df)
+
         # Filter airports if specific list provided
         if airports:
-            # Create a DataFrame with the target airports for efficient merging
-            target_airports_df = pd.DataFrame({'ident': airports})
-            airports_df = airports_df.merge(target_airports_df, on='ident', how='inner')
+            airports_df = airports_df[airports_df['code'].isin(airports)]
             logger.info(f"Filtering to {len(airports_df)} specified airports")
-        
+
         # Pre-filter runways to only include those for our target airports
         # This is much more efficient than filtering in the loop
         target_airport_idents = set(airports_df['ident'].tolist())
         runways_df = runways_df[runways_df['airport_ident'].isin(target_airport_idents)]
-        
+
         # Use pandas merge to join airports with their runways
         # This is much more efficient than dictionary lookups
         airports_with_runways = airports_df.merge(
-            runways_df, 
-            left_on='ident', 
-            right_on='airport_ident', 
+            runways_df,
+            left_on='ident',
+            right_on='airport_ident',
             how='left'
         )
-        
+
         # Collect all airports first for bulk add
         airports_to_add = []
 
-        # Group by airport to process each airport with its runways
-        for icao, airport_group in airports_with_runways.groupby('ident'):
+        # Group by airport to process each airport with its runways. Runways
+        # join on the OurAirports ident; everything is stored under `code`.
+        for icao, airport_group in airports_with_runways.groupby('code'):
             try:
                 # Get the first row for airport data (all rows have same airport info)
                 airport_row = airport_group.iloc[0]
@@ -536,6 +540,7 @@ class WorldAirportsSource(CachedSource, SourceInterface):
                 # Create Airport object
                 airport = Airport(
                     ident=icao,
+                    alt_ident=self._safe_get(airport_row, 'alt_ident'),
                     name=self._safe_get(airport_row, 'name'),
                     type=self._safe_get(airport_row, 'type'),
                     latitude_deg=self._safe_get(airport_row, 'latitude_deg'),

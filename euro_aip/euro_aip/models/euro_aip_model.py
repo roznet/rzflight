@@ -430,6 +430,27 @@ class EuroAipModel:
 
         return {"kept": kept, "dropped": dropped}
 
+    def find_airport_by_code(self, code: str) -> Optional[Airport]:
+        """
+        Find an airport by ICAO code, falling back to its alternate code.
+
+        An exact ``ident`` match wins; otherwise the airport whose
+        ``alt_ident`` is ``code`` — the code it was previously listed under,
+        which a pilot may still type or a METAR may still be issued under.
+
+        Examples:
+            model.find_airport_by_code('LELO').ident  # 'LERJ'
+        """
+        if not code:
+            return None
+        code = code.upper().strip()
+        airport = self._airports.get(code)
+        if airport is not None:
+            return airport
+        if len(code) != 4:
+            return None
+        return next((a for a in self._airports.values() if a.alt_ident == code), None)
+
     # ========================================================================
     # Legacy Query API - Maintained for Backward Compatibility
     # ========================================================================
@@ -1231,9 +1252,18 @@ class EuroAipModel:
             logger.warning(f"Border crossing entry for {entry.airport_name} has no ICAO code, skipping")
             return
 
-        # Only add border crossing entries for airports that are in the model
+        # Only add border crossing entries for airports that are in the model.
+        # A list published before an airport was renumbered names it by its
+        # previous code (Logroño as LELO, now LERJ): file it under the current one.
         if icao_code not in self._airports:
-            return
+            airport = self.find_airport_by_code(icao_code)
+            if airport is None:
+                return
+            icao_code = airport.ident
+            if entry.icao_code:
+                entry.icao_code = icao_code
+            else:
+                entry.matched_airport_icao = icao_code
         if country_iso not in self.border_crossing_points:
             self.border_crossing_points[country_iso] = {}
 
@@ -1493,7 +1523,7 @@ class EuroAipModel:
                 continue
             # Assume string ICAO
             icao = str(item).upper()
-            airport = self._airports.get(icao)
+            airport = self.find_airport_by_code(icao)
             if not airport or not airport.latitude_deg or not airport.longitude_deg:
                 logger.warning(f"Airport {icao} not found or missing coordinates, skipping")
                 continue

@@ -138,6 +138,11 @@ class RouteWeatherService:
 
         # 2. Build airport info list
         airport_infos = {}
+        # Previous code -> current code. An airport renumbered in the AIP can
+        # still have its METAR/TAF issued under the old code (Logroño: LERJ in
+        # the AIP, LELO on the METAR), so both are requested and the reports
+        # are filed under the current one.
+        aliases: dict[str, str] = {}
         for entry in nearby:
             airport = entry["airport"]
             icao = airport.ident
@@ -147,6 +152,9 @@ class RouteWeatherService:
                 distance_from_route_nm=entry["segment_distance_nm"],
                 enroute_distance_nm=entry.get("enroute_distance_nm"),
             )
+            alt_ident = getattr(airport, "alt_ident", None)
+            if isinstance(alt_ident, str) and alt_ident and alt_ident != icao:
+                aliases[alt_ident.upper()] = icao
 
         # Ensure route airports are always included. Route waypoints may be
         # navaids, intersections or lat/lon points (e.g. "5117N00009E"); only
@@ -155,22 +163,25 @@ class RouteWeatherService:
             icao_upper = icao.upper()
             if not (len(icao_upper) == 4 and icao_upper.isalpha()):
                 continue
-            if icao_upper not in airport_infos:
+            if icao_upper not in airport_infos and icao_upper not in aliases:
                 airport_infos[icao_upper] = RouteAirportWeather(
                     icao=icao_upper,
                     name=None,
                     distance_from_route_nm=0.0,
                     enroute_distance_nm=None,
                 )
+        # A code that is some airport's own ident is never treated as an alias
+        aliases = {alt: icao for alt, icao in aliases.items() if alt not in airport_infos}
 
         # 3. Fetch weather for all airports
-        all_icaos = list(airport_infos.keys())
+        all_icaos = list(airport_infos.keys()) + list(aliases.keys())
         source = self._get_source()
         reports = source.fetch_weather(all_icaos, metar_hours=metar_hours)
 
         # 4. Distribute reports to airports by ICAO
         for report in reports:
             icao = report.icao.upper()
+            icao = aliases.get(icao, icao)
             if icao in airport_infos:
                 existing = list(airport_infos[icao].reports.all())
                 existing.append(report)

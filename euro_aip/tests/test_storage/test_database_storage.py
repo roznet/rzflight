@@ -621,7 +621,7 @@ class TestDatabaseStorageEdgeCases:
             version = conn.execute(
                 "SELECT value FROM model_metadata WHERE key = 'schema_version'"
             ).fetchone()[0]
-            assert version == '3'
+            assert version == '4'
 
         # Existing rows read back as unclassified rather than as civil.
         assert migrated.load_model().airports['EDDF'].military is None

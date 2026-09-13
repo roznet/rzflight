@@ -1411,6 +1411,7 @@ class DatabaseStorage:
             iso_region=airport_data['iso_region'],
             municipality=airport_data['municipality'],
             scheduled_service=airport_data['scheduled_service'],
+            alt_ident=airport_data['alt_ident'],
             gps_code=airport_data['gps_code'],
             iata_code=airport_data['iata_code'],
             local_code=airport_data['local_code'],

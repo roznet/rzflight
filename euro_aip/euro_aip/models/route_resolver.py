@@ -101,11 +101,12 @@ class RouteResolver:
         if coord_point is not None:
             return coord_point
 
-        # Try airport first
-        airport = self.model.airports.where(ident=name_upper).first()
+        # Try airport first. Named by its current code, so a previous code
+        # (LELO) resolves to the airport it now belongs to (LERJ).
+        airport = self.model.find_airport_by_code(name_upper)
         if airport and airport.latitude_deg is not None and airport.longitude_deg is not None:
             return RoutePoint(
-                name=name_upper,
+                name=airport.ident,
                 latitude=airport.latitude_deg,
                 longitude=airport.longitude_deg,
                 point_type="airport",
@@ -175,11 +176,12 @@ class RouteResolver:
         if coord_point is not None:
             return coord_point
 
-        # Try airport first (airports are unique by ICAO)
-        airport = self.model.airports.where(ident=name_upper).first()
+        # Try airport first (airports are unique by ICAO); a previous code
+        # resolves to the airport's current one, as in resolve_point()
+        airport = self.model.find_airport_by_code(name_upper)
         if airport and airport.latitude_deg is not None and airport.longitude_deg is not None:
             return RoutePoint(
-                name=name_upper,
+                name=airport.ident,
                 latitude=airport.latitude_deg,
                 longitude=airport.longitude_deg,
                 point_type="airport",
@@ -265,11 +267,14 @@ class RouteResolver:
         destination = tokens[-1]
         middle_tokens = tokens[1:-1]
 
-        # Resolve departure
+        # Resolve departure. Airports come back under their current code, so a
+        # route typed with a previous code (LELO) names the airport as LERJ.
         dep_point = self.resolve_point(departure)
         departure_coords = None
         if dep_point:
             departure_coords = (dep_point.latitude, dep_point.longitude)
+            if dep_point.point_type == "airport":
+                departure = dep_point.name
         else:
             logger.warning("Could not resolve departure: %s", departure)
 
@@ -278,6 +283,8 @@ class RouteResolver:
         destination_coords = None
         if dest_point:
             destination_coords = (dest_point.latitude, dest_point.longitude)
+            if dest_point.point_type == "airport":
+                destination = dest_point.name
         else:
             logger.warning("Could not resolve destination: %s", destination)
 
@@ -373,7 +380,8 @@ class RouteResolver:
                         # Do not advance reference — keep anchoring on last good point
                         continue
 
-            waypoint_names.append(token)
+            # Airports under their current code, as for the endpoints
+            waypoint_names.append(point.name if point.point_type == "airport" else token)
             # Override point_type for intermediate points
             if point.point_type == "airport":
                 point = RoutePoint(

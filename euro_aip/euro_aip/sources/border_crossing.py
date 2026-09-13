@@ -459,8 +459,12 @@ class BorderCrossingSource(CachedSource):
             # First, try to use ICAO code if available
             if 'icao_code' in entry and entry['icao_code']:
                 airport_icao = entry['icao_code']
-                if airport_icao in model.airports:
-                    airport = model.airports[airport_icao]
+                airport = model.find_airport_by_code(airport_icao)
+                if airport is not None:
+                    if airport.ident != airport_icao:
+                        # Listed under the airport's previous code
+                        logger.debug(f"Border crossing ICAO {airport_icao} is now {airport.ident}")
+                        airport_icao = airport.ident
                     logger.debug(f"Matched border crossing entry for {airport_icao} using ICAO code")
                 else:
                     logger.debug(f"ICAO code {airport_icao} not found in model")

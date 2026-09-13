@@ -33,6 +33,8 @@ CREATE TABLE airports (
     municipality TEXT,
     scheduled_service TEXT,
     military INTEGER,           -- best-effort flag, see MilitaryClassifier
+    joint_use INTEGER,          -- military aerodrome with civil traffic; NULL unless military
+    alt_ident TEXT,             -- previous code (e.g. LELO for LERJ); METAR may still use it
     gps_code TEXT,
     iata_code TEXT,
     local_code TEXT,

@@ -644,3 +644,21 @@ class AirportCollection(QueryableCollection['Airport']):
             return self[icao]
         except KeyError:
             return default
+
+    def find_by_code(self, code: str) -> Optional['Airport']:
+        """
+        Find an airport by its ICAO code, falling back to its alternate code.
+
+        Unlike :meth:`get`, which matches ``ident`` only, this also finds an
+        airport by the code it was previously listed under (``alt_ident``) —
+        what a pilot may still type, or what a METAR is still issued under.
+        An exact ``ident`` match always wins.
+
+        Examples:
+            airports.find_by_code('LELO').ident  # 'LERJ'
+        """
+        code = code.upper().strip()
+        exact = self.get(code)
+        if exact is not None:
+            return exact
+        return next((a for a in self._items if a.alt_ident == code), None)

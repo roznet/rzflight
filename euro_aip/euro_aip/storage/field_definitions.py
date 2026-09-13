@@ -82,6 +82,7 @@ class AirportFields:
     JOINT_USE = FieldDefinition("joint_use", FieldType.BOOLEAN, description="Military aerodrome that also serves civil traffic; NULL unless military")
 
     # Codes
+    ALT_IDENT = FieldDefinition("alt_ident", FieldType.STRING, description="Previous code the airport is also known by (e.g. METAR still issued under it)")
     GPS_CODE = FieldDefinition("gps_code", FieldType.STRING, description="GPS code")
     IATA_CODE = FieldDefinition("iata_code", FieldType.STRING, description="IATA code")
     LOCAL_CODE = FieldDefinition("local_code", FieldType.STRING, description="Local code")
@@ -108,7 +109,7 @@ class AirportFields:
             cls.ICAO_CODE, cls.NAME, cls.TYPE, cls.LATITUDE_DEG, cls.LONGITUDE_DEG, cls.ELEVATION_FT,
             cls.CONTINENT, cls.ISO_COUNTRY, cls.ISO_REGION, cls.MUNICIPALITY, cls.SCHEDULED_SERVICE,
             cls.MILITARY, cls.JOINT_USE,
-            cls.GPS_CODE, cls.IATA_CODE, cls.LOCAL_CODE, cls.HOME_LINK, cls.WIKIPEDIA_LINK, cls.KEYWORDS,
+            cls.ALT_IDENT, cls.GPS_CODE, cls.IATA_CODE, cls.LOCAL_CODE, cls.HOME_LINK, cls.WIKIPEDIA_LINK, cls.KEYWORDS,
             cls.SOURCES, cls.CREATED_AT, cls.UPDATED_AT
         ]
     
@@ -270,7 +271,7 @@ class SchemaManager:
     """Manages database schema and migrations."""
     
     def __init__(self):
-        self.version = 3  # Current schema version
+        self.version = 4  # Current schema version
 
     def get_create_table_sql(self, table_name: str, fields: List[FieldDefinition], primary_key: str = None) -> str:
         """Generate CREATE TABLE SQL from field definitions."""
@@ -321,5 +322,10 @@ class SchemaManager:
             # v3: split military into military + joint-use, so a diversion
             # filter can keep aerodromes that have a civil terminal.
             self.add_column_if_missing(conn, "airports", AirportFields.JOINT_USE)
+
+        if current_version < 4:
+            # v4: airports are stored under their current ICAO code; the code
+            # they were previously listed under is kept for lookups.
+            self.add_column_if_missing(conn, "airports", AirportFields.ALT_IDENT)
 
         return self.version 

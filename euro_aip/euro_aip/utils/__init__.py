@@ -1,3 +1,4 @@
+from .airport_codes import assign_airport_codes, is_icao_code, select_airport_code
 from .field_mapper import FieldMapper
 from .field_standardization_service import FieldStandardizationService
 from .military_aerodromes import (
@@ -15,6 +16,9 @@ from .military_classifier import (
 )
 
 __all__ = [
+    'assign_airport_codes',
+    'is_icao_code',
+    'select_airport_code',
     'FieldMapper',
     'FieldStandardizationService',
     'MilitaryClassifier',
