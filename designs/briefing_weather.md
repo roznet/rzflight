@@ -57,13 +57,29 @@ for rwy, wc in components.items():
     print(f"  Within limits: {wc.within_limits(max_crosswind_kt=20)}")
 ```
 
-### TAF Trend Matching
+### Reading a TAF at a time
 ```python
 taf = WeatherReport.from_taf("TAF LFPG 211100Z 2112/2218 24012KT 9999 FEW040 "
-                              "TEMPO 2114/2118 4000 TSRA BKN020CB")
-applicable = WeatherAnalyzer.find_applicable_taf(taf, check_time)
-print(WeatherAnalyzer.compare_categories(metar.flight_category, applicable.flight_category))
+                              "BECMG 2113/2115 BKN025 TEMPO 2114/2118 4000 TSRA BKN020CB",
+                             reference=issued_at)
+cond = WeatherAnalyzer.taf_conditions_at(taf, check_time)   # None if the TAF isn't valid then
+if cond is not None:
+    cond.prevailing.flight_category     # main body + completed BECMG / started FM
+    cond.worst_temporary                # worst TEMPO/PROB group, laid over prevailing
+    cond.temporary_is_worse             # temporary strictly worse than prevailing?
+    cond.flight_category                # worse of the two
+    cond.significant_weather            # ["TSRA", "CB"]
+    WeatherAnalyzer.trend_label(cond.worst_temporary)  # "TEMPO", "PROB30 TEMPO"
 ```
+
+Rules `taf_conditions_at` applies:
+- **Validity first** (`taf_covers`): aviationweather.gov returns an airport's latest TAF however old, so an expired TAF must not be read as current. Unparsed validity covers nothing.
+- **Prevailing**: change groups in time order. `FM` replaces the forecast (including weather) from its start; `BECMG` applies fully after its period and, *during* it, as the field-wise worse of before/after.
+- **Temporary** (`TEMPO`/`PROB`/`INTER`): each laid over prevailing, so fields a group doesn't restate are inherited and every group has a category.
+- **Significant weather**: codes containing TS, FG, FZ, SN, GR, GS, PL, SQ, FC, then CB/TCU cloud types.
+- Gotcha: the parser doesn't surface `NSW`, so weather a `BECMG` ends lingers (overstates — the safe direction).
+
+`find_applicable_taf` (last matching group wins, base TAF otherwise, no validity check) is kept for compatibility; prefer `taf_conditions_at`. Pass `reference=` to `from_taf` when parsing a stored TAF — day-of-month fields resolve against now by default.
 
 ## Data Sources
 
