@@ -234,19 +234,28 @@ class WeatherReport:
         return WeatherParser.parse_metar(raw_text, source=source)
 
     @classmethod
-    def from_taf(cls, raw_text: str, source: str = "") -> Optional['WeatherReport']:
+    def from_taf(
+        cls,
+        raw_text: str,
+        source: str = "",
+        reference: Optional[datetime] = None,
+    ) -> Optional['WeatherReport']:
         """
         Parse a TAF string into a WeatherReport.
 
         Args:
             raw_text: Raw TAF text
             source: Data source identifier
+            reference: Instant used to resolve the TAF's day-of-month fields
+                to full dates. Defaults to now; pass the time the TAF was seen
+                (or the time it is being evaluated for) when parsing a stored
+                TAF, or its validity lands in the wrong month.
 
         Returns:
             WeatherReport or None if parsing fails
         """
         from euro_aip.briefing.weather.parser import WeatherParser
-        return WeatherParser.parse_taf(raw_text, source=source)
+        return WeatherParser.parse_taf(raw_text, source=source, reference=reference)
 
     def wind_components(
         self,
