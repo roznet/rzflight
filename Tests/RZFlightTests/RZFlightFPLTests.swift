@@ -350,4 +350,67 @@ final class RZFlightFPLTests: XCTestCase {
         let fpl = ICAOFlightPlanParser.parse(Self.sampleMinimal)!
         XCTAssertNil(fpl.route.departureTime)
     }
+
+    // MARK: - Field 13 Location
+
+    /// Field 19 (supplementary information) adds a field, which used to push
+    /// the field count past the threshold that decided where field 13 started.
+    /// Departure then parsed as the head of field 15 ("N011") and the
+    /// destination as "DOF/", while the parse still reported success.
+    func testFieldNineteenDoesNotShiftTheFields() {
+        let fpl = ICAOFlightPlanParser.parse("""
+        (FPL-GZIPM-IS
+        -C172/L-S/C
+        -EGTF1030
+        -N0110F065 HAZEL UL9 ORTAC L28 DINARD
+        -LFAT0130
+        -DOF/260326 PBN/D2
+        -P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)
+        """)!
+
+        XCTAssertEqual(fpl.route.departure, "EGTF")
+        XCTAssertEqual(fpl.route.destination, "LFAT")
+        XCTAssertEqual(fpl.departureTimeUTC?.hour, 10)
+        XCTAssertEqual(fpl.departureTimeUTC?.minute, 30)
+        XCTAssertEqual(fpl.altitudeFeet, 6500)
+        XCTAssertEqual(fpl.eetMinutes, 90)
+        XCTAssertTrue(fpl.route.waypoints.contains("ORTAC"))
+    }
+
+    /// Autorouter emits a single line with a space before every separator, so
+    /// fields 9 and 10 arrive joined and field 19 is present. Both variations
+    /// move the field count without moving field 13.
+    func testSpaceBeforeSeparatorsWithFieldNineteen() {
+        let fpl = ICAOFlightPlanParser.parse(
+            "(FPL-GABCD-IG -S22T/L-SYBDGR/EB1U2 -EGTF0730 "
+            + "-N0164F100 GWC DCT NELKO DCT LORKU DCT ABDUS DCT BETUV DCT ERCOZ "
+            + "-LFRQ0134 -DOF/260516 PBN/B2D2S1 "
+            + "-P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)"
+        )!
+
+        XCTAssertEqual(fpl.route.departure, "EGTF")
+        XCTAssertEqual(fpl.route.destination, "LFRQ")
+        XCTAssertEqual(fpl.departureTimeUTC?.hour, 7)
+        XCTAssertEqual(fpl.departureTimeUTC?.minute, 30)
+        XCTAssertEqual(fpl.altitudeFeet, 10000)
+        XCTAssertEqual(fpl.eetMinutes, 94)
+        XCTAssertTrue(fpl.route.waypoints.contains("NELKO"))
+    }
+
+    /// A departure aerodrome with no ICAO code is `ZZZZ` in field 13, named in
+    /// field 18. It has field 13's shape and must be found like any other.
+    func testZZZZDepartureIsStillFieldThirteen() {
+        let fpl = ICAOFlightPlanParser.parse("""
+        (FPL-GZIPM-IS
+        -C172/L-S/C
+        -ZZZZ1030
+        -N0110F065 HAZEL UL9 ORTAC L28 DINARD
+        -LFAT0130
+        -DEP/EGKR DOF/260326)
+        """)!
+
+        XCTAssertEqual(fpl.route.departure, "ZZZZ")
+        XCTAssertEqual(fpl.route.destination, "LFAT")
+        XCTAssertEqual(fpl.departureTimeUTC?.hour, 10)
+    }
 }
