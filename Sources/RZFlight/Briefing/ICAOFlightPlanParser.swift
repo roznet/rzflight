@@ -160,12 +160,27 @@ public struct ICAOFlightPlanParser {
         var surveillance: String?
         parseField9(fields[2], aircraftType: &aircraftType, equipment: &equipment, surveillance: &surveillance)
 
-        let field13Idx: Int
-        if fields.count > 7 {
+        // Field 13 is found by its shape — an ICAO indicator followed by a
+        // four-digit time, "EGTF1030" — not by counting fields.
+        //
+        // Counting was wrong twice over. Whether fields 9 and 10 arrive joined
+        // ("-C172/L-S/C") or separated depends on the emitter's spacing, and a
+        // plan that carries field 19 (supplementary information) has one field
+        // more than one that doesn't. Either way the count moved without field
+        // 13 moving, so departure parsed as "N011" (the start of field 15) and
+        // the destination as "DOF/", with no date, time or level at all — and
+        // the parse still "succeeded", so a caller filled a form with a flight
+        // that was never planned.
+        //
+        // Nothing else in an FPL takes this shape: fields 9 and 10 carry "/",
+        // and field 15 is several space-separated tokens, so anchoring the
+        // match to the whole field is enough to tell them apart.
+        let field13Idx = fields.indices.dropFirst(2).first { isField13(fields[$0]) } ?? 3
+        guard field13Idx < fields.count else { return nil }
+        // Anything between field 9 and field 13 is field 10, when the emitter
+        // split it out rather than appending it to field 9.
+        if field13Idx > 3 {
             parseEquipmentString(fields[3], equipment: &equipment, surveillance: &surveillance)
-            field13Idx = 4
-        } else {
-            field13Idx = 3
         }
 
         var departure = ""
@@ -283,6 +298,20 @@ public struct ICAOFlightPlanParser {
     }
 
     // MARK: - Field Splitting
+
+    /// An ICAO location indicator plus a four-digit time: field 13's shape.
+    ///
+    /// `ZZZZ` (aerodrome named in field 18 instead) matches the same pattern,
+    /// so a plan departing an unlisted strip is found like any other.
+    private static let field13Pattern = try! NSRegularExpression(
+        pattern: #"^[A-Z]{4}([0-1]\d|2[0-3])[0-5]\d$"#
+    )
+
+    private static func isField13(_ field: String) -> Bool {
+        let trimmed = field.trimmingCharacters(in: .whitespaces).uppercased()
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        return field13Pattern.firstMatch(in: trimmed, range: range) != nil
+    }
 
     private static func splitFields(_ body: String) -> [String] {
         var text = body
