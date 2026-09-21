@@ -31,7 +31,11 @@ class TestCustomInterpreter:
             'weekend_pn', 
             'advance_notice_required',
             'custom_available',
-            'immigration_available'
+            'immigration_available',
+            'contact_emails',
+            'contact_urls',
+            'mentions_myhandling',
+            'email_subject',
         ]
         assert self.interpreter.get_structured_fields() == expected_fields
 
@@ -384,3 +388,71 @@ class TestCustomInterpreter:
         # The airport context should be available but not affect the interpretation
         assert result['weekday_pn'] == 'H24'
         assert result['weekend_pn'] == 'H24' 
+
+class TestCustomContacts:
+    """How to notify customs: e-mails, web forms, myhandling, mandated subject."""
+
+    def setup_method(self):
+        self.interpreter = CustomInterpreter(Mock())
+
+    def interpret(self, text):
+        return self.interpreter.interpret_field_value(text)
+
+    def test_emails_in_order_lower_cased(self):
+        # LFOH, verbatim from the French AIP
+        result = self.interpret(
+            "Request by e-mail: bsep-le-havre@douane.finances.gouv.fr and "
+            "codt-lille@douane.finances.gouv.fr and operations@lehavre.aeroport.fr "
+            "E-mail subject: 'ppf le havre octeville' Specify following items:"
+        )
+        assert result['contact_emails'] == [
+            'bsep-le-havre@douane.finances.gouv.fr',
+            'codt-lille@douane.finances.gouv.fr',
+            'operations@lehavre.aeroport.fr',
+        ]
+        assert result['email_subject'] == 'ppf le havre octeville'
+        assert result['mentions_myhandling'] is False
+
+    def test_upper_case_email_is_lower_cased(self):
+        result = self.interpret("PN by E-mail : BSI-GRENOBLE@DOUANE.FINANCES.GOUV.FR")
+        assert result['contact_emails'] == ['bsi-grenoble@douane.finances.gouv.fr']
+
+    def test_repeated_email_listed_once(self):
+        result = self.interpret(
+            "PPR 24 HR by E-mail to : codt-metz@douane.finances.gouv.fr : - MON-FRI ... "
+            "PPR 12 HR by E-mail to : codt-metz@douane.finances.gouv.fr."
+        )
+        assert result['contact_emails'] == ['codt-metz@douane.finances.gouv.fr']
+
+    def test_known_domain_typo_is_fixed(self):
+        # LFMT publishes "douane.finance.gouv.fr", which does not deliver
+        result = self.interpret(
+            "compulsory 7HR prior notice with mandatory transmission of GenDec "
+            "by E-mail for non-scheduled flights to : bse-frejorgues@douane.finance.gouv.fr"
+        )
+        assert result['contact_emails'] == ['bse-frejorgues@douane.finances.gouv.fr']
+
+    def test_myhandling_url_and_email(self):
+        # LFLB: e-mail without handling, myhandling with handling
+        result = self.interpret(
+            "Customs upon PPR 24 HR : - Flights without handling and inbound or outbound : "
+            "cli-lyon@douane.finances.gouv.fr bsi-montmelian@douane.finances.gouv.fr "
+            "- Flights with handling : https://cy.myhandlingsoftware.com"
+        )
+        assert result['mentions_myhandling'] is True
+        assert result['contact_urls'] == ['https://cy.myhandlingsoftware.com']
+        assert len(result['contact_emails']) == 2
+
+    def test_myhandling_spelled_with_space(self):
+        # LFOT
+        result = self.interpret("Via My Handling")
+        assert result['mentions_myhandling'] is True
+        assert result['contact_emails'] == []
+
+    def test_no_contact(self):
+        # LFMD
+        result = self.interpret("On request")
+        assert result['contact_emails'] == []
+        assert result['contact_urls'] == []
+        assert result['mentions_myhandling'] is False
+        assert result['email_subject'] is None
