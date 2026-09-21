@@ -12,6 +12,51 @@ from .base import BaseInterpreter, InterpretationResult
 
 logger = logging.getLogger(__name__)
 
+_EMAIL_RE = re.compile(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)+')
+_URL_RE = re.compile(r'https?://[^\s,;)]+', re.IGNORECASE)
+# "E-mail subject: 'ppf le havre octeville'" / "objet : « ... »"
+_SUBJECT_RE = re.compile(
+    r'\b(?:subject|objet)\s*:\s*[\'"‘’“”«]\s*([^\'"‘’“”«»]+?)\s*[\'"‘’“”»]',
+    re.IGNORECASE,
+)
+# Misspellings published in the AIP, mapped to the working domain
+_EMAIL_DOMAIN_FIXES = {
+    'douane.finance.gouv.fr': 'douane.finances.gouv.fr',
+}
+
+
+def extract_contact_emails(text: str) -> List[str]:
+    """E-mail addresses in *text*, lower-cased, de-duplicated, in order of appearance."""
+    emails: List[str] = []
+    for raw in _EMAIL_RE.findall(text):
+        email = raw.lower().rstrip('.')
+        local, _, domain = email.partition('@')
+        email = f"{local}@{_EMAIL_DOMAIN_FIXES.get(domain, domain)}"
+        if email not in emails:
+            emails.append(email)
+    return emails
+
+
+def extract_contact_urls(text: str) -> List[str]:
+    """Web addresses in *text* (e.g. an online notification form), de-duplicated."""
+    urls: List[str] = []
+    for raw in _URL_RE.findall(text):
+        url = raw.rstrip('.')
+        if url not in urls:
+            urls.append(url)
+    return urls
+
+
+def mentions_myhandling(text: str) -> bool:
+    """Whether *text* routes notification through myhandling ("Via My Handling", cy.myhandlingsoftware.com)."""
+    return 'myhandling' in re.sub(r'\s+', '', text).lower()
+
+
+def extract_email_subject(text: str) -> Optional[str]:
+    """The e-mail subject the AIP mandates for the notification, if it gives one."""
+    match = _SUBJECT_RE.search(text)
+    return match.group(1) if match else None
+
 class CustomInterpreter(BaseInterpreter):
     """
     Interprets custom and immigration fields for notification periods.
@@ -21,6 +66,7 @@ class CustomInterpreter(BaseInterpreter):
     - Weekend notification periods
     - Advance notice requirements
     - Custom availability
+    - How to notify: contact e-mails, web forms, myhandling, mandated subject
     """
     
     def get_standard_field_id(self) -> int:
@@ -34,7 +80,11 @@ class CustomInterpreter(BaseInterpreter):
             'weekend_pn',           # Weekend prior notification period
             'advance_notice_required',  # Whether advance notice is required
             'custom_available',     # Whether custom services are available
-            'immigration_available' # Whether immigration services are available
+            'immigration_available', # Whether immigration services are available
+            'contact_emails',       # E-mail addresses to send the notification to
+            'contact_urls',         # Web addresses (online notification forms)
+            'mentions_myhandling',  # Whether notification goes through myhandling
+            'email_subject',        # E-mail subject the AIP mandates, if any
         ]
     
     def interpret_field_value(self, field_value: str, airport: Optional['Airport'] = None) -> Optional[Dict[str, Any]]:
@@ -187,5 +237,11 @@ class CustomInterpreter(BaseInterpreter):
             'advance_notice_required': advance_notice_required,
             'custom_available': is_custom_available(text),
             'immigration_available': is_immigration_available(text),
+            # Contacts are read from the original text: upper-casing would
+            # mangle e-mail addresses and URLs
+            'contact_emails': extract_contact_emails(field_value),
+            'contact_urls': extract_contact_urls(field_value),
+            'mentions_myhandling': mentions_myhandling(field_value),
+            'email_subject': extract_email_subject(field_value),
             'raw_value': field_value
         }
