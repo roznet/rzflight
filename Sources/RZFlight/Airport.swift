@@ -239,8 +239,13 @@ public struct Airport : Codable {
 
     }
 
+    /// Load one airport by ICAO code.
+    ///
+    /// `KnownAirports` is the better route when many lookups are made: it holds
+    /// the airports in memory and attaches runways on demand. This stays for
+    /// one-off lookups against a database that is not already loaded.
     public init(db : FMDatabase, ident : String) throws{
-        let res = db.executeQuery("SELECT * FROM airports WHERE ident = ?", withArgumentsIn: [ident])
+        let res = db.executeQuery("SELECT * FROM airports WHERE icao_code = ?", withArgumentsIn: [ident])
         if let res = res, res.next() {
             self.icao = ident
             self.icaoLower = ident.lowercased()
@@ -277,14 +282,7 @@ public struct Airport : Codable {
         }else{
             throw AirportError.unknownIdentifier
         }
-        let run = db.executeQuery("SELECT * FROM runways WHERE airport_ident = ?", withArgumentsIn: [ident])
-        var runways : [Runway] = []
-        if let run = run {
-            while run.next() {
-                runways.append(Runway(res: run))
-            }
-        }
-        self.runways = runways
+        self.runways = Self.runways(for: ident, db: db)
         self.procedures = []
         self.aipEntries = []
     }
