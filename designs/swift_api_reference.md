@@ -584,7 +584,7 @@ public struct Metar: Decodable {
 ```swift
 extension CLLocationCoordinate2D {
     /// Calculate point at bearing and distance (great circle)
-    func pointFromBearingDistance(bearing: Double, distanceNm: Double) -> CLLocationCoordinate2D
+    public func pointFromBearingDistance(bearing: Double, distanceNm: Double) -> CLLocationCoordinate2D
 }
 ```
 

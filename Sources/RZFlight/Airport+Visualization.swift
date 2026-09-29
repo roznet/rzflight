@@ -156,7 +156,7 @@ extension CLLocationCoordinate2D {
     ///
     /// Uses the great circle calculation for accurate navigation distances.
     /// Earth radius: 3440.065 nautical miles (matching Python NavPoint implementation)
-    func pointFromBearingDistance(bearing: Double, distanceNm: Double) -> CLLocationCoordinate2D {
+    public func pointFromBearingDistance(bearing: Double, distanceNm: Double) -> CLLocationCoordinate2D {
         let earthRadiusNm: Double = 3440.065 // Earth's radius in nautical miles
 
         // Convert to radians
