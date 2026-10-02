@@ -21,7 +21,7 @@ enroute span) for a client to order and present SIGMETs along the route.
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from euro_aip.utils.geometry import (
     bbox_intersects,
@@ -31,6 +31,8 @@ from euro_aip.utils.geometry import (
     point_in_multipolygon,
     sample_polyline,
 )
+from euro_aip.briefing.weather.route_weather import RoutePointLike, route_point_name
+from euro_aip.models.navpoint import NavPoint
 
 if TYPE_CHECKING:
     from euro_aip.briefing.sources.avwx import AvWxSource
@@ -128,7 +130,7 @@ class RouteSigmetService:
 
     def fetch_route_sigmets(
         self,
-        route_icaos: List[str],
+        route_icaos: Sequence[RoutePointLike],
         corridor_nm: float,
         model: "EuroAipModel",
         altitude_band_ft: Tuple[Optional[int], Optional[int]] = (None, None),
@@ -142,7 +144,9 @@ class RouteSigmetService:
         Find SIGMETs that affect a route.
 
         Args:
-            route_icaos: ICAO codes defining the route waypoints.
+            route_icaos: The route waypoints, as codes or NavPoints. A code is
+                looked up as an airport; pass NavPoints for navaids, fixes and
+                lat/lon points, which the airport table cannot place.
             corridor_nm: Corridor half-width in nautical miles from the centreline.
             model: EuroAipModel providing airport coordinates and FIR boundaries.
             altitude_band_ft: ``(low_ft, high_ft)`` band to test; either may be
@@ -164,12 +168,13 @@ class RouteSigmetService:
         """
         low_ft, high_ft = altitude_band_ft
         time_window = (from_datetime, to_datetime)
+        route_names = [route_point_name(p) for p in route_icaos]
         route_points = self._resolve_route_points(route_icaos, model)
 
         if not route_points:
-            logger.warning("No resolvable coordinates for route %s", "-".join(route_icaos))
+            logger.warning("No resolvable coordinates for route %s", "-".join(route_names))
             return RouteSigmetResult(
-                route_icaos=route_icaos,
+                route_icaos=route_names,
                 corridor_nm=corridor_nm,
                 altitude_band_ft=altitude_band_ft,
                 time_window=time_window,
@@ -229,7 +234,7 @@ class RouteSigmetService:
         ))
 
         return RouteSigmetResult(
-            route_icaos=route_icaos,
+            route_icaos=route_names,
             corridor_nm=corridor_nm,
             altitude_band_ft=altitude_band_ft,
             time_window=time_window,
@@ -238,11 +243,18 @@ class RouteSigmetService:
         )
 
     @staticmethod
-    def _resolve_route_points(route_icaos: List[str], model: "EuroAipModel") -> list:
-        """Resolve route ICAOs to NavPoints, dropping any without coordinates."""
+    def _resolve_route_points(
+        route_icaos: Sequence[RoutePointLike], model: "EuroAipModel",
+    ) -> list:
+        """Resolve route points to NavPoints, dropping codes without coordinates.
+
+        NavPoints are used as given; codes are looked up as airports."""
         airports = model.airports
         points = []
         for icao in route_icaos:
+            if isinstance(icao, NavPoint):
+                points.append(icao)
+                continue
             airport = airports.get(icao.strip().upper())
             if airport is None:
                 logger.warning("Route airport %s not found, skipping", icao)

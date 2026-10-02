@@ -213,6 +213,25 @@ class TestRouteWeatherService:
         icaos = {a.icao for a in result.airports}
         assert icaos == {"EGLL", "LFPG"}
 
+    def test_navpoint_route_passed_through_with_names(self):
+        """NavPoints reach the corridor query as given (a navaid keeps its place
+        in the geometry); names drive route-airport inclusion and the result."""
+        from euro_aip.models.navpoint import NavPoint
+
+        route = [
+            NavPoint(latitude=51.47, longitude=-0.45, name="EGLL"),
+            NavPoint(latitude=50.50, longitude=1.00, name="RINTI"),
+            NavPoint(latitude=49.01, longitude=2.55, name="LFPG"),
+        ]
+        model = make_model([])
+        service = RouteWeatherService(source=make_source([]))
+        result = service.fetch_route_weather(route, corridor_nm=25, model=model)
+
+        passed = model.find_airports_near_route.call_args.args[0]
+        assert passed == route
+        assert result.route_icaos == ["EGLL", "RINTI", "LFPG"]
+        assert {a.icao for a in result.airports} == {"EGLL", "LFPG"}
+
     def test_reports_distributed_by_icao(self):
         nearby = [
             {"airport": make_airport("EGLL"), "segment_distance_nm": 0.0,

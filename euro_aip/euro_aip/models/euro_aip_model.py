@@ -4,6 +4,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import json
+import math
 import warnings
 
 from .airport import Airport
@@ -1540,6 +1541,19 @@ class EuroAipModel:
             _, segment_length = route_points[i].haversine_distance(route_points[i + 1])
             cumulative_distances.append(cumulative_distances[-1] + segment_length)
         
+        # Cheap prefilter: a segment is only measured for airports inside its
+        # padded lat/lon box. The box is conservative (corridor width plus the
+        # great-circle bulge), so the result is the same as measuring every
+        # segment; it just skips the trigonometry for most of the table.
+        segment_boxes = [
+            _segment_bbox(route_points[i], route_points[i + 1], distance_nm)
+            for i in range(len(route_points) - 1)
+        ]
+        point_box = (
+            _segment_bbox(route_points[0], route_points[0], distance_nm)
+            if len(route_points) == 1 else None
+        )
+
         # Find airports near the route
         nearby_airports = []
         
@@ -1548,6 +1562,18 @@ class EuroAipModel:
             airport_point = airport.navpoint
             if not airport_point:
                 continue  # Skip airports without coordinates
+
+            lat, lon = airport_point.latitude, airport_point.longitude
+            if point_box is not None:
+                if not _in_bbox(point_box, lat, lon):
+                    continue
+                candidate_segments = []
+            else:
+                candidate_segments = [
+                    i for i, box in enumerate(segment_boxes) if _in_bbox(box, lat, lon)
+                ]
+                if not candidate_segments:
+                    continue
             
             # Calculate minimum distance to the route
             min_distance = float('inf')
@@ -1560,8 +1586,10 @@ class EuroAipModel:
                 closest_segment = (route_points[0].name, route_points[0].name)
                 enroute_distance = 0.0  # At the starting point
             else:
-                # Multiple airports: calculate minimum distance to any segment of the route
-                for i in range(len(route_points) - 1):
+                # Multiple airports: calculate minimum distance to any segment of
+                # the route (only segments whose box holds the airport can be
+                # within distance_nm)
+                for i in candidate_segments:
                     segment_start = route_points[i]
                     segment_end = route_points[i + 1]
                     
@@ -1708,3 +1736,34 @@ class EuroAipModel:
             logger.info(f"{interpreter_name}: {len(successful)} successful, {len(failed)} failed, {len(missing)} missing")
         
         return results
+
+
+def _segment_bbox(start: NavPoint, end: NavPoint, distance_nm: float):
+    """A (lat_min, lat_max, lon_min, lon_max) box holding every point within
+    ``distance_nm`` of the great-circle segment start→end, or None (no filter)."""
+    _, length_nm = start.haversine_distance(end)
+    lat_lo = min(start.latitude, end.latitude)
+    lat_hi = max(start.latitude, end.latitude)
+    # The arc bulges poleward of its endpoints by about L²/(8R)·tan(lat);
+    # doubled for margin, plus a mile for rounding.
+    max_abs_lat = min(max(abs(lat_lo), abs(lat_hi)), 85.0)
+    bulge_nm = 2.0 * length_nm ** 2 / (8 * NavPoint.EARTH_RADIUS_NM) * math.tan(math.radians(max_abs_lat))
+    lat_pad = (distance_nm + bulge_nm + 1.0) / 60.0
+    lat_lo -= lat_pad
+    lat_hi += lat_pad
+    if lat_lo <= -89.0 or lat_hi >= 89.0:
+        return None
+    lon_lo = min(start.longitude, end.longitude)
+    lon_hi = max(start.longitude, end.longitude)
+    if lon_hi - lon_lo > 180.0:
+        return None  # crosses the antimeridian: don't filter
+    widest = max(abs(lat_lo), abs(lat_hi))
+    lon_pad = (distance_nm + 1.0) / (60.0 * math.cos(math.radians(widest)))
+    return (lat_lo, lat_hi, lon_lo - lon_pad, lon_hi + lon_pad)
+
+
+def _in_bbox(box, lat: float, lon: float) -> bool:
+    if box is None:
+        return True
+    lat_lo, lat_hi, lon_lo, lon_hi = box
+    return lat_lo <= lat <= lat_hi and lon_lo <= lon <= lon_hi

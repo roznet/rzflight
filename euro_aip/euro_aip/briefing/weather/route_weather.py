@@ -2,16 +2,27 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, Sequence, TYPE_CHECKING, Union
 
 from euro_aip.briefing.weather.collection import WeatherCollection
 from euro_aip.briefing.weather.models import WeatherReport, WeatherType
+from euro_aip.models.navpoint import NavPoint
 
 if TYPE_CHECKING:
     from euro_aip.briefing.sources.avwx import AvWxSource
     from euro_aip.models.euro_aip_model import EuroAipModel
 
 logger = logging.getLogger(__name__)
+
+RoutePointLike = Union[str, NavPoint]
+
+
+def route_point_name(point: RoutePointLike) -> str:
+    """The identifier of a route point: the code itself, or a NavPoint's name
+    (its coordinates when it has none)."""
+    if isinstance(point, NavPoint):
+        return point.name or f"{point.latitude:.4f},{point.longitude:.4f}"
+    return str(point)
 
 
 @dataclass
@@ -112,7 +123,7 @@ class RouteWeatherService:
 
     def fetch_route_weather(
         self,
-        route_icaos: List[str],
+        route_icaos: Sequence[RoutePointLike],
         corridor_nm: float,
         model: 'EuroAipModel',
         metar_hours: float = 3,
@@ -121,7 +132,10 @@ class RouteWeatherService:
         Find airports along a route and fetch their weather.
 
         Args:
-            route_icaos: ICAO codes defining the route waypoints.
+            route_icaos: The route waypoints, as codes or NavPoints. A code is
+                looked up as an airport; pass NavPoints for navaids, fixes and
+                lat/lon points, which the airport table cannot place (an
+                unplaceable code is dropped from the route geometry).
             corridor_nm: Corridor width in nautical miles from route centerline.
             model: EuroAipModel with airport database for spatial queries.
             metar_hours: Hours of METAR history to fetch.
@@ -129,11 +143,13 @@ class RouteWeatherService:
         Returns:
             RouteWeatherResult with airports sorted by enroute distance.
         """
+        route_names = [route_point_name(p) for p in route_icaos]
+
         # 1. Find airports near the route
-        nearby = model.find_airports_near_route(route_icaos, distance_nm=corridor_nm)
+        nearby = model.find_airports_near_route(list(route_icaos), distance_nm=corridor_nm)
         logger.info(
             "Found %d airports within %dnm of route %s",
-            len(nearby), corridor_nm, "-".join(route_icaos),
+            len(nearby), corridor_nm, "-".join(route_names),
         )
 
         # 2. Build airport info list
@@ -159,7 +175,7 @@ class RouteWeatherService:
         # Ensure route airports are always included. Route waypoints may be
         # navaids, intersections or lat/lon points (e.g. "5117N00009E"); only
         # 4-letter ICAO codes are real airports with METAR/TAF — skip the rest.
-        for icao in route_icaos:
+        for icao in route_names:
             icao_upper = icao.upper()
             if not (len(icao_upper) == 4 and icao_upper.isalpha()):
                 continue
@@ -194,7 +210,7 @@ class RouteWeatherService:
         )
 
         return RouteWeatherResult(
-            route_icaos=route_icaos,
+            route_icaos=route_names,
             corridor_nm=corridor_nm,
             airports=airports_sorted,
         )

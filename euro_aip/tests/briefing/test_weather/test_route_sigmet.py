@@ -77,6 +77,26 @@ class TestResolution:
         assert result.route_firs == []
 
 
+class TestNavPointRoute:
+    def test_navpoints_used_without_airport_lookup(self):
+        """A navaid NavPoint keeps its place in the route: a SIGMET near the
+        dogleg is matched though the straight airport-to-airport line misses it."""
+        model = make_model([], route_firs=["EGTT"])
+        # A(51,0) → navaid N(53,1) → B(51,2); the box sits around N, well north
+        # of the direct A→B line along lat 51.
+        sigmet = make_sigmet("EGTT", [box(0.8, 52.8, 1.2, 53.2)])
+        service = RouteSigmetService(source=make_source([sigmet]))
+        route = [
+            NavPoint(latitude=51.0, longitude=0.0, name="AAAA"),
+            NavPoint(latitude=53.0, longitude=1.0, name="NAVDA"),
+            NavPoint(latitude=51.0, longitude=2.0, name="BBBB"),
+        ]
+        result = service.fetch_route_sigmets(route, corridor_nm=10, model=model)
+        assert [rs.sigmet.fir_id for rs in result.sigmets] == ["EGTT"]
+        assert result.route_icaos == ["AAAA", "NAVDA", "BBBB"]
+        model.airports.get.assert_not_called()
+
+
 class TestGeometryMatching:
     def test_sigmet_on_route_matched(self):
         on_route = make_sigmet("EGTT", box(0.8, 50.3, 1.2, 50.7))
