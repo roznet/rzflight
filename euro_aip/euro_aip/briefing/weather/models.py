@@ -156,6 +156,11 @@ class WeatherReport:
         wind_unit: Wind unit (KT, MPS, KMH)
         visibility_meters: Visibility in meters
         visibility_sm: Visibility in statute miles
+        visibility_min_meters: Minimum visibility in meters, when reported as
+            a second group (``9999 1400`` / ``9999 1400SW``). Never used for
+            the flight category, which reads the prevailing visibility.
+        visibility_min_direction: Direction of the minimum visibility
+            (``SW``), when reported
         ceiling_ft: Ceiling height in feet (lowest BKN/OVC layer)
         cavok: Ceiling And Visibility OK
         clouds: List of cloud layer dicts
@@ -189,6 +194,8 @@ class WeatherReport:
     # Visibility
     visibility_meters: Optional[int] = None
     visibility_sm: Optional[float] = None
+    visibility_min_meters: Optional[int] = None
+    visibility_min_direction: Optional[str] = None
 
     # Ceiling & clouds
     ceiling_ft: Optional[int] = None
@@ -290,6 +297,8 @@ class WeatherReport:
             'wind_unit': self.wind_unit,
             'visibility_meters': self.visibility_meters,
             'visibility_sm': self.visibility_sm,
+            'visibility_min_meters': self.visibility_min_meters,
+            'visibility_min_direction': self.visibility_min_direction,
             'ceiling_ft': self.ceiling_ft,
             'cavok': self.cavok,
             'clouds': self.clouds,
@@ -358,6 +367,8 @@ class WeatherReport:
             wind_unit=data.get('wind_unit', 'KT'),
             visibility_meters=data.get('visibility_meters'),
             visibility_sm=data.get('visibility_sm'),
+            visibility_min_meters=data.get('visibility_min_meters'),
+            visibility_min_direction=data.get('visibility_min_direction'),
             ceiling_ft=data.get('ceiling_ft'),
             cavok=data.get('cavok', False),
             clouds=data.get('clouds', []),

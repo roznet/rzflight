@@ -198,6 +198,8 @@ Core fields — same structure for METARs, SPECIs, and TAF base/trends:
 | `wind_unit` | `str` | Wind unit: "KT", "MPS", "KMH" (default "KT") |
 | `visibility_meters` | `int?` | Visibility in meters |
 | `visibility_sm` | `float?` | Visibility in statute miles |
+| `visibility_min_meters` | `int?` | Minimum visibility (second group, `9999 1400` / `9999 1400SW`); never used for the category |
+| `visibility_min_direction` | `str?` | Its direction (`SW`), when reported |
 | `ceiling_ft` | `int?` | Lowest BKN/OVC layer in feet |
 | `cavok` | `bool` | Ceiling And Visibility OK |
 | `clouds` | `List[dict]` | `[{quantity, height, type}]` |
@@ -257,6 +259,13 @@ Worst condition (ceiling or visibility) determines category.
 - **metar_taf_parser normalizes 9999**: Returns `"> 10km"` = 10000m, not 9999
 - **Visibility format varies**: Library gives `"3000m"`, `"2SM"`, `"> 10km"` — parser handles all
 - **CAVOK**: Sets both visibility (10000m) and ceiling (None) → always VFR
+- **Minimum visibility (flyfun-weather #682)**: metar_taf_parser reads a
+  second visibility group *without* a direction (`9999 1400`, common on French
+  AUTO stations) as the visibility itself, so `9999 1400` graded LIFR.
+  `WeatherParser._metar_visibility_groups` re-reads the METAR body (up to
+  TEMPO/BECMG/NOSIG/PROB/RMK): first group prevailing → `visibility_meters`
+  and the category; the group right after it → `visibility_min_*`. TAFs and
+  trend groups carry one visibility each and are not affected.
 - **Variable wind without direction**: Uses full speed as worst-case crosswind
 - **TAF validity month-crossing**: Parser handles end_day < start_day (spans month boundary)
 - **Package name**: PyPI package is `metar-taf-parser-mivek`, not `metar-taf-parser`

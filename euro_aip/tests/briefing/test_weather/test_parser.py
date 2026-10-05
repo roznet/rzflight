@@ -110,6 +110,76 @@ class TestParseMetar:
         assert report.wind_variable_to == 280
 
 
+class TestMinimumVisibility:
+    """A second visibility group is the minimum, never the prevailing one."""
+
+    def test_auto_minimum_without_direction_is_not_prevailing(self):
+        # Real LFBZ AUTO report: 9999 prevailing, 1400 minimum. Was read as
+        # 1400 m and graded LIFR.
+        raw = (
+            "METAR LFBZ 041100Z AUTO 35004KT 290V080 9999 1400 R27/P2000 "
+            "R09/1100D FEW022 23/18 Q1015"
+        )
+        report = WeatherParser.parse_metar(raw)
+        assert report.visibility_meters == 10000
+        assert report.visibility_min_meters == 1400
+        assert report.visibility_min_direction is None
+        assert report.flight_category == FlightCategory.VFR
+
+    def test_auto_minimum_below_prevailing_ifr(self):
+        # Real LFQQ AUTO report: 2200 m prevailing (IFR), 1000 m minimum.
+        raw = (
+            "METAR LFQQ 040630Z AUTO 36001KT 2200 1000 R26/3300D R08/2500U "
+            "BR NSC 10/09 Q1020"
+        )
+        report = WeatherParser.parse_metar(raw)
+        assert report.visibility_meters == 2200
+        assert report.visibility_min_meters == 1000
+        assert report.flight_category == FlightCategory.IFR
+
+    def test_minimum_with_direction(self):
+        raw = "METAR ZZAA 041100Z 35004KT 9999 1400SW FEW022 23/18 Q1015"
+        report = WeatherParser.parse_metar(raw)
+        assert report.visibility_meters == 10000
+        assert report.visibility_min_meters == 1400
+        assert report.visibility_min_direction == "SW"
+        assert report.flight_category == FlightCategory.VFR
+
+    def test_single_visibility_has_no_minimum(self):
+        raw = "METAR ZZAA 041100Z 35004KT 9999 FEW022 23/18 Q1015"
+        report = WeatherParser.parse_metar(raw)
+        assert report.visibility_meters == 10000
+        assert report.visibility_min_meters is None
+        assert report.flight_category == FlightCategory.VFR
+
+    def test_trend_visibility_is_not_a_minimum(self):
+        raw = "METAR ZZAA 041100Z 35004KT 9999 FEW022 23/18 Q1015 TEMPO 1400 BR"
+        report = WeatherParser.parse_metar(raw)
+        assert report.visibility_meters == 10000
+        assert report.visibility_min_meters is None
+
+    def test_cavok_unchanged(self):
+        report = WeatherParser.parse_metar("METAR ZZAA 041100Z 35004KT CAVOK 23/18 Q1015")
+        assert report.visibility_meters == 10000
+        assert report.visibility_min_meters is None
+
+    def test_round_trip_dict(self):
+        from euro_aip.briefing.weather.models import WeatherReport
+
+        report = WeatherParser.parse_metar("METAR ZZAA 041100Z 35004KT 9999 1400SW FEW022 23/18 Q1015")
+        back = WeatherReport.from_dict(report.to_dict())
+        assert (back.visibility_min_meters, back.visibility_min_direction) == (1400, "SW")
+
+    def test_taf_trend_visibility_unaffected(self):
+        raw = (
+            "TAF ZZAA 040500Z 0406/0506 35004KT 9999 FEW022 "
+            "TEMPO 0406/0410 1400 BR BECMG 0410/0412 3000"
+        )
+        report = WeatherParser.parse_taf(raw)
+        assert report.visibility_meters == 10000
+        assert [t.visibility_meters for t in report.trends] == [1400, 3000]
+
+
 class TestParseTaf:
     """Test TAF parsing."""
 
