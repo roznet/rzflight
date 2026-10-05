@@ -20,6 +20,16 @@ _MAX_REPORT_FUTURE = timedelta(hours=6)
 # A TAF's validity window may legitimately open ahead of its issue time.
 _MAX_VALIDITY_START_FUTURE = timedelta(days=2)
 
+# Visibility groups in metres. In the report body the first is the prevailing
+# visibility; a second one straight after it is the minimum visibility, with
+# or without a direction ("9999 1400", "9999 1400SW"). metar_taf_parser reads
+# a second group without a direction as the visibility itself, so the body is
+# re-read here (see WeatherParser._metar_visibility_groups).
+_PREVAILING_VIS_RE = re.compile(r"^(\d{4})(?:NDV)?$")
+_MINIMUM_VIS_RE = re.compile(r"^(\d{4})(N|NE|E|SE|S|SW|W|NW)?$")
+# Where a METAR's observed body ends: its trend forecast or its remarks.
+_METAR_BODY_END_RE = re.compile(r"^(?:TEMPO|BECMG|NOSIG|RMK|PROB\d{2})$")
+
 
 def _candidate_months(reference: datetime) -> Iterator[Tuple[int, int]]:
     """Yield (year, month) for the month before, of, and after `reference`."""
@@ -279,6 +289,11 @@ class WeatherParser:
 
         wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(parsed)
         vis_m, vis_sm = cls._extract_visibility(parsed)
+        vis_min_m, vis_min_dir = None, None
+        groups = None if parsed.cavok else cls._metar_visibility_groups(raw_text)
+        if groups is not None:
+            vis_m, vis_min_m, vis_min_dir = groups
+            vis_sm = vis_m * _METERS_TO_SM
         ceiling = cls._extract_ceiling(parsed)
         clouds = cls._extract_clouds(parsed)
         conditions = cls._extract_weather_conditions(parsed)
@@ -296,6 +311,8 @@ class WeatherParser:
             wind_unit=wind_unit,
             visibility_meters=vis_m,
             visibility_sm=vis_sm,
+            visibility_min_meters=vis_min_m,
+            visibility_min_direction=vis_min_dir,
             ceiling_ft=ceiling,
             cavok=parsed.cavok,
             clouds=clouds,
@@ -511,6 +528,33 @@ class WeatherParser:
                     vis_sm = vis_m * _METERS_TO_SM
 
         return vis_m, vis_sm
+
+    @classmethod
+    def _metar_visibility_groups(
+        cls, raw_text: str,
+    ) -> Optional[Tuple[int, int, Optional[str]]]:
+        """(prevailing m, minimum m, minimum direction) when the METAR body
+        reports a minimum visibility after the prevailing one, else None.
+
+        ``9999 1400`` is 10 km prevailing with a 1400 m minimum, not 1400 m:
+        metar_taf_parser overwrites the visibility with a second group that
+        has no direction. Only the first visibility group of the body counts
+        (the trend forecast and remarks are not read). ``9999`` is ≥ 10 km
+        and reads as 10000 m, as the library reads it.
+        """
+        tokens = raw_text.upper().split()
+        for i, tok in enumerate(tokens):
+            if _METAR_BODY_END_RE.match(tok):
+                return None
+            prevailing = _PREVAILING_VIS_RE.match(tok)
+            if prevailing is None:
+                continue
+            nxt = _MINIMUM_VIS_RE.match(tokens[i + 1]) if i + 1 < len(tokens) else None
+            if nxt is None:
+                return None
+            prev_m = int(prevailing.group(1))
+            return (10000 if prev_m == 9999 else prev_m), int(nxt.group(1)), nxt.group(2)
+        return None
 
     @classmethod
     def _safe_parse_fraction(cls, text: str) -> Optional[float]:
