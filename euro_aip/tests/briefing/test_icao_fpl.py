@@ -577,3 +577,75 @@ class TestFPLField13OnlyInItsSlots:
         assert fpl.route.departure != "S/C"
         assert fpl.speed_knots == 105
         assert fpl.raw_route == "DCT SFD DCT"
+
+
+# ========================================================================
+# Field 7 with a hyphen (invalid, but typed by pilots): repaired and recorded
+# ========================================================================
+
+SAMPLE_FPL_DASHED_REG = (
+    "(FPL-F-HABC-VG-C172/L-S/C-LFPN0900-N0105VFR DCT RBT DCT-LFRK0045)"
+)
+
+SAMPLE_FPL_DASHED_REG_MULTILINE = """(FPL-F-HABC-VG
+-C172/L-S/C
+-LFPN0900
+-N0105VFR DCT RBT DCT
+-LFRK0045)"""
+
+
+class TestFPLDashedRegistration:
+    """A hyphen in field 7 is rejoined, and the repair is recorded."""
+
+    @pytest.mark.parametrize("text", [
+        SAMPLE_FPL_DASHED_REG,
+        SAMPLE_FPL_DASHED_REG_MULTILINE,
+    ])
+    def test_dashed_registration_is_rejoined(self, text):
+        fpl = parse_icao_fpl(text)
+        assert fpl.aircraft_registration == "FHABC"
+        assert fpl.flight_rules == "V"
+        assert fpl.aircraft_type == "C172"
+        assert fpl.equipment == "S"
+        assert fpl.route.departure == "LFPN"
+        assert fpl.departure_time_utc == time(9, 0)
+        assert fpl.route.destination == "LFRK"
+        assert fpl.route.waypoints == ["RBT"]
+        assert fpl.repairs == [
+            "field 7: hyphen removed from aircraft identification"
+        ]
+
+    def test_dashed_registration_with_malformed_field13(self):
+        fpl = parse_icao_fpl(
+            "(FPL-F-HABC-VG-C172/L-S/C-LFPN09-N0105VFR DCT RBT DCT-LFRK0045)"
+        )
+        assert fpl.aircraft_registration == "FHABC"
+        assert fpl.route.departure == "LFPN"
+        assert fpl.route.destination == "LFRK"
+
+    @pytest.mark.parametrize("text", [
+        SAMPLE_FPL,
+        SAMPLE_FPL_IFR,
+        SAMPLE_FPL_MINIMAL,
+        SAMPLE_FPL_METRIC_SPEED,
+        SAMPLE_FPL_SPLIT_9_10,
+        SAMPLE_FPL_SPLIT_9_10_FIELD_19,
+        SAMPLE_FPL_FIELD_19_JOINED,
+        SAMPLE_FPL_AUTOROUTER_ONE_LINE,
+        SAMPLE_FPL_ZZZZ,
+        # Valid field 8 of one letter, and a formation count in field 9.
+        "(FPL-GABCD-V-2C172/L-S/C-EGKA0900-N0105VFR DCT-EGHI0045-0)",
+    ])
+    def test_valid_plans_are_not_repaired(self, text):
+        assert parse_icao_fpl(text).repairs == []
+
+    def test_registration_whose_suffix_looks_like_field8_is_left_alone(self):
+        # "F-IG": the second part is a valid field 8, so nothing is rejoined
+        # and the plan reads as it did before the repair existed.
+        fpl = parse_icao_fpl("(FPL-F-IG-VG-C172/L-S/C-LFPN0900-N0105VFR DCT-LFRK0045)")
+        assert fpl.repairs == []
+
+    def test_repairs_in_to_dict(self):
+        assert parse_icao_fpl(SAMPLE_FPL_DASHED_REG).to_dict()["repairs"] == [
+            "field 7: hyphen removed from aircraft identification"
+        ]

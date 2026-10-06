@@ -226,6 +226,7 @@ Parsed ICAO flight plan with all extractable fields. Python: `parse_icao_fpl()`,
 | `eet_minutes` | `int?` | From field 16, total minutes |
 | `raw_route` | `str?` | Unparsed field 15 route string |
 | `other_info` | `Dict[str,str]` | Field 18 key/value pairs (DOF, PBN, RMK, EET, etc.) |
+| `repairs` | `List[str]` | Fixes applied to invalid input so it could be read (empty for a valid plan) |
 | `route` | `Route` | Fully populated with departure, destination, waypoints, times |
 
 ### Derived Properties
@@ -265,10 +266,23 @@ departure, with no time.
 
 Why only 3 and 4: those are the only places field 13 can be. Scanning further let a field 16
 with no alternate (`-EGSS0025`, same shape) be taken as departure whenever field 13 was
-malformed, shifting route and destination too (#31). Trade-off: a registration written with
-a dash (`F-HABC`) shifts every field by one and is not recovered; it already broke fields 7
-and 8, and no emitter seen produces it. Same rule in
+malformed, shifting route and destination too (#31). Same rule in
 [swift_briefing.md](./swift_briefing.md) Gotchas.
+
+### Repairing invalid input
+
+Valid plans (Doc 4444) put exactly fields 7, 8, 9, 10 before field 13, none containing a
+hyphen, so the index 3/4 rule only fails on invalid input. One invalid variant is common
+enough to repair: a registration typed with its dash (`F-HABC`, field 7 allows no symbols),
+which splits field 7 in two and pushes field 13 to index 5. Both parsers rejoin
+`fields[0]+fields[1]` **only when** `fields[1]` is not a valid field 8 (`[IVYZ][SNGMX]?`)
+**and** `fields[2]` is. A valid plan can never trigger it: its field 8 is always valid, and
+its field 9 carries `/`. A suffix that happens to look like field 8 (`F-IG`) is left alone.
+
+Each repair is logged (warning) and recorded in `repairs` (same strings in Python and
+Swift), so the parse doesn't hide that the input was invalid: a briefing tool can ignore it,
+a filing or validating caller can surface or reject it. Add new repairs the same way —
+only when no valid plan can match, and always recorded.
 
 ### Key Code
 

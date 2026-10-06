@@ -52,7 +52,9 @@ shape of briefing/weather results, and network-source failure behaviour.
 
 - **flyfun-forms** (`flyfun-forms/main/`, `pyproject.toml`): borders and customs —
   `crossing_requirements`, `CustomInterpreter`, customs contacts
-  (`scripts/sync_aip_emails.py`) — and RZFlight Swift in its app.
+  (`scripts/sync_aip_emails.py`) — and RZFlight Swift in its app, including
+  `ICAOFlightPlanParser` for flight-plan import from the clipboard (pilot-pasted text)
+  and from autorouter routes.
 - **flightlogstats** (`flightlogstats/`): RZFlight Swift in the iOS app, reading a
   bundled `nav.db` cut from the flyfun-apps database by `python/make_nav_db.py`;
   Python `euro_aip` in `python/`.

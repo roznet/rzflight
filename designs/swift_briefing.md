@@ -236,6 +236,8 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
   searched, because a field 16 with no alternate (`EGSS0025`) has the same shape and was
   taken as departure when field 13 was malformed (#31). No match → index 4 if index 3
   carries `/` (field 10), else 3. Fields 15+ are taken positionally after field 13.
+  A dashed registration (`F-HABC`, invalid) is rejoined first and recorded in
+  `ICAOFlightPlan.repairs` (see briefing_models.md "Repairing invalid input").
   Python `parse_icao_fpl` does the same (same regex and rule); keep them in step.
 
 ## References

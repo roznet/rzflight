@@ -466,4 +466,42 @@ final class RZFlightFPLTests: XCTestCase {
             XCTAssertEqual(fpl.surveillance, "C", text)
         }
     }
+
+    // MARK: - Field 7 with a hyphen
+
+    /// "F-HABC" is invalid in field 7 (no symbols) but pilots type it. It is
+    /// rejoined and the repair recorded, as in Python, joined or multi-line.
+    func testDashedRegistrationIsRejoined() {
+        let canonical = "(FPL-F-HABC-VG-C172/L-S/C-LFPN0900-N0105VFR DCT RBT DCT-LFRK0045)"
+        let multiline = """
+        (FPL-F-HABC-VG
+        -C172/L-S/C
+        -LFPN0900
+        -N0105VFR DCT RBT DCT
+        -LFRK0045)
+        """
+        for text in [canonical, multiline] {
+            let fpl = ICAOFlightPlanParser.parse(text)!
+            XCTAssertEqual(fpl.aircraftRegistration, "FHABC", text)
+            XCTAssertEqual(fpl.flightRules, "V", text)
+            XCTAssertEqual(fpl.aircraftType, "C172", text)
+            XCTAssertEqual(fpl.route.departure, "LFPN", text)
+            XCTAssertEqual(fpl.departureTimeUTC?.hour, 9, text)
+            XCTAssertEqual(fpl.route.destination, "LFRK", text)
+            XCTAssertEqual(fpl.route.waypoints, ["RBT"], text)
+            XCTAssertEqual(fpl.repairs, ["field 7: hyphen removed from aircraft identification"], text)
+        }
+    }
+
+    /// Valid plans never trigger the repair: field 8 is always valid in them,
+    /// and field 9 carries "/" so it can't pass for field 8.
+    func testValidPlansAreNotRepaired() {
+        let texts = [
+            Self.sampleFPL, Self.sampleIFR, Self.sampleMinimal, Self.sampleMetric,
+            "(FPL-GABCD-V-2C172/L-S/C-EGKA0900-N0105VFR DCT-EGHI0045-0)",
+        ]
+        for text in texts {
+            XCTAssertEqual(ICAOFlightPlanParser.parse(text)!.repairs, [], text)
+        }
+    }
 }

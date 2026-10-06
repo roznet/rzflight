@@ -6,7 +6,10 @@
 //
 
 import Foundation
+import OSLog
 import CoreLocation
+
+private let fplLogger = Logger(subsystem: "RZFlight", category: "fpl")
 
 /// Parsed ICAO flight plan with all extractable fields.
 public struct ICAOFlightPlan: Sendable {
@@ -63,6 +66,11 @@ public struct ICAOFlightPlan: Sendable {
 
     /// Populated route with departure, destination, waypoints, coordinates, times
     public let route: Route
+
+    /// Fixes applied to invalid input so it could be read, e.g. a hyphen in
+    /// field 7. Empty for a valid plan; a caller that files or validates plans
+    /// can surface or reject these. Same strings as Python's `repairs`.
+    public var repairs: [String] = []
 
     // MARK: - Derived Properties
 
@@ -147,8 +155,21 @@ public struct ICAOFlightPlanParser {
         body = body.trimmingCharacters(in: .whitespaces)
 
         // Step 2: Split fields
-        let fields = splitFields(body)
+        var fields = splitFields(body)
         guard fields.count >= 6 else { return nil }
+
+        // Field 7 may not contain a hyphen (Doc 4444: up to 7 letters/digits,
+        // no symbols), but a registration typed as "F-HABC" splits into two
+        // fields and shifts the rest by one. Rejoin it only when the second
+        // part is not a valid field 8 and the next field is: in a valid plan
+        // field 8 is always valid, and field 9 never looks like one (it
+        // carries "/"), so a valid plan can't trigger this.
+        var repairs: [String] = []
+        if fields.count >= 7 && !isField8(fields[1]) && isField8(fields[2]) {
+            fplLogger.warning("FPL field 7 contains a hyphen (\(fields[0], privacy: .public)-\(fields[1], privacy: .public))")
+            fields = [fields[0] + fields[1]] + fields[2...]
+            repairs.append("field 7: hyphen removed from aircraft identification")
+        }
 
         // Step 3: Parse fields
         let registration = fields[0].trimmingCharacters(in: .whitespaces).uppercased()
@@ -298,7 +319,8 @@ public struct ICAOFlightPlanParser {
             rawRoute: rawRoute,
             otherInfo: otherInfo,
             rawText: rawText,
-            route: route
+            route: route,
+            repairs: repairs
         )
     }
 
@@ -311,6 +333,18 @@ public struct ICAOFlightPlanParser {
     private static let field13Pattern = try! NSRegularExpression(
         pattern: #"^[A-Z]{4}([0-1]\d|2[0-3])[0-5]\d$"#
     )
+
+    /// Field 8: flight rules (I, V, Y, Z), then optionally type of flight
+    /// (S, N, G, M, X).
+    private static let field8Pattern = try! NSRegularExpression(
+        pattern: #"^[IVYZ][SNGMX]?$"#
+    )
+
+    private static func isField8(_ field: String) -> Bool {
+        let trimmed = field.trimmingCharacters(in: .whitespaces).uppercased()
+        let range = NSRange(trimmed.startIndex..., in: trimmed)
+        return field8Pattern.firstMatch(in: trimmed, range: range) != nil
+    }
 
     private static func isField13(_ field: String) -> Bool {
         let trimmed = field.trimmingCharacters(in: .whitespaces).uppercased()

@@ -87,6 +87,10 @@ class ICAOFlightPlan:
     raw_route: Optional[str] = None
     other_info: Dict[str, str] = field(default_factory=dict)
     raw_text: str = ""
+    # Fixes applied to invalid input so it could be read, e.g. a hyphen in
+    # field 7. Empty for a valid plan; a caller that files or validates plans
+    # can surface or reject these.
+    repairs: List[str] = field(default_factory=list)
 
     # Populated route
     route: Route = field(default_factory=lambda: Route(departure="", destination=""))
@@ -150,6 +154,7 @@ class ICAOFlightPlan:
             "eet_minutes": self.eet_minutes,
             "raw_route": self.raw_route,
             "other_info": self.other_info,
+            "repairs": self.repairs,
             "raw_text": self.raw_text,
             "route": self.route.to_dict(),
             "is_ifr": self.is_ifr,
@@ -202,6 +207,20 @@ def parse_icao_fpl(
         return None
 
     result = ICAOFlightPlan(raw_text=raw_text)
+
+    # Field 7 may not contain a hyphen (Doc 4444: up to 7 letters/digits, no
+    # symbols), but a registration typed as "F-HABC" splits into two fields
+    # and shifts the rest by one. Rejoin it only when the second part is not
+    # a valid field 8 and the next field is: in a valid plan field 8 is
+    # always valid, and field 9 never looks like one (it carries "/"), so a
+    # valid plan can't trigger this.
+    if len(fields) >= 7 and not _is_field8(fields[1]) and _is_field8(fields[2]):
+        logger.warning(
+            "FPL field 7 contains a hyphen (%s-%s); read as %s%s",
+            fields[0], fields[1], fields[0], fields[1],
+        )
+        fields = [fields[0] + fields[1]] + fields[2:]
+        result.repairs.append("field 7: hyphen removed from aircraft identification")
 
     # Step 3: Parse each field
     _parse_field7(fields[0], result)
@@ -263,6 +282,15 @@ _FIELD13_RE = re.compile(r'[A-Z]{4}([0-1]\d|2[0-3])[0-5]\d')
 
 def _is_field13(field: str) -> bool:
     return _FIELD13_RE.fullmatch(field.strip().upper()) is not None
+
+
+# Field 8: flight rules (I, V, Y, Z), then optionally type of flight
+# (S, N, G, M, X).
+_FIELD8_RE = re.compile(r'[IVYZ][SNGMX]?')
+
+
+def _is_field8(field: str) -> bool:
+    return _FIELD8_RE.fullmatch(field.strip().upper()) is not None
 
 
 def _split_fields(body: str) -> List[str]:
