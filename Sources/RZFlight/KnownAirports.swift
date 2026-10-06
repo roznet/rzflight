@@ -95,7 +95,7 @@ public class KnownAirports {
         if let found = known[code] {
             return found
         }
-        guard let current = currentCodeForAltIdent[code] else { return nil }
+        guard code.count == 4, let current = currentCodeForAltIdent[code] else { return nil }
         return known[current]
     }
 

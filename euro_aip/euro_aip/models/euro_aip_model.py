@@ -439,6 +439,11 @@ class EuroAipModel:
         ``alt_ident`` is ``code`` — the code it was previously listed under,
         which a pilot may still type or a METAR may still be issued under.
 
+        If two airports share an ``alt_ident``, the first in load order wins.
+        Swift (``KnownAirports``, ``Airport(db:ident:)``) picks the lowest
+        current code instead: the same answer on today's data, but a parity
+        gap to keep in mind.
+
         Examples:
             model.find_airport_by_code('LELO').ident  # 'LERJ'
         """
