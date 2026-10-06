@@ -513,6 +513,15 @@ public class KnownAirports {
 }
 ```
 
+For a one-off lookup without loading the whole table, `Airport(db:ident:)` reads one row
+(plus its runways) and throws `AirportError.unknownIdentifier` if absent.
+
+**Lookup is by current ICAO only.** Both paths match `airports.icao_code` exactly
+(case-sensitive; `KnownAirports` is a dictionary keyed by it). The DB stores airports under
+their *current* code with the superseded one in `alt_ident` (LERJ, formerly LELO; see
+[database_quick_reference.md](./database_quick_reference.md)); Swift does not consult
+`alt_ident`, so an old code finds nothing. Python's `find_airport_by_code()` does fall back.
+
 ---
 
 ## Array Filter Extensions

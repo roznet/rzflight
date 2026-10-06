@@ -52,6 +52,11 @@ Transactions, bulk operations, and fluent builders for creating and modifying av
 Key exports: `model.transaction()`, `bulk_add_airports`, `airport_builder`
 → Full doc: builder_api_guide.md
 
+### Python Euro AIP Borders & Customs
+Offline Schengen / EU-customs-union membership and per-flight crossing requirements, plus the AIP customs-field interpreter (field 302): notice periods and how to notify (contact e-mails, web forms, myhandling, mandated e-mail subject).
+Key exports: `crossing_requirements`, `is_schengen`, `is_eu_customs_union`, `CustomInterpreter`, `InterpreterFactory`
+→ Full doc: borders.md
+
 ### Python Euro AIP Web Sources
 Documentation for European AIP web sources and data retrieval.
 → Full doc: AIP_WEB_SOURCES.md
@@ -64,6 +69,6 @@ Key exports: `Briefing`, `NotamCollection`, `WeatherCollection`, `ForeFlightSour
 - `briefing.md` - Overview, architecture, usage examples (read FIRST)
 - `briefing_models.md` - Data model field reference (Notam, Route, Briefing, WeatherReport)
 - `briefing_filtering.md` - NotamCollection/WeatherCollection API and categorization pipeline
-- `briefing_weather.md` - Weather parsing, flight categories, wind components, TAF analysis
+- `briefing_weather.md` - Weather parsing, flight categories, wind components, TAF analysis, SIGMETs, route weather/SIGMET services (codes or NavPoints)
 - `briefing_parsing.md` - Source/parser separation, adding new sources
 - `swift_briefing.md` - Swift models for iOS/macOS (loads Python JSON)

@@ -253,6 +253,13 @@ Field 15 route tokens are classified:
 AIRWAY/UNKNOWN → WAYPOINT when the value also resolves to a known point (covers airway-like
 identifiers that collide with point names, e.g. `Y8` airway vs NDB). See [waypoints.md](./waypoints.md).
 
+### Locating Field 13
+
+Fields 9/10 may arrive joined (`-C172/L-S/C`) or split, and field 19 adds a slot, so the
+field count does not fix field 13's position. Swift matches field 13 by shape (`ICAO`+`HHMM`,
+first match after field 9); Python still uses the count, guarded by an embedded-`-` check on
+field 9. See [swift_briefing.md](./swift_briefing.md) Gotchas.
+
 ### Key Code
 
 - Python: `euro_aip/briefing/models/icao_fpl.py`

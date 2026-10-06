@@ -21,6 +21,7 @@ euro_aip/briefing/weather/
 ├── parser.py        # WeatherParser — wraps metar_taf_parser library
 ├── analysis.py      # WeatherAnalyzer — flight categories, wind math, TAF matching
 ├── collection.py    # WeatherCollection(QueryableCollection[WeatherReport])
+├── route_weather.py # RouteWeatherService — METAR/TAF for airports along a route corridor
 ├── sigmet.py        # SigmetReport model + AWC isigmet parser
 ├── route_sigmet.py  # RouteSigmetService — SIGMETs intersecting a route corridor
 └── __init__.py      # Public API exports
@@ -118,6 +119,29 @@ tafs = source.fetch_tafs("EGLL", date(2026, 4, 7))
 
 Ogimet scrapes HTML from `display_metars2.php`. It automatically fixes TAF validity dates (the parser infers year/month from `now()`, but for historical data it uses the actual report datetime from ogimet). Results are sorted chronologically.
 
+## Route Services
+
+`RouteWeatherService` (METAR/TAF) and `RouteSigmetService` (SIGMETs) both take a route as a sequence of **route points — ICAO codes or `NavPoint`s** (`RoutePointLike = Union[str, NavPoint]`, in `route_weather.py`):
+
+- A **code is placed only if it is an airport** (looked up in the model's airport table). Navaids, fixes and lat/lon points passed as codes are dropped from the geometry with a warning per point, so the corridor silently runs straight between the airports. Callers that already resolved the route (e.g. a flight plan with waypoints) should pass `NavPoint`s.
+- `result.route_icaos` stays a `List[str]` of names (`route_point_name`: the code, or the NavPoint's name, or `"lat,lon"` if unnamed).
+
+### RouteWeatherService (`route_weather.py`)
+
+`model.find_airports_near_route(points, distance_nm=corridor_nm)` finds the airports in the corridor, then one `AvWxSource.fetch_weather` call fetches them all. Route points that are 4-letter alphabetic codes are always included (distance 0) even if the airport table doesn't place them. Airports with an `alt_ident` (renumbered in the AIP, METAR still issued under the old code — LERJ/LELO) are fetched under both codes and filed under the current ident. Results are `RouteAirportWeather` (`latest_metar`, `latest_taf`, `has_weather`) sorted by enroute distance; `result.collection` merges everything into one `WeatherCollection`. `fetch_airports_weather(icaos)` is the no-geometry variant.
+
+```python
+from euro_aip.briefing.weather import RouteWeatherService
+from euro_aip.models.navpoint import NavPoint
+
+route = [egll.navpoint, NavPoint(latitude=50.95, longitude=1.85, name="CAL"), lfpg.navpoint]
+result = RouteWeatherService().fetch_route_weather(route, corridor_nm=25, model=model)
+for apt in result.airports_with_weather:
+    print(apt.icao, apt.enroute_distance_nm, apt.latest_metar.flight_category)
+```
+
+**Corridor search is bbox-prefiltered** (`EuroAipModel.find_airports_near_route`): each segment gets a padded lat/lon box (corridor width + the great-circle poleward bulge ≈ L²/(8R)·tan(lat), doubled, + 1 nm), and an airport is only measured against segments whose box holds it. The box is conservative, so the result is identical to measuring every segment (checked on 1212 routes, 0 differences) but a 13-point route over the ~8.9k-airport table drops from ~550 ms to ~15 ms. Boxes reaching past ±89° lat or spanning the antimeridian disable the filter rather than risk a miss.
+
 ## SIGMETs
 
 SIGMETs (Significant Meteorological Information) warn of in-flight hazards — turbulence, icing, convection, mountain waves, volcanic ash — bounded by a polygon and a vertical band over a FIR. They are modelled separately from `WeatherReport` (they are area/FIR hazards, not point observations) and follow the same Source → Model pattern.
@@ -149,11 +173,11 @@ sigmets = AvWxSource().fetch_isigmet(hazard="turb")  # server-side hazard filter
 
 ### RouteSigmetService (`route_sigmet.py`)
 
-Mirrors `RouteWeatherService`: resolve a route to geometry, fetch SIGMETs, then keep only those intersecting the route corridor, altitude band and (optional) time window. Filter stages, cheapest first:
+Mirrors `RouteWeatherService`: resolve the route points to geometry (NavPoints as given, codes via the airport table), fetch SIGMETs, then keep only those intersecting the route corridor, altitude band and (optional) time window. Filter stages, cheapest first:
 
 1. **Time + vertical** — drop SIGMETs whose validity misses the requested `(from_datetime, to_datetime)` window (`overlaps_time`) or whose layer misses `altitude_band_ft` (`overlaps_altitude`). Both window bounds are optional; naive datetimes are assumed UTC.
-2. **FIR prefilter** — `model.firs_along_route` gives the route's FIRs; a SIGMET's `fir_id` membership is a cheap candidate signal (and the fallback when a SIGMET has no usable polygon).
-3. **Geometry refine** (authoritative when geometry exists) — densely `sample_polyline` the route, bbox-prefilter, then test each sample for polygon containment / corridor distance, recording perpendicular distance and the enroute extent affected.
+2. **FIR match** — `model.firs_along_route` gives the route's FIRs; a SIGMET's `fir_id` membership is recorded in `matched_firs` and is the *only* test when a SIGMET has no usable polygon. It does not gate SIGMETs that have geometry.
+3. **Geometry refine** (authoritative when geometry exists) — densely sample the route (`sample_step_nm`, default 5), bbox-prefilter against the corridor-padded route box, then test each sample for polygon containment / corridor distance, recording perpendicular distance and the enroute extent affected.
 
 ```python
 from datetime import datetime, timezone, timedelta
@@ -161,7 +185,7 @@ from euro_aip.briefing.weather.route_sigmet import RouteSigmetService
 
 etd = datetime.now(timezone.utc)
 result = RouteSigmetService().fetch_route_sigmets(
-    ["LFPG", "LGAV"], corridor_nm=100, model=model, altitude_band_ft=(0, 45000),
+    route_navpoints, corridor_nm=100, model=model, altitude_band_ft=(0, 45000),  # or ["LFPG", "LGAV"]
     from_datetime=etd, to_datetime=etd + timedelta(hours=3),  # period of interest
 )
 for rs in result.sigmets:  # sorted by nearest enroute distance
@@ -242,6 +266,8 @@ min(FlightCategory.VFR, FlightCategory.IFR)  # → IFR
 | Static methods on WeatherAnalyzer | Pure functions, no state — easy to test |
 | Flight category on each trend | Each TAF group gets its own category independently |
 | Visibility in both meters and SM | Library returns various formats ("10km", "3000m", "2SM") — we normalize both |
+| Route services accept NavPoints | A code only resolves as an airport; passing codes for navaids/fixes silently straightened the corridor |
+| Bbox prefilter in corridor search | Exact same result as all-segments measurement, ~35x faster on long routes — route weather is on the briefing hot path |
 
 ## FAA Flight Category Thresholds
 

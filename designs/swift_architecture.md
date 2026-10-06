@@ -78,6 +78,7 @@ CREATE TABLE airports (
     type TEXT,
     municipality TEXT,
     scheduled_service TEXT,
+    alt_ident TEXT,         -- superseded code (LELO for LERJ); not read by Swift
     gps_code TEXT,
     iata_code TEXT,
     local_code TEXT,

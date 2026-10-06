@@ -82,6 +82,64 @@ airport.is_eu_customs_union    # Optional[bool]
 - **Channel Islands / Isle of Man** (`JE`, `GG`, `IM`) — outside both blocs, so
   a flight to/from the EU reads as customs + immigration, which is correct.
 
+## Airport side: reading the AIP customs field (`euro_aip.interp`)
+
+`crossing_requirements` says *whether* customs/immigration applies; the
+airport's own AIP says *how* to arrange it. That text lives in standardised
+field **302** ("Custom and Immigration", an `AIPEntry` with `std_field_id=302`)
+and is free text in French/English. `CustomInterpreter` turns it into a dict.
+It is a pure text-to-dict function: it never reads the model it is constructed
+with, and the optional `airport` argument currently has no effect.
+
+```python
+from euro_aip.interp import CustomInterpreter    # or InterpreterFactory.create_interpreter('custom', model)
+
+interp = CustomInterpreter(model)
+entry = next(e for e in airport.aip_entries if e.std_field_id == 302)
+info = interp.interpret_field_value(entry.value, airport)
+info['weekday_pn'], info['weekend_pn']   # "24H" | "H24" | "O/R" | None
+info['contact_emails']                   # ['bsep-le-havre@douane.finances.gouv.fr', ...]
+info['email_subject']                    # 'ppf le havre octeville' (LFOH) or None
+```
+
+Fields (`get_structured_fields()`), plus `raw_value`:
+
+- **When**: `weekday_pn` / `weekend_pn` (notice period), `advance_notice_required`
+  (False when both are `H24`/`O/R`), `custom_available`, `immigration_available`
+  (keyword presence, not a guarantee of service).
+- **How** (euro-aip >= 0.18.0): `contact_emails`, `contact_urls` (online
+  notification forms), `mentions_myhandling` (notification goes through the
+  myhandling portal: "Via My Handling", `cy.myhandlingsoftware.com`), and
+  `email_subject` (the subject line some airports mandate, matched from
+  `subject:` / `objet :` followed by a quoted string, any quote style incl. `« »`).
+
+Choices and why:
+
+- **Contacts are read from the original text**, not the upper-cased copy the
+  notice-period parsing uses: upper-casing would mangle URLs and the subject.
+- **E-mails are lower-cased, de-duplicated, in order of appearance.** Order
+  matters (the AIP lists the primary address first), and the same address is
+  often repeated per time window (weekday/weekend).
+- **Known AIP typos are fixed** in `_EMAIL_DOMAIN_FIXES`, e.g. LFMT publishes
+  `douane.finance.gouv.fr`, which does not deliver; it maps to
+  `douane.finances.gouv.fr`. Add new entries there rather than patching callers.
+- The extractors (`extract_contact_emails`, `extract_contact_urls`,
+  `mentions_myhandling`, `extract_email_subject`) are module-level functions in
+  `interp_custom.py`, usable on other text.
+
+Gotchas:
+
+- Contacts are **not conditional**: "e-mail without handling, myhandling with
+  handling" (LFLB) returns both the e-mails and `mentions_myhandling=True`; the
+  condition stays only in `raw_value`.
+- `myhandling` detection strips whitespace before matching, so "My Handling"
+  matches; a hyphenated "My-Handling" would not.
+- The subject regex stops at the first quote character, so a subject containing
+  an apostrophe would be truncated.
+- Consumer: `flyfun-forms/scripts/sync_aip_emails.py` feature-detects the
+  contact fields via `"contact_emails" in interp.get_structured_fields()`, so
+  keep the field names stable.
+
 ## Maintenance
 
 Bloc memberships change — **review the tables in `euro_aip/borders.py`

@@ -35,6 +35,9 @@ Sources/RZFlight/Briefing/
 ├── Notam.swift                   # Core NOTAM model (Codable)
 ├── NotamCategory.swift           # Category enum matching Python
 ├── Route.swift                   # Route + RoutePoint models
+├── RoutePointResolver.swift      # Resolve route tokens to coordinates
+├── ICAOFlightPlanParser.swift    # ICAO FPL string → ICAOFlightPlan
+├── FlightExchange.swift          # Cross-app route interchange DTO
 ├── Briefing.swift                # Container with load/parse methods
 ├── Notam+Queries.swift           # [Notam] filtering extensions
 └── Route+Geometry.swift         # Route projection & NOTAM classification
@@ -225,6 +228,12 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
 - **Dates require ISO8601**: Python uses `.isoformat()`, Swift needs `.iso8601` decoder
 - **Coordinates can be nil**: Many NOTAMs lack coords, spatial filters skip them
 - **Category enum must match Python**: `NotamCategory` raw values match Python's
+- **FPL field 13 is found by shape, not position**: `ICAOFlightPlanParser` scans from field 9
+  for the first field matching `^[A-Z]{4}HHMM$` (ZZZZ included) and treats anything between
+  field 9 and it as field 10. Counting fields broke twice: emitters join or split fields 9/10
+  depending on spacing, and field 19 adds a field — either shifts the count without moving
+  field 13, giving departure "N011" and destination "DOF/" while still "succeeding". Fields
+  15+ are taken positionally after field 13; falls back to index 3 if nothing matches.
 
 ## References
 
