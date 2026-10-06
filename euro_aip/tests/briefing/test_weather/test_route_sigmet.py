@@ -283,3 +283,21 @@ class TestLazySource:
             mock_cls.return_value = instance
             service.fetch_route_sigmets(ROUTE, corridor_nm=25, model=model)
             mock_cls.assert_called_once()
+
+
+class TestLookahead:
+    def test_lookahead_forwarded_to_source(self):
+        from datetime import timedelta
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        source = make_source([])
+        RouteSigmetService(source=source).fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model, lookahead=timedelta(hours=4),
+        )
+        assert source.fetch_isigmet.call_args.kwargs["lookahead"] == timedelta(hours=4)
+
+    def test_no_lookahead_not_passed(self):
+        # A source written before the lookahead keeps working.
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        source = make_source([])
+        RouteSigmetService(source=source).fetch_route_sigmets(ROUTE, corridor_nm=25, model=model)
+        assert "lookahead" not in source.fetch_isigmet.call_args.kwargs

@@ -20,7 +20,7 @@ enroute span) for a client to order and present SIGMETs along the route.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Sequence, Tuple, TYPE_CHECKING
 
 from euro_aip.utils.geometry import (
@@ -139,6 +139,7 @@ class RouteSigmetService:
         hazard: Optional[str] = None,
         region: str = "eur",
         sample_step_nm: float = 5.0,
+        lookahead: Optional[timedelta] = None,
     ) -> RouteSigmetResult:
         """
         Find SIGMETs that affect a route.
@@ -162,6 +163,9 @@ class RouteSigmetService:
                 ignores it (returns the global set); geographic filtering here is
                 done by route geometry, so this rarely matters.
             sample_step_nm: Route sampling interval for geometry refinement.
+            lookahead: Also fetch SIGMETs issued but not yet valid, up to this
+                far ahead (``AvWxSource.fetch_isigmet``). They still pass the
+                time window like any other. None = valid now only.
 
         Returns:
             RouteSigmetResult with matched SIGMETs sorted by enroute distance.
@@ -189,7 +193,9 @@ class RouteSigmetService:
         route_bbox_padded = bbox_pad(route_bbox, corridor_nm)
 
         source = self._get_source()
-        sigmets = source.fetch_isigmet(region=region, hazard=hazard)
+        # Only passed when set, so a source without the lookahead still works.
+        extra = {"lookahead": lookahead} if lookahead is not None else {}
+        sigmets = source.fetch_isigmet(region=region, hazard=hazard, **extra)
         logger.info(
             "Fetched %d SIGMET(s); route crosses FIRs %s",
             len(sigmets), sorted(route_firs),

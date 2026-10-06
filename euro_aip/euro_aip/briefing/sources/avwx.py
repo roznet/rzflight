@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Any, List, Optional
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -35,6 +36,8 @@ class AvWxSource:
     DEFAULT_MAX_RETRIES = 2
     DEFAULT_RETRY_BACKOFF = 0.5
     USER_AGENT = "euro-aip/1.0 (aviation weather tool)"
+    #: Default spacing of the isigmet lookahead queries (see ``fetch_isigmet``).
+    DEFAULT_SIGMET_LOOKAHEAD_STEP = timedelta(minutes=30)
 
     def __init__(
         self,
@@ -131,6 +134,8 @@ class AvWxSource:
         hazard: Optional[str] = None,
         level: Optional[int] = None,
         date: Optional[str] = None,
+        lookahead: Optional[timedelta] = None,
+        step: timedelta = DEFAULT_SIGMET_LOOKAHEAD_STEP,
     ) -> List[SigmetReport]:
         """
         Fetch international (FIR) SIGMETs from the isigmet endpoint.
@@ -146,9 +151,37 @@ class AvWxSource:
                 feet — e.g. ``100`` means FL100 (10,000 ft), not 100 ft. Matches
                 SIGMETs whose vertical band brackets that level.
             date: Optional ISO timestamp to query historical SIGMETs.
+            lookahead: Also return SIGMETs already issued but not yet valid,
+                up to this far ahead (ICAO: up to 4 h before validity starts,
+                12 h for volcanic ash / tropical cyclone). None (default) makes
+                the single query of old.
+            step: Spacing of the lookahead queries. A pending SIGMET valid for
+                less than ``step`` can fall between two of them.
+
+        AWC's isigmet lists only the SIGMETs valid *at the query time* (``date``,
+        default now): one issued at 06:32 to start at 07:00 is absent from a
+        06:45 query. Its ``date`` parameter does accept a future time, and then
+        returns the SIGMETs that will be valid then — all of them already
+        received by AWC, i.e. genuinely issued (checked 2026-10-05: ``now+1h``
+        gave 40 not-yet-valid SIGMETs; all 35 checked had ``receiptTime <= now``).
+        Whether AWC rounds or caches ``date`` has not been checked.
+        The lookahead adds queries at ``date = base + k·step`` (k = 1…n,
+        ``n·step <= lookahead``, base = ``date`` or now) and merges them in:
+
+        - The base query stays and is the source of truth for what is valid
+          now. A shifted query alone would drop a SIGMET expiring before it.
+        - A failed base query returns ``[]`` as before, and no lookahead query
+          is made. A failed lookahead query is logged and ends the lookahead
+          (the upstream is likely unhealthy; its slow timeouts would otherwise
+          add up): the base result and the steps already made are kept.
+          Lookahead queries are not retried.
+        - Entries are deduplicated on ``(firId, seriesId, validTimeFrom)``,
+          falling back to ``rawSigmet``: a SIGMET valid now is listed by
+          every step until it expires. Base entries come first.
 
         Returns:
-            List of parsed SigmetReport objects. Empty on any fetch/parse failure.
+            List of parsed SigmetReport objects. Empty on any fetch/parse
+            failure of the base query.
         """
         params: dict = {"format": "json"}
         if region:
@@ -160,23 +193,70 @@ class AvWxSource:
         if date:
             params["date"] = date
 
-        payload = self._fetch_json("isigmet", params)
-        if not isinstance(payload, list):
-            if payload:
-                logger.warning("AvWx isigmet returned unexpected payload type: %s", type(payload))
+        try:
+            entries = self._isigmet_entries(params)
+        except Exception as e:
+            logger.warning("AvWx JSON fetch failed for isigmet: %s", e)
             return []
 
+        if lookahead is not None and lookahead > timedelta(0):
+            entries = self._merge_lookahead(entries, params, date, lookahead, step)
+
         reports = []
-        for entry in payload:
-            if not isinstance(entry, dict):
-                continue
+        for entry in entries:
             try:
                 reports.append(SigmetReport.from_awc(entry, source="avwx"))
             except Exception as e:
                 logger.warning("Failed to parse SIGMET entry: %s", e)
         return reports
 
-    def _get_with_retry(self, url: str, params: dict) -> requests.Response:
+    def _isigmet_entries(self, params: dict, max_retries: Optional[int] = None) -> List[Dict[str, Any]]:
+        """The isigmet JSON objects for one query. Raises on a failed request;
+        an unexpected payload (not a list) is logged and reads as empty."""
+        payload = self._get_json("isigmet", params, max_retries=max_retries)
+        if not isinstance(payload, list):
+            if payload:
+                logger.warning("AvWx isigmet returned unexpected payload type: %s", type(payload))
+            return []
+        return [e for e in payload if isinstance(e, dict)]
+
+    def _merge_lookahead(
+        self,
+        entries: List[Dict[str, Any]],
+        params: dict,
+        date: Optional[str],
+        lookahead: timedelta,
+        step: timedelta,
+    ) -> List[Dict[str, Any]]:
+        """``entries`` plus the lookahead queries' new entries (see fetch_isigmet)."""
+        if step <= timedelta(0):
+            raise ValueError("isigmet lookahead step must be positive")
+        base = _parse_query_time(date) if date else datetime.now(timezone.utc)
+        merged = list(entries)
+        seen = {_isigmet_identity(e) for e in entries}
+        n = int(lookahead / step)
+        for k in range(1, n + 1):
+            at = base + k * step
+            try:
+                step_entries = self._isigmet_entries(
+                    {**params, "date": at.strftime("%Y-%m-%dT%H:%M:%SZ")}, max_retries=0,
+                )
+            except Exception as e:
+                logger.warning(
+                    "AvWx isigmet lookahead failed at +%s (%s); keeping %d SIGMET(s) "
+                    "from the earlier queries", k * step, e, len(merged),
+                )
+                break
+            for e in step_entries:
+                ident = _isigmet_identity(e)
+                if ident not in seen:
+                    seen.add(ident)
+                    merged.append(e)
+        return merged
+
+    def _get_with_retry(
+        self, url: str, params: dict, max_retries: Optional[int] = None,
+    ) -> requests.Response:
         """GET ``url`` with retries on transient failures.
 
         aviationweather.gov intermittently read-times-out; because METAR/TAF
@@ -185,10 +265,12 @@ class AvWxSource:
         Retries cover connection errors, read timeouts, and 5xx responses
         (4xx are returned as-is — retrying a client error won't help). Raises
         the last exception if every attempt fails, so callers keep their
-        existing fail-open (return empty) behaviour.
+        existing fail-open (return empty) behaviour. ``max_retries`` overrides
+        the instance's setting for this call.
         """
+        retries = self._max_retries if max_retries is None else max(0, max_retries)
         last_exc: Exception = RuntimeError("no request attempted")
-        for attempt in range(self._max_retries + 1):
+        for attempt in range(retries + 1):
             try:
                 response = self._session.get(url, params=params, timeout=self._timeout)
                 if response.status_code < 500:
@@ -198,10 +280,10 @@ class AvWxSource:
                 )
             except requests.RequestException as e:
                 last_exc = e
-            if attempt < self._max_retries:
+            if attempt < retries:
                 logger.debug(
                     "AvWx GET attempt %d/%d failed (%s) — retrying",
-                    attempt + 1, self._max_retries + 1, last_exc,
+                    attempt + 1, retries + 1, last_exc,
                 )
                 time.sleep(self._retry_backoff * (attempt + 1))
         raise last_exc
@@ -223,24 +305,15 @@ class AvWxSource:
             logger.warning("AvWx fetch failed for %s: %s", endpoint, e)
             return ""
 
-    def _fetch_json(self, endpoint: str, params: dict) -> Any:
-        """
-        Make HTTP GET request and return parsed JSON.
-
-        Handles 204 (no data) by returning an empty list. Returns an empty list
-        on any request or decode failure, matching the graceful-failure pattern
-        of the raw-text fetchers.
-        """
+    def _get_json(self, endpoint: str, params: dict, max_retries: Optional[int] = None) -> Any:
+        """HTTP GET returning parsed JSON; 204 (no data) is an empty list.
+        Raises on a request or decode failure."""
         url = f"{self.BASE_URL}/{endpoint}"
-        try:
-            response = self._get_with_retry(url, params)
-            if response.status_code == 204:
-                return []
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.warning("AvWx JSON fetch failed for %s: %s", endpoint, e)
+        response = self._get_with_retry(url, params, max_retries=max_retries)
+        if response.status_code == 204:
             return []
+        response.raise_for_status()
+        return response.json()
 
     def _batches(self, icaos: List[str]):
         """Yield batches of valid ICAOs respecting the API batch size limit.
@@ -296,3 +369,18 @@ class AvWxSource:
             blocks.append("\n".join(current))
 
         return blocks
+
+
+def _isigmet_identity(entry: Dict[str, Any]) -> tuple:
+    """One SIGMET across isigmet queries: FIR + series + validity start, else
+    its raw text."""
+    fir, series, start = entry.get("firId"), entry.get("seriesId"), entry.get("validTimeFrom")
+    if fir and series and start is not None:
+        return ("id", fir, series, start)
+    return ("raw", entry.get("rawSigmet") or entry.get("rawAirSigmet") or repr(sorted(entry.items(), key=lambda kv: kv[0])))
+
+
+def _parse_query_time(value: str) -> datetime:
+    """An isigmet ``date`` string as an aware UTC datetime."""
+    dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
