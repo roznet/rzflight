@@ -63,6 +63,9 @@ public struct Airport : Codable {
     public let updatedAt : Date?
     public let elevation_ft : Int
     public let icao : String
+    /// The code the airport was previously listed under (LELO for LERJ), from the
+    /// `alt_ident` column; nil when it has none or the database predates the column.
+    public let altIdent : String?
     public let type : AirportType
     public let continent : Continent
     let latitude : Double
@@ -101,6 +104,13 @@ public struct Airport : Codable {
 
         self.icao = ident
         self.icaoLower = ident.lowercased()
+        // Older databases have no alt_ident column; check the result's columns
+        // first, as FMDB logs a warning per row for a missing one.
+        if res.columnNameToIndexMap["alt_ident"] != nil, let alt = res.string(forColumn: "alt_ident"), !alt.isEmpty {
+            self.altIdent = alt
+        } else {
+            self.altIdent = nil
+        }
         self.name = res.string(forColumn: "name") ?? ident
         self.nameLower = self.name.lowercased()
         self.latitude = res.double(forColumn: "latitude_deg")
@@ -215,6 +225,7 @@ public struct Airport : Codable {
         self.longitude = location.longitude
         self.icao = icao ?? ""
         self.icaoLower = self.icao.lowercased()
+        self.altIdent = nil
         self.name = ""
         self.nameLower = ""
         self.city = ""
@@ -239,52 +250,39 @@ public struct Airport : Codable {
 
     }
 
-    /// Load one airport by ICAO code.
+    /// Load one airport by ICAO code, current or previous.
+    ///
+    /// `code` is matched case-insensitively against `icao_code`, then against
+    /// `alt_ident` (see `lookupCode(_:)`), as Python's `find_airport_by_code`.
+    /// The returned `icao` is always the database's current code, so
+    /// `Airport(db: db, ident: "lelo").icao == "LERJ"`.
     ///
     /// `KnownAirports` is the better route when many lookups are made: it holds
     /// the airports in memory and attaches runways on demand. This stays for
     /// one-off lookups against a database that is not already loaded.
     public init(db : FMDatabase, ident : String) throws{
-        let res = db.executeQuery("SELECT * FROM airports WHERE icao_code = ?", withArgumentsIn: [ident])
-        if let res = res, res.next() {
-            self.icao = ident
-            self.icaoLower = ident.lowercased()
-            self.type = AirportType(rawValue: res.string(forColumn:"type") ?? "") ?? .none
-            self.name = res.string(forColumn: "name") ?? ident
-            self.nameLower = self.name.lowercased()
-            self.latitude = res.double(forColumn: "latitude_deg")
-            self.longitude = res.double(forColumn: "longitude_deg")
-            self.elevation_ft = Int(res.int(forColumn: "elevation_ft"))
-            self.continent = Continent(rawValue: res.string(forColumn: "continent") ?? "") ?? .none
-            self.country = res.string(forColumn: "iso_country") ?? ""
-            self.isoRegion = res.string(forColumn: "iso_region")
-            self.city = res.string(forColumn: "municipality") ?? ""
-            self.scheduledService = res.string(forColumn: "scheduled_service")
-            self.gpsCode = res.string(forColumn: "gps_code")
-            self.iataCode = res.string(forColumn: "iata_code")
-            self.localCode = res.string(forColumn: "local_code")
-            self.homeLink = res.string(forColumn: "home_link")
-            self.wikipediaLink = res.string(forColumn: "wikipedia_link")
-            self.keywords = res.string(forColumn: "keywords")
-
-            // Parse sources
-            let sourcesStr = res.string(forColumn: "sources") ?? ""
-            self.sources = sourcesStr.isEmpty ? [] : sourcesStr.split(separator: ",").map { String($0) }
-
-            // Parse dates
-            if let createdRaw = res.string(forColumn: "created_at") {
-                self.createdAt = ISO8601DateFormatter().date(from: createdRaw)
-            } else { self.createdAt = nil }
-
-            if let updatedRaw = res.string(forColumn: "updated_at") {
-                self.updatedAt = ISO8601DateFormatter().date(from: updatedRaw)
-            } else { self.updatedAt = nil }
-        }else{
+        let code = Self.lookupCode(ident)
+        var found = Self.firstRow(db: db, sql: "SELECT * FROM airports WHERE icao_code = ?", code: code)
+        if found == nil && code.count == 4 && db.columnExists("alt_ident", inTableWithName: "airports") {
+            found = Self.firstRow(db: db, sql: "SELECT * FROM airports WHERE alt_ident = ? ORDER BY icao_code LIMIT 1", code: code)
+        }
+        guard let airport = found else {
             throw AirportError.unknownIdentifier
         }
-        self.runways = Self.runways(for: ident, db: db)
-        self.procedures = []
-        self.aipEntries = []
+        self = airport
+    }
+
+    /// Normalise a code for lookup: trimmed and uppercased, as the database
+    /// stores `icao_code` and `alt_ident`.
+    public static func lookupCode(_ code : String) -> String {
+        return code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    private static func firstRow(db : FMDatabase, sql : String, code : String) -> Airport? {
+        guard let res = db.executeQuery(sql, withArgumentsIn: [code]) else { return nil }
+        defer { res.close() }
+        guard res.next() else { return nil }
+        return Airport(res: res, db: db)
     }
 
     // MARK: - Codable
@@ -308,6 +306,7 @@ public struct Airport : Codable {
         case updatedAt = "updated_at"  // API format (snake_case)
         case elevation_ft
         case icao
+        case altIdent = "alt_ident"  // API format (snake_case)
         case ident  // API format - for decoding only
         case type
         case continent
@@ -373,6 +372,7 @@ public struct Airport : Codable {
 
         // Identifiers - support both "icao" and "ident" (API format)
         self.icao = try decodeString(keys: .icao, .ident)
+        self.altIdent = try container.decodeIfPresent(String.self, forKey: .altIdent)
         self.icaoLower = self.icao.lowercased()
         self.nameLower = self.name.lowercased()
 
@@ -409,6 +409,7 @@ public struct Airport : Codable {
         try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
         try container.encode(elevation_ft, forKey: .elevation_ft)
         try container.encode(icao, forKey: .icao)
+        try container.encodeIfPresent(altIdent, forKey: .altIdent)
         try container.encode(type, forKey: .type)
         try container.encode(continent, forKey: .continent)
         try container.encode(latitude, forKey: .latitude)
