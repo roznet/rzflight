@@ -169,7 +169,19 @@ Geometry helpers mirror `FIR`: `polygons` (multipolygon shape), `bbox`, `contain
 ```python
 from euro_aip.briefing.sources import AvWxSource
 sigmets = AvWxSource().fetch_isigmet(hazard="turb")  # server-side hazard filter
+# Also the ones issued but not yet valid, up to 4 h ahead:
+sigmets = AvWxSource().fetch_isigmet(lookahead=timedelta(hours=4))
 ```
+
+**Lookahead (pending SIGMETs).** isigmet lists only SIGMETs valid at the query time, so a SIGMET issued at 06:32 to start at 07:00 is invisible until 07:00. `lookahead=` adds queries at `date = now + k·step` (default step 30 min) and merges them into the now query. Choices, each load-bearing:
+
+- **Combine, never replace**: the now query is the source of truth for what is valid now; a shifted query alone loses a SIGMET expiring before it.
+- **Failures**: a failed now query returns `[]` as always and skips the lookahead. A failed lookahead query is logged and **ends** the lookahead (not retried): the now result and earlier steps are kept. Stopping at the first failure bounds the extra latency of a sick upstream to one timeout instead of eight.
+- **Dedupe** on `(firId, seriesId, validTimeFrom)`, else `rawSigmet`; now entries first.
+- **Gap**: a pending SIGMET valid for less than `step` can fall between two queries.
+- **Cost**: one global request (~150 entries) per step, sequential. 4 h / 30 min = 9 requests per call.
+
+`RouteSigmetService.fetch_route_sigmets(lookahead=...)` forwards it, only when set (sources without the parameter keep working).
 
 ### RouteSigmetService (`route_sigmet.py`)
 
@@ -193,7 +205,7 @@ for rs in result.sigmets:  # sorted by nearest enroute distance
           rs.enroute_distance_from_nm, rs.enroute_distance_to_nm)
 ```
 
-Note the AWC feed sometimes carries upcoming SIGMETs (issued ahead of validity), so a time window matched to the planned ETA/ETA-band is the way to keep only the hazards relevant to the flight.
+The plain isigmet query carries only SIGMETs valid now; with `lookahead` it also carries upcoming ones (issued ahead of validity), so a time window matched to the planned ETA/ETA-band is the way to keep only the hazards relevant to the flight.
 
 ### AWC isigmet API behaviour (verified live, 2026-05-20)
 
@@ -202,6 +214,7 @@ Note the AWC feed sometimes carries upcoming SIGMETs (issued ahead of validity),
 - **`hazard` filters server-side** (`turb`/`ice`/`conv`/…).
 - **`level` is a flight level (hundreds of feet)**: `level=100` = FL100 = 10,000 ft — not feet.
 - **`validTimeFrom`/`validTimeTo` are epoch seconds**; `dir` uses `"-"` for stationary (normalised to `None`); `spd` is a numeric string or `"UNK"` (→ `None`).
+- **Only SIGMETs valid at the query time** (2026-10-05): the live feed had 0 of 154 with a future start, though many reached AWC 10–149 min before validity. `date=<future>` returns the ones that will be valid then (`now+1h`: 40 not yet valid, all already received). Whether `date` is rounded or cached is unchecked.
 
 ## Data Models
 

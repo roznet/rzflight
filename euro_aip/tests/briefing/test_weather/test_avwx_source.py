@@ -137,6 +137,118 @@ class TestFetchIsigmet:
         assert len(sigmets) == 1
 
 
+def _awc_sigmet(fir, series, start, end):
+    """An isigmet JSON object; times are datetimes, sent as epoch seconds."""
+    return {
+        "firId": fir, "seriesId": series, "hazard": "TS", "qualifier": "EMBD",
+        "validTimeFrom": int(start.timestamp()), "validTimeTo": int(end.timestamp()),
+        "coords": [{"lat": 39.0, "lon": 2.0}, {"lat": 40.0, "lon": 2.0}, {"lat": 40.0, "lon": 3.0}],
+        "rawSigmet": f"{fir} SIGMET {series} VALID",
+    }
+
+
+class TestFetchIsigmetLookahead:
+    """isigmet lists only SIGMETs valid at the query time; the lookahead adds
+    shifted queries for the ones issued but not yet valid (#683)."""
+
+    BASE = "2026-10-05T06:36:00Z"
+
+    @staticmethod
+    def _at(minutes):
+        from datetime import datetime, timedelta, timezone
+        return datetime(2026, 10, 5, 6, 36, tzinfo=timezone.utc) + timedelta(minutes=minutes)
+
+    def _session(self, sigmets, fail_at=()):
+        """Answer each query with the SIGMETs valid at its ``date``; raise a
+        timeout for the dates in ``fail_at`` (minutes after BASE)."""
+        from datetime import datetime
+
+        fail_dates = {self._at(m).strftime("%Y-%m-%dT%H:%M:%SZ") for m in fail_at}
+
+        def get(url, params=None, timeout=None):
+            date = params["date"]
+            if date in fail_dates:
+                raise Timeout("read timed out")
+            t = datetime.fromisoformat(date.replace("Z", "+00:00")).timestamp()
+            valid = [s for s in sigmets if s["validTimeFrom"] <= t <= s["validTimeTo"]]
+            return MockResponse(status_code=200, json_data=valid)
+
+        session = MagicMock()
+        session.headers = {}
+        session.get.side_effect = get
+        return session
+
+    def _fetch(self, session, **kw):
+        from datetime import timedelta
+        source = AvWxSource(session=session, retry_backoff=0)
+        return source.fetch_isigmet(date=self.BASE, lookahead=timedelta(hours=4), **kw)
+
+    def test_expiring_soon_and_pending_both_kept(self):
+        expiring = _awc_sigmet("LECB", "2", self._at(-120), self._at(30))
+        pending = _awc_sigmet("LECB", "3", self._at(90), self._at(330))
+        sigmets = self._fetch(self._session([expiring, pending]))
+        assert [s.raw_text for s in sigmets] == ["LECB SIGMET 2 VALID", "LECB SIGMET 3 VALID"]
+
+    def test_queries_every_step_up_to_the_horizon(self):
+        session = self._session([])
+        self._fetch(session)
+        dates = [c.kwargs["params"]["date"] for c in session.get.call_args_list]
+        assert dates[0] == self.BASE
+        assert dates[1:] == [
+            self._at(30 * k).strftime("%Y-%m-%dT%H:%M:%SZ") for k in range(1, 9)
+        ]
+
+    def test_duplicates_across_steps_merged(self):
+        long_lived = _awc_sigmet("LFMM", "T01", self._at(-60), self._at(300))
+        sigmets = self._fetch(self._session([long_lived]))
+        assert len(sigmets) == 1
+
+    def test_same_series_new_validity_kept_apart(self):
+        # Same FIR + series but a new validity start is a different SIGMET.
+        a = _awc_sigmet("LECB", "3", self._at(-30), self._at(60))
+        b = _awc_sigmet("LECB", "3", self._at(120), self._at(240))
+        b["rawSigmet"] = "LECB SIGMET 3 VALID LATER"
+        assert len(self._fetch(self._session([a, b]))) == 2
+
+    def test_dedupe_falls_back_to_raw_text(self):
+        s = _awc_sigmet("EGTT", "1", self._at(-60), self._at(300))
+        del s["seriesId"]
+        assert len(self._fetch(self._session([s]))) == 1
+
+    def test_failing_lookahead_step_keeps_now_and_earlier_steps(self):
+        now_sigmet = _awc_sigmet("LECB", "2", self._at(-120), self._at(20))
+        early = _awc_sigmet("LECB", "3", self._at(25), self._at(100))
+        late = _awc_sigmet("LECB", "4", self._at(150), self._at(300))
+        session = self._session([now_sigmet, early, late], fail_at=(60,))
+        sigmets = self._fetch(session)
+        assert [s.raw_text for s in sigmets] == ["LECB SIGMET 2 VALID", "LECB SIGMET 3 VALID"]
+        # The failed step is not retried, and it ends the lookahead.
+        assert session.get.call_count == 3
+
+    def test_failing_now_query_behaves_as_before(self):
+        pending = _awc_sigmet("LECB", "3", self._at(90), self._at(330))
+        session = self._session([pending], fail_at=(0,))
+        assert self._fetch(session) == []
+        # Retried as before, and no lookahead query is made.
+        assert session.get.call_count == AvWxSource.DEFAULT_MAX_RETRIES + 1
+
+    def test_no_lookahead_is_one_query(self):
+        session = make_json_session([])
+        AvWxSource(session=session).fetch_isigmet()
+        assert session.get.call_count == 1
+        assert "date" not in session.get.call_args[1]["params"]
+
+    def test_lookahead_from_now_without_date(self):
+        from datetime import datetime, timedelta, timezone
+        session = make_json_session([])
+        before = datetime.now(timezone.utc)
+        AvWxSource(session=session).fetch_isigmet(lookahead=timedelta(hours=1))
+        dates = [c.kwargs["params"].get("date") for c in session.get.call_args_list]
+        assert dates[0] is None and len(dates) == 3
+        first = datetime.fromisoformat(dates[1].replace("Z", "+00:00"))
+        assert timedelta(minutes=29) <= first - before <= timedelta(minutes=31)
+
+
 class TestFetchMetars:
     """Test METAR fetching and parsing."""
 
