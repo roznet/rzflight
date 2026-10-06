@@ -228,13 +228,15 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
 - **Dates require ISO8601**: Python uses `.isoformat()`, Swift needs `.iso8601` decoder
 - **Coordinates can be nil**: Many NOTAMs lack coords, spatial filters skip them
 - **Category enum must match Python**: `NotamCategory` raw values match Python's
-- **FPL field 13 is found by shape, not position**: `ICAOFlightPlanParser` scans from field 9
-  for the first field matching `^[A-Z]{4}HHMM$` (ZZZZ included) and treats anything between
-  field 9 and it as field 10. Counting fields broke twice: emitters join or split fields 9/10
-  depending on spacing, and field 19 adds a field — either shifts the count without moving
-  field 13, giving departure "N011" and destination "DOF/" while still "succeeding". Fields
-  15+ are taken positionally after field 13; falls back to index 3 if nothing matches.
-  Python `parse_icao_fpl` does the same (same regex); keep them in step.
+- **FPL field 13 is found by shape, not position**: `ICAOFlightPlanParser` checks index 3
+  (fields 9/10 joined) then 4 (split) for `^[A-Z]{4}HHMM$` (ZZZZ included); at 4, index 3 is
+  field 10. Counting fields broke twice: emitters join or split fields 9/10 depending on
+  spacing, and field 19 adds a field — either shifts the count without moving field 13,
+  giving departure "N011" and destination "DOF/" while still "succeeding". Only 3 and 4 are
+  searched, because a field 16 with no alternate (`EGSS0025`) has the same shape and was
+  taken as departure when field 13 was malformed (#31). No match → index 4 if index 3
+  carries `/` (field 10), else 3. Fields 15+ are taken positionally after field 13.
+  Python `parse_icao_fpl` does the same (same regex and rule); keep them in step.
 
 ## References
 

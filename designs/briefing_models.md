@@ -257,10 +257,17 @@ identifiers that collide with point names, e.g. `Y8` airway vs NDB). See [waypoi
 
 Fields 9/10 may arrive joined (`-C172/L-S/C`) or split, and field 19 adds a slot, so the
 field count does not fix field 13's position. Both parsers match field 13 by shape
-(`^[A-Z]{4}HHMM$` with a valid time, `ZZZZ` included; first match from field 9 on), treat a
-slot between field 9 and it as field 10, and fall back to index 3 when nothing matches.
-Gotcha (both sides): if field 13 itself is malformed, a field 16 with no alternate
-(`-EGSS0025`) has the same shape and is taken as field 13. See
+(`^[A-Z]{4}HHMM$` with a valid time, `ZZZZ` included) **at index 3 (9/10 joined) or 4
+(split) only**, and treat index 3 as field 10 when field 13 is at 4. Nothing matching (a
+malformed field 13 such as `-EGLL99`) → index 4 if index 3 carries `/` (field 10 always
+does, field 13 never), else index 3; the malformed field's first four letters become the
+departure, with no time.
+
+Why only 3 and 4: those are the only places field 13 can be. Scanning further let a field 16
+with no alternate (`-EGSS0025`, same shape) be taken as departure whenever field 13 was
+malformed, shifting route and destination too (#31). Trade-off: a registration written with
+a dash (`F-HABC`) shifts every field by one and is not recovered; it already broke fields 7
+and 8, and no emitter seen produces it. Same rule in
 [swift_briefing.md](./swift_briefing.md) Gotchas.
 
 ### Key Code

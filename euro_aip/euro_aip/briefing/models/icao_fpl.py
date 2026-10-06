@@ -214,10 +214,17 @@ def parse_icao_fpl(
     # on the emitter's spacing, and field 19 adds a slot, so the count moves
     # while field 13 does not. Counting misread the split 9/10 plan with no
     # field 18/19 (field 10 taken as departure) and still "succeeded".
-    # Nothing else takes this shape: fields 9/10 carry "/" and field 15 is
-    # several space-separated tokens. Mirrors ICAOFlightPlanParser.swift.
+    # Nothing else before it takes this shape: fields 9/10 carry "/".
+    #
+    # Field 13 can only be at index 3 (9/10 joined) or 4 (split), so only
+    # those are searched: further on, a field 16 with no alternate
+    # ("EGSS0025") has the same shape and would be taken as departure when
+    # field 13 itself is malformed. With no match, field 13 is the slot
+    # after field 10 if index 3 is field 10 (it carries "/"), else index 3.
+    # Mirrors ICAOFlightPlanParser.swift.
     field13_idx = next(
-        (i for i in range(2, len(fields)) if _is_field13(fields[i])), 3
+        (i for i in (3, 4) if _is_field13(fields[i])),
+        4 if "/" in fields[3] else 3,
     )
     # Anything between field 9 and field 13 is field 10, when the emitter
     # split it out rather than appending it to field 9.
