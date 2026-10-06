@@ -172,11 +172,16 @@ public struct ICAOFlightPlanParser {
         // the parse still "succeeded", so a caller filled a form with a flight
         // that was never planned.
         //
-        // Nothing else in an FPL takes this shape: fields 9 and 10 carry "/",
-        // and field 15 is several space-separated tokens, so anchoring the
-        // match to the whole field is enough to tell them apart.
-        let field13Idx = fields.indices.dropFirst(2).first { isField13(fields[$0]) } ?? 3
-        guard field13Idx < fields.count else { return nil }
+        // Nothing before it takes this shape: fields 9 and 10 carry "/".
+        //
+        // Field 13 can only be at index 3 (9/10 joined) or 4 (split), so only
+        // those are searched: further on, a field 16 with no alternate
+        // ("EGSS0025") has the same shape and would be taken as departure when
+        // field 13 itself is malformed. With no match, field 13 is the slot
+        // after field 10 if index 3 is field 10 (it carries "/"), else index 3.
+        // `fields.count >= 6` above keeps both indices in range.
+        let field13Idx = [3, 4].first { isField13(fields[$0]) }
+            ?? (fields[3].contains("/") ? 4 : 3)
         // Anything between field 9 and field 13 is field 10, when the emitter
         // split it out rather than appending it to field 9.
         if field13Idx > 3 {

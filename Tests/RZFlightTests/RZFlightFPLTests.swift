@@ -413,4 +413,57 @@ final class RZFlightFPLTests: XCTestCase {
         XCTAssertEqual(fpl.route.destination, "LFAT")
         XCTAssertEqual(fpl.departureTimeUTC?.hour, 10)
     }
+
+    // MARK: - Field 13 only at index 3 or 4 (#31)
+
+    /// Fields 9 and 10 split by the emitter, no field 18 or 19: field 13 is at
+    /// index 4 and field 10 must not be read as departure (#26, Python parity).
+    func testSplitNineTenWithoutEighteenNineteen() {
+        let fpl = ICAOFlightPlanParser.parse("""
+        (FPL-GABCD-VG
+        -C172/L
+        -S/C
+        -EGKA0900
+        -N0105VFR DCT SFD DCT
+        -EGHI0045)
+        """)!
+
+        XCTAssertEqual(fpl.route.departure, "EGKA")
+        XCTAssertEqual(fpl.route.destination, "EGHI")
+        XCTAssertEqual(fpl.departureTimeUTC?.hour, 9)
+        XCTAssertEqual(fpl.eetMinutes, 45)
+        XCTAssertEqual(fpl.equipment, "S")
+        XCTAssertEqual(fpl.surveillance, "C")
+    }
+
+    /// Field 13 malformed (bad time) and field 16 with no alternate, which has
+    /// field 13's shape: field 16 is never taken as departure, whether fields
+    /// 9 and 10 are joined or split.
+    func testMalformedFieldThirteenNeverTakesFieldSixteen() {
+        let joined = """
+        (FPL-GABCD-VG
+        -C172/L-S/C
+        -EGLL99
+        -N0105VFR DCT SFD DCT
+        -EGSS0025)
+        """
+        let split = """
+        (FPL-GABCD-VG
+        -C172/L
+        -S/C
+        -EGLL99
+        -N0105VFR DCT SFD DCT
+        -EGSS0025)
+        """
+        for text in [joined, split] {
+            let fpl = ICAOFlightPlanParser.parse(text)!
+            XCTAssertEqual(fpl.route.departure, "EGLL", text)
+            XCTAssertNil(fpl.departureTimeUTC, text)
+            XCTAssertEqual(fpl.route.destination, "EGSS", text)
+            XCTAssertEqual(fpl.eetMinutes, 25, text)
+            XCTAssertEqual(fpl.route.waypoints, ["SFD"], text)
+            XCTAssertEqual(fpl.equipment, "S", text)
+            XCTAssertEqual(fpl.surveillance, "C", text)
+        }
+    }
 }

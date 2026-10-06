@@ -534,3 +534,46 @@ class TestFPLField13ByShape:
 -0)""")
         assert fpl.route.departure == "EGLL"
         assert fpl.route.destination == "EGSS"
+
+
+# Field 13 malformed (bad time) and field 16 with no alternate, which has
+# field 13's shape. Only indices 3 and 4 are searched, so field 16 is never
+# taken as departure (#31).
+SAMPLE_FPL_BAD_FIELD13_JOINED = """(FPL-GABCD-VG
+-C172/L-S/C
+-EGLL99
+-N0105VFR DCT SFD DCT
+-EGSS0025)"""
+
+SAMPLE_FPL_BAD_FIELD13_SPLIT = """(FPL-GABCD-VG
+-C172/L
+-S/C
+-EGLL99
+-N0105VFR DCT SFD DCT
+-EGSS0025)"""
+
+
+class TestFPLField13OnlyInItsSlots:
+    """Field 13 is searched at indices 3 and 4 only (#31)."""
+
+    @pytest.mark.parametrize("text", [
+        SAMPLE_FPL_BAD_FIELD13_JOINED,
+        SAMPLE_FPL_BAD_FIELD13_SPLIT,
+    ])
+    def test_field16_never_taken_as_departure(self, text):
+        fpl = parse_icao_fpl(text)
+        assert fpl.route.departure == "EGLL"
+        assert fpl.departure_time_utc is None
+        assert fpl.route.destination == "EGSS"
+        assert fpl.eet_minutes == 25
+        assert fpl.route.waypoints == ["SFD"]
+        assert fpl.equipment == "S"
+        assert fpl.surveillance == "C"
+
+    def test_split_9_10_fallback_skips_field_10(self):
+        # No shape match: index 3 carries "/" (field 10), so field 13 is
+        # index 4, not field 10 read as departure.
+        fpl = parse_icao_fpl(SAMPLE_FPL_BAD_FIELD13_SPLIT)
+        assert fpl.route.departure != "S/C"
+        assert fpl.speed_knots == 105
+        assert fpl.raw_route == "DCT SFD DCT"
