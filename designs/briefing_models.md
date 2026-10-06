@@ -256,9 +256,12 @@ identifiers that collide with point names, e.g. `Y8` airway vs NDB). See [waypoi
 ### Locating Field 13
 
 Fields 9/10 may arrive joined (`-C172/L-S/C`) or split, and field 19 adds a slot, so the
-field count does not fix field 13's position. Swift matches field 13 by shape (`ICAO`+`HHMM`,
-first match after field 9); Python still uses the count, guarded by an embedded-`-` check on
-field 9. See [swift_briefing.md](./swift_briefing.md) Gotchas.
+field count does not fix field 13's position. Both parsers match field 13 by shape
+(`^[A-Z]{4}HHMM$` with a valid time, `ZZZZ` included; first match from field 9 on), treat a
+slot between field 9 and it as field 10, and fall back to index 3 when nothing matches.
+Gotcha (both sides): if field 13 itself is malformed, a field 16 with no alternate
+(`-EGSS0025`) has the same shape and is taken as field 13. See
+[swift_briefing.md](./swift_briefing.md) Gotchas.
 
 ### Key Code
 

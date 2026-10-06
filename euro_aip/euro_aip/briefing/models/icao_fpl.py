@@ -208,19 +208,21 @@ def parse_icao_fpl(
     _parse_field8(fields[1], result)
     _parse_field9(fields[2], result)
 
-    # Field 10 (equipment) occupies its own slot only when the source used a
-    # space-separated dash between fields 9 and 10. Otherwise field 9 embeds
-    # equipment via an internal "-" (e.g. "S22T/L-SBDGORVY/LB2"), which
-    # _parse_field9 already split out. Without the embedded-equipment check,
-    # an FPL that includes Field 19 (supplementary, e.g. "-P/TBN R/E J/...")
-    # adds an extra slot that gets mis-attributed to field 10 — shifting
-    # departure/route/destination by one slot and producing garbage results.
-    field9_embeds_field10 = "-" in fields[2]
-    if not field9_embeds_field10 and len(fields) > 7:
+    # Field 13 is found by its shape (an ICAO indicator followed by a
+    # four-digit time, "EGTF1030"), not by counting fields. Whether fields 9
+    # and 10 arrive joined ("-C172/L-S/C") or split ("-C172/L -S/C") depends
+    # on the emitter's spacing, and field 19 adds a slot, so the count moves
+    # while field 13 does not. Counting misread the split 9/10 plan with no
+    # field 18/19 (field 10 taken as departure) and still "succeeded".
+    # Nothing else takes this shape: fields 9/10 carry "/" and field 15 is
+    # several space-separated tokens. Mirrors ICAOFlightPlanParser.swift.
+    field13_idx = next(
+        (i for i in range(2, len(fields)) if _is_field13(fields[i])), 3
+    )
+    # Anything between field 9 and field 13 is field 10, when the emitter
+    # split it out rather than appending it to field 9.
+    if field13_idx > 3:
         _parse_field10(fields[3], result)
-        field13_idx = 4
-    else:
-        field13_idx = 3
 
     _parse_field13(fields[field13_idx], result)
 
@@ -245,6 +247,15 @@ def parse_icao_fpl(
     _compute_derived(result)
 
     return result
+
+
+# An ICAO location indicator plus a four-digit time: field 13's shape.
+# ZZZZ (aerodrome named in field 18 instead) matches too.
+_FIELD13_RE = re.compile(r'[A-Z]{4}([0-1]\d|2[0-3])[0-5]\d')
+
+
+def _is_field13(field: str) -> bool:
+    return _FIELD13_RE.fullmatch(field.strip().upper()) is not None
 
 
 def _split_fields(body: str) -> List[str]:

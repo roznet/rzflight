@@ -419,3 +419,118 @@ class TestRepr:
 def _is_airway(token: str) -> bool:
     import re
     return bool(re.match(r'^[A-Z]{1,2}\d{1,4}$', token))
+
+
+# ========================================================================
+# Locating field 13 by shape (parity with ICAOFlightPlanParser.swift)
+# ========================================================================
+
+# Fields 9 and 10 split by the emitter, no field 18 or 19: 7 fields. Counting
+# fields read field 10 ("S/C") as field 13 here.
+SAMPLE_FPL_SPLIT_9_10 = """(FPL-GABCD-VG
+-C172/L
+-S/C
+-EGKA0900
+-N0105VFR DCT SFD DCT
+-EGHI0045)"""
+
+SAMPLE_FPL_SPLIT_9_10_FIELD_19 = """(FPL-GZIPM-IS
+-C172/L
+-S/C
+-EGTF1030
+-N0110F065 HAZEL UL9 ORTAC L28 DINARD
+-LFAT0130
+-DOF/260326 PBN/D2
+-P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)"""
+
+SAMPLE_FPL_FIELD_19_JOINED = """(FPL-GZIPM-IS
+-C172/L-S/C
+-EGTF1030
+-N0110F065 HAZEL UL9 ORTAC L28 DINARD
+-LFAT0130
+-DOF/260326 PBN/D2
+-P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)"""
+
+SAMPLE_FPL_AUTOROUTER_ONE_LINE = (
+    "(FPL-GABCD-IG -S22T/L-SYBDGR/EB1U2 -EGTF0730 "
+    "-N0164F100 GWC DCT NELKO DCT LORKU DCT ABDUS DCT BETUV DCT ERCOZ "
+    "-LFRQ0134 -DOF/260516 PBN/B2D2S1 "
+    "-P/TBN R/E J/ D/01 004 C YELLOW A/SILVER AND WHITE C/JOHN DOE)"
+)
+
+SAMPLE_FPL_ZZZZ = """(FPL-GZIPM-IS
+-C172/L-S/C
+-ZZZZ1030
+-N0110F065 HAZEL UL9 ORTAC L28 DINARD
+-LFAT0130
+-DEP/EGKR DOF/260326)"""
+
+
+class TestFPLField13ByShape:
+    """Field 13 is located by its ICAO+HHMM shape, not by field count."""
+
+    def test_split_9_10_without_18_19(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_SPLIT_9_10)
+        assert fpl.route.departure == "EGKA"
+        assert fpl.route.destination == "EGHI"
+        assert fpl.departure_time_utc == time(9, 0)
+        assert fpl.eet_minutes == 45
+        assert fpl.aircraft_type == "C172"
+        assert fpl.equipment == "S"
+        assert fpl.surveillance == "C"
+        assert fpl.route.waypoints == ["SFD"]
+
+    def test_split_9_10_with_field_19(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_SPLIT_9_10_FIELD_19)
+        assert fpl.route.departure == "EGTF"
+        assert fpl.route.destination == "LFAT"
+        assert fpl.equipment == "S"
+        assert fpl.surveillance == "C"
+        assert fpl.altitude_feet == 6500
+        assert fpl.date_of_flight == date(2026, 3, 26)
+
+    def test_split_and_joined_9_10_agree(self):
+        split = parse_icao_fpl(SAMPLE_FPL_SPLIT_9_10_FIELD_19).to_dict()
+        joined = parse_icao_fpl(SAMPLE_FPL_FIELD_19_JOINED).to_dict()
+        for d in (split, joined):
+            d.pop("raw_text")
+        assert split == joined
+
+    def test_zzzz_departure(self):
+        fpl = parse_icao_fpl(SAMPLE_FPL_ZZZZ)
+        assert fpl.route.departure == "ZZZZ"
+        assert fpl.route.destination == "LFAT"
+        assert fpl.departure_time_utc == time(10, 30)
+
+    # Same expectations as Tests/RZFlightTests/RZFlightFPLTests.swift.
+    @pytest.mark.parametrize("text, dep, dest, hhmm, alt, eet, waypoint", [
+        (SAMPLE_FPL, "LFAT", "EGTF", (9, 30), None, 33, "LYD"),
+        (SAMPLE_FPL_IFR, "EGTF", "LFAT", (10, 30), 6500, 90, "ORTAC"),
+        (SAMPLE_FPL_MINIMAL, "EGLL", "EGSS", (8, 0), None, 25, None),
+        (SAMPLE_FPL_METRIC_SPEED, "LSGG", "LSZH", (9, 0), 5500, 45, "GVA"),
+        (SAMPLE_FPL_FIELD_19_JOINED, "EGTF", "LFAT", (10, 30), 6500, 90, "ORTAC"),
+        (SAMPLE_FPL_AUTOROUTER_ONE_LINE, "EGTF", "LFRQ", (7, 30), 10000, 94, "NELKO"),
+        (SAMPLE_FPL_ZZZZ, "ZZZZ", "LFAT", (10, 30), 6500, 90, "ORTAC"),
+    ])
+    def test_swift_parity_cases(self, text, dep, dest, hhmm, alt, eet, waypoint):
+        fpl = parse_icao_fpl(text)
+        assert fpl.route.departure == dep
+        assert fpl.route.destination == dest
+        assert fpl.departure_time_utc == time(*hhmm)
+        if alt is not None:
+            assert fpl.altitude_feet == alt
+        assert fpl.eet_minutes == eet
+        if waypoint is not None:
+            assert waypoint in fpl.route.waypoints
+
+    def test_unmatched_shape_falls_back_to_index_3(self):
+        # Malformed time and no EET in field 16: nothing has field 13's
+        # shape, so slot 3 is used, as in Swift.
+        fpl = parse_icao_fpl("""(FPL-GABCD-VG
+-PA28/L
+-EGLL99
+-N0120VFR DCT
+-EGSS
+-0)""")
+        assert fpl.route.departure == "EGLL"
+        assert fpl.route.destination == "EGSS"
