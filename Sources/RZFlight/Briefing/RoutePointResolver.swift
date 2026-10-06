@@ -45,9 +45,11 @@ public class RoutePointResolver {
         let upper = name.uppercased()
 
         // Try airport first
+        // An airport's previous code (LELO) resolves to it, named by its current
+        // code (LERJ), as Python's RouteResolver.
         if let airport = airports.airport(icao: upper, ensureRunway: false) {
             return RoutePoint(
-                name: upper,
+                name: airport.icao,
                 latitude: airport.coord.latitude,
                 longitude: airport.coord.longitude,
                 pointType: "airport"

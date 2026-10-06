@@ -26,7 +26,8 @@ The central data structure representing an airport with all associated data.
 ```swift
 public struct Airport: Codable, Hashable, Equatable, Identifiable {
     // Identifiers
-    public let icao: String              // ICAO code (e.g., "LFPG")
+    public let icao: String              // current ICAO code (e.g., "LFPG")
+    public let altIdent: String?         // previous code (LELO for LERJ); nil on DBs without alt_ident
     public let name: String
     public let city: String
     public let country: String           // ISO country code
@@ -466,7 +467,8 @@ Airport database with spatial indexing (KDTree).
 public class KnownAirports {
     public init(db: FMDatabase, where: String? = nil)
 
-    // Single airport queries
+    // Single airport queries: current or previous code, case-insensitive
+    public func knownAirport(code: String) -> Airport?     // no data loading
     public func airport(icao: String, ensureRunway: Bool = true) -> Airport?
     public func airport(icao: String,
                        ensureRunway: Bool = true,
@@ -514,13 +516,22 @@ public class KnownAirports {
 ```
 
 For a one-off lookup without loading the whole table, `Airport(db:ident:)` reads one row
-(plus its runways) and throws `AirportError.unknownIdentifier` if absent.
+(plus its runways) and throws `AirportError.unknownIdentifier` if absent. It builds the
+airport through `init?(res:db:)`, so `icao` is the row's value, never the argument.
 
-**Lookup is by current ICAO only.** Both paths match `airports.icao_code` exactly
-(case-sensitive; `KnownAirports` is a dictionary keyed by it). The DB stores airports under
-their *current* code with the superseded one in `alt_ident` (LERJ, formerly LELO; see
-[database_quick_reference.md](./database_quick_reference.md)); Swift does not consult
-`alt_ident`, so an old code finds nothing. Python's `find_airport_by_code()` does fall back.
+**Lookup takes the current or the previous code**, as Python's `find_airport_by_code()`.
+The DB stores airports under their *current* code with the superseded one in `alt_ident`
+(LERJ, formerly LELO; see [database_quick_reference.md](./database_quick_reference.md)).
+`Airport(db:ident:)`, `KnownAirports.airport(icao:…)`, `airportWithExtendedData` and
+`knownAirport(code:)` normalise the code (`Airport.lookupCode`: trimmed, uppercased), try
+`icao_code` first, then `alt_ident`; an exact current code wins over another airport's
+previous one (EKBH). The result's `icao` is always the current code, so callers must not
+assume it equals what was typed. `KnownAirports` builds its `alt_ident → icao` map at load;
+if two airports share a previous code, the lowest current code wins in both paths.
+`RoutePointResolver` names an airport point by its current code (LELO → `LERJ`), as
+Python's `RouteResolver`. A DB without the `alt_ident` column (older builds, the test
+sample) still works: current codes only, and the column is checked once per result set so
+FMDB does not log a missing-column warning per row.
 
 ---
 

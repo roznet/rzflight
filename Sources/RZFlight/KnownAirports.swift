@@ -57,10 +57,13 @@ public class KnownAirports {
     let tree : KDTree<Airport>
     let db : FMDatabase
     var known : [String:Airport]  // Made mutable to allow bulk loading updates
+    /// Previous code (`alt_ident`) → current ICAO, built at load.
+    private let currentCodeForAltIdent : [String:String]
     private var borderCrossingICAOs : Set<String>?
     
     public init(db : FMDatabase, where whereClause : String? = nil){
         var points : [String:Airport] = [:]
+        var altIdents : [String:String] = [:]
         var sql = "SELECT * FROM airports"
         if let whereClause = whereClause {
             sql += " WHERE \(whereClause)"
@@ -69,17 +72,35 @@ public class KnownAirports {
             while( res.next() ){
                 if let airport = Airport(res: res) {
                     points[airport.icao] = airport
+                    // Two airports sharing a previous code: keep the lowest
+                    // current code, as Airport(db:ident:) does.
+                    if let alt = airport.altIdent, altIdents[alt].map({ airport.icao < $0 }) ?? true {
+                        altIdents[alt] = airport.icao
+                    }
                 }
             }
         }
         self.db = db
         self.known = points
+        self.currentCodeForAltIdent = altIdents
         self.tree = KDTree<Airport>(values: Array(points.values))
         self.borderCrossingICAOs = nil  // Will be lazily loaded
     }
     
+    /// The airport for an ICAO code, current or previous: case-insensitive, an
+    /// exact current code first, then the airport whose `altIdent` it is, as
+    /// Python's `find_airport_by_code`. The result's `icao` is the current code.
+    public func knownAirport(code : String) -> Airport? {
+        let code = Airport.lookupCode(code)
+        if let found = known[code] {
+            return found
+        }
+        guard let current = currentCodeForAltIdent[code] else { return nil }
+        return known[current]
+    }
+
     public func airport(icao : String, ensureRunway: Bool = true) -> Airport? {
-        var found = known[icao]
+        var found = knownAirport(code: icao)
         if ensureRunway {
             _ = found?.addRunways(db: self.db)
         }
@@ -91,7 +112,7 @@ public class KnownAirports {
                        ensureRunway: Bool = true, 
                        ensureProcedures: Bool = false, 
                        ensureAIP: Bool = false) -> Airport? {
-        var found = known[icao]
+        var found = knownAirport(code: icao)
         
         if ensureRunway {
             _ = found?.addRunways(db: self.db)
@@ -110,7 +131,7 @@ public class KnownAirports {
     
     /// Load airport with all extended data (runways, procedures, AIP)
     public func airportWithExtendedData(icao: String) -> Airport? {
-        var found = known[icao]
+        var found = knownAirport(code: icao)
         _ = found?.addExtendedData(db: self.db)
         return found
     }
