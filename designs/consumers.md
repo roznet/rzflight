@@ -82,5 +82,9 @@ anything cut from it).
 - **Issue references.** Refer to a consumer's issue as `roznet/<repo>#N` with no
   closing keyword — a `Closes` would close it before the consumer has picked up the
   release.
-- **Swift consumers track tags.** RZFlight versions come only from bare `1.x.y`
-  tags (`releasing.md`); Swift changes on `main` reach the apps only once tagged.
+- **Swift consumers track `main`, not tags.** Every app's Xcode project references
+  `https://github.com/roznet/rzflight` with `kind = branch; branch = main`, and its
+  `Package.resolved` pins whatever `main` revision it last resolved. So for Swift,
+  **merging to `main` is the release**: a breaking Swift change reaches each app the
+  next time it updates packages, with no version signal. The bare `1.x.y` tags
+  (`releasing.md`) are markers only; no consumer reads them today.

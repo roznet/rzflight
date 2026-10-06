@@ -137,6 +137,9 @@ leading `_`, Swift `public`/`open` declarations — check:
   must carry the same version. A bump that doesn't match the change is Important.
 - **Defaults preserve old behaviour** when a new option is added, unless the PR says
   otherwise.
+- **Swift has no version gate.** Every Swift consumer tracks `main`, so a breaking
+  Swift change reaches the apps on their next package update. Treat it as breaking
+  even when no version is bumped.
 - **Which consumer is affected?** Name it in the finding (e.g. "flyfun-apps' AIRAC import
   calls this source"; "flyfun-weather reads this field"), so the owner knows where the
   follow-up lands.

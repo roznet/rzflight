@@ -42,8 +42,9 @@ also shared: Python writes it, Swift reads it (`designs/consumers.md`).
 Procedure in `designs/releasing.md`. Rules to always keep:
 
 - `euro_aip` version lives in `pyproject.toml` **and** `euro_aip/__init__.py` (must
-  match); tags `v0.x.y`. RZFlight version is the bare `1.x.y` tag only.
-- Bump in its own commit: `chore(release): bump euro_aip to 0.x.y`. Patch for fixes;
+  match); tags `v0.x.y`. RZFlight is versioned by bare `1.x.y` tags, but every Swift
+  consumer tracks `main` — **merging Swift to `main` is its release** (`designs/consumers.md`).
+- Bump in its own commit (normally via `/release`): `chore(release): bump euro_aip to 0.x.y`. Patch for fixes;
   minor for additive or breaking (while 0.x), and call breaking changes out in the PR.
 - Building, `twine upload` and pushing tags are the **user's** confirmed step.
 
@@ -54,5 +55,6 @@ Procedure in `designs/releasing.md`. Rules to always keep:
 - `gh` must run with the sandbox disabled locally (otherwise it returns empty, exit 0).
 - `Closes #N` only for issues filed by `roznet` here; outside reporters → `Addresses #N`
   (PR body and commit bodies); consumer-repo issues → `roznet/<repo>#N`, no keyword.
-- Every PR push triggers the review bot (`.claude/commands/code-review.md`); handle it
-  with `/process-review`.
+- Workflow: `/implement-issue` → PR (each push triggers the review bot,
+  `.claude/commands/code-review.md`) → `/process-review` → `/land-pr` → `/release`.
+  PRs don't bump the version; `/release` does.
