@@ -254,14 +254,15 @@ class RouteSigmetService:
     ) -> list:
         """Resolve route points to NavPoints, dropping codes without coordinates.
 
-        NavPoints are used as given; codes are looked up as airports."""
-        airports = model.airports
+        NavPoints are used as given; codes are looked up as airports by current
+        code or, failing that, the previous code (``alt_ident``), as
+        RouteWeatherService does."""
         points = []
         for icao in route_icaos:
             if isinstance(icao, NavPoint):
                 points.append(icao)
                 continue
-            airport = airports.get(icao.strip().upper())
+            airport = model.find_airport_by_code(icao)
             if airport is None:
                 logger.warning("Route airport %s not found, skipping", icao)
                 continue

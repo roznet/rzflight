@@ -123,7 +123,7 @@ Ogimet scrapes HTML from `display_metars2.php`. It automatically fixes TAF valid
 
 `RouteWeatherService` (METAR/TAF) and `RouteSigmetService` (SIGMETs) both take a route as a sequence of **route points — ICAO codes or `NavPoint`s** (`RoutePointLike = Union[str, NavPoint]`, in `route_weather.py`):
 
-- A **code is placed only if it is an airport** (looked up in the model's airport table). Navaids, fixes and lat/lon points passed as codes are dropped from the geometry with a warning per point, so the corridor silently runs straight between the airports. Callers that already resolved the route (e.g. a flight plan with waypoints) should pass `NavPoint`s.
+- A **code is placed only if it is an airport**, looked up with `EuroAipModel.find_airport_by_code`: current code first, then the previous code in `alt_ident`, so `["LELO", "LEMD"]` places LELO at LERJ in both services (SIGMET corridor used `airports.get` until #27 and dropped it). Navaids, fixes and lat/lon points passed as codes are dropped from the geometry with a warning per point, so the corridor silently runs straight between the airports. Callers that already resolved the route (e.g. a flight plan with waypoints) should pass `NavPoint`s.
 - `result.route_icaos` stays a `List[str]` of names (`route_point_name`: the code, or the NavPoint's name, or `"lat,lon"` if unnamed).
 
 ### RouteWeatherService (`route_weather.py`)
@@ -185,7 +185,7 @@ sigmets = AvWxSource().fetch_isigmet(lookahead=timedelta(hours=4))
 
 ### RouteSigmetService (`route_sigmet.py`)
 
-Mirrors `RouteWeatherService`: resolve the route points to geometry (NavPoints as given, codes via the airport table), fetch SIGMETs, then keep only those intersecting the route corridor, altitude band and (optional) time window. Filter stages, cheapest first:
+Mirrors `RouteWeatherService`: resolve the route points to geometry (NavPoints as given, codes via `find_airport_by_code`, `alt_ident` fallback included), fetch SIGMETs, then keep only those intersecting the route corridor, altitude band and (optional) time window. Filter stages, cheapest first:
 
 1. **Time + vertical** — drop SIGMETs whose validity misses the requested `(from_datetime, to_datetime)` window (`overlaps_time`) or whose layer misses `altitude_band_ft` (`overlaps_altitude`). Both window bounds are optional; naive datetimes are assumed UTC.
 2. **FIR match** — `model.firs_along_route` gives the route's FIRs; a SIGMET's `fir_id` membership is recorded in `matched_firs` and is the *only* test when a SIGMET has no usable polygon. It does not gate SIGMETs that have geometry.
