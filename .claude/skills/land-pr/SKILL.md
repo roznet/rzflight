@@ -68,6 +68,15 @@ since only shows up on the rebased result.
 3. **Swift**, if the PR touches `Sources/`, `Tests/`, `Package.*` or a shared resource:
    `swift build && swift test` in the worktree (~30 s, longer on first build). Read the
    executed count; "0 tests" is not a pass.
+   **Then check the consumers, because merging ships the Swift change** (every Swift
+   consumer tracks `main`). If the PR changes the behaviour of a public Swift API
+   (different results, a renamed/removed name, a new key in encoded JSON), grep the
+   consumer apps listed in `designs/consumers.md` for each changed API, e.g.
+   `grep -rn --include='*.swift' -E "<API names>" ~/Developer/public/{flyfun-apps/main,flyfun-forms/main,flyfun-weather/main,flightlogstats}`,
+   skipping `.build/` and `.claude/worktrees/`. Read each call site: does it depend on
+   the old behaviour (compares the input to the result, keys a cache by it, decodes
+   strictly)? A caller that would break → **pause** with the call site and your
+   recommendation. Otherwise list the callers checked in the summary.
 4. **Pre-existing failures:** run any failing test on `origin/main` too. Fails there as
    well → baseline, note it, carry on. Fails only on the rebased PR → **pause** with the
    error excerpt and your recommendation (usually a fix pushed to the branch).
@@ -115,7 +124,7 @@ with what actually happened:
 **What it does:** <one line>
 **For consumers:** <who sees what, or "nothing until they call X">
 **Fixed on main after merge:** <commit sha — what; or "none">
-**Verified:** rebased on main (<k> behind) · pytest <N passed, M pre-existing> · swift test <N passed | not touched>
+**Verified:** rebased on main (<k> behind) · pytest <N passed, M pre-existing> · swift test <N passed | not touched> · Swift callers checked <apps, or "n/a">
 **Release will need:** <bump patch|minor → 0.x.y (PR's own bump reverted, if any), pip tag, DB rebuild>
 **Consumer follow-up:** <pin bumps / code changes in consumers, or "none">
 **Left open:** <issues opened, deferred findings, decisions pending — or "none">
