@@ -188,7 +188,10 @@ gramet_source = AutorouterGrametSource(cred_manager)
 ```python
 from euro_aip.sources import AutorouterSource
 
-source = AutorouterSource(cache_dir, token="bearer_token_from_db")
+# Pass airac_date to prefix cache keys (e.g. "2026-04-16_airport_doclist_EDDF.json").
+# Without it, cache entries are shared across AIRAC cycles and can serve stale data
+# — the pattern the web AIP sources already follow.
+source = AutorouterSource(cache_dir, token="bearer_token_from_db", airac_date="2026-04-16")
 ```
 
 ## Key Choices

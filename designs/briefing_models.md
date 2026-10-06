@@ -148,6 +148,7 @@ For spatial queries (`along_route()`, `near_airports()`):
 | `destination_coords` | `(lat, lon)?` | Destination airport coordinates |
 | `alternate_coords` | `Dict[icao, (lat,lon)]` | Alternate coordinates |
 | `waypoint_coords` | `List[RoutePoint]` | Full waypoint data with coords |
+| `rejected_waypoints` | `List[Dict]` | Middle tokens that resolved to a DB point but whose coords fell too far off the route. Each entry: `{name, reason, detour_nm, leg_nm, threshold_nm}`. Round-trips through `to_dict`/`from_dict`. See [waypoints.md](./waypoints.md) for the detour-gate rationale. |
 
 ### Flight Details
 
@@ -179,10 +180,12 @@ Use `RouteResolver` to resolve mixed airport/waypoint route strings:
 from euro_aip.models.route_resolver import RouteResolver
 
 resolver = RouteResolver(model)  # model has airports + waypoints
-route = resolver.resolve("EGTF VESAN POGOL LSGS")
-# First/last tokens = departure/destination, middle = waypoints
+route = resolver.resolve("N0175F160 EGTF DCT BILGO UL612 XIDIL VFR LSGS")
+# First/last waypoint-tokens = departure/destination, middle = waypoints
 # Airport-first: ICAO codes take precedence over waypoint names
-# DCT/-> tokens are filtered out
+# Field-15 noise (DCT/IFR/VFR/speed-level/airway) is tokenized and filtered out
+# Detour-gate filters middle waypoints whose resolved coords stray too far off route
+#   → ends up on route.rejected_waypoints (not silently dropped)
 ```
 
 See [waypoints.md](./waypoints.md) for full waypoint architecture.
@@ -245,6 +248,10 @@ Field 15 route tokens are classified:
 - **Airways** (`UL9`, `L28`) → skipped (no airway DB)
 - **DCT/VFR/IFR** → filtered out
 - **Everything else** → waypoint name, resolved if resolver provided
+
+`RouteResolver.resolve()` uses `parse_field15` (pure, DB-free) for tokenization, then demotes
+AIRWAY/UNKNOWN → WAYPOINT when the value also resolves to a known point (covers airway-like
+identifiers that collide with point names, e.g. `Y8` airway vs NDB). See [waypoints.md](./waypoints.md).
 
 ### Key Code
 
