@@ -17,6 +17,10 @@ When modifying parsing logic, update BOTH implementations and run tests on both 
 Two packages released independently from this repo with separate tag conventions.
 → Full doc: releasing.md
 
+## Consumers
+Who depends on euro_aip / RZFlight and what each uses: flyfun-apps builds `airports.db` with the Python sources + `DatabaseStorage`; flyfun-weather uses the briefing/weather parsers at runtime; flyfun-forms and flightlogstats use borders/customs and RZFlight Swift. The `airports.db` schema is a Python-writes / Swift-reads contract.
+→ Full doc: consumers.md
+
 ## Modules
 
 ### RZFlight Swift Package
