@@ -15,10 +15,9 @@ summary they can absorb in a minute.
 1. The PR's own code **doesn't build or its tests fail** (Step 2).
 2. Something that **can't be fixed after the merge**: a breaking Swift change (every
    Swift consumer tracks `main`, so merging *is* the Swift release — see
-   `designs/consumers.md`) that the PR hasn't matched in or flagged to consumers; a close keyword that would wrongly
-   close an outside reporter's or a consumer's issue; a version bump in the PR that is
-   already published or tagged; a finding that would cause data loss or a security hole
-   once released.
+   `designs/consumers.md`) that the PR hasn't matched in or flagged to consumers; a close
+   keyword that would wrongly close an outside reporter's or a consumer's issue; a finding
+   that would cause data loss or a security hole once released.
 
 When you pause, **never run `/process-review` or anything else yourself.** Report what
 you found and offer the options (fix on the branch, land anyway and fix on main, send it
@@ -45,11 +44,12 @@ Run locally on the Mac (Swift needs it). `gh` must run with the sandbox disabled
    commit body, because GitHub acts on the commit:
    `git log origin/<base>..<head> --format=%B | grep -inE "close[sd]?|fixe?s?|resolve[sd]?"`.
    A stray keyword that would close the wrong issue → **pause**.
-5. **Version.** If the PR touches `euro_aip/pyproject.toml` or `__init__.py`: the two must
-   match, and the version must be neither on PyPI
-   (`curl -s https://pypi.org/pypi/euro-aip/json | jq -r '.releases|keys[]'`) nor tagged
-   (`git tag -l v<x.y.z>`). Already published → **pause**. Otherwise note it — `/release`
-   will publish it.
+5. **Version.** PRs don't bump the version — `/release` does (`.claude/CLAUDE.md`). If the
+   PR touches the version in `euro_aip/pyproject.toml` or `__init__.py`, don't pause and
+   don't push to the branch for it (that costs a review round): land it, and **restore the
+   previous version in the Step 4 follow-up commit**, noting the bump the PR suggested in
+   the landing summary. Exception: the user said this PR is being released as that
+   version — then leave it.
 
 ## Step 2 — Verify the head locally (there is no CI)
 
@@ -77,6 +77,7 @@ Run locally on the Mac (Swift needs it). `gh` must run with the sandbox disabled
 - Sync a **clean** checkout of `main` to `origin/main`. If the main checkout has someone
   else's uncommitted changes, don't touch it — work from a clean worktree. Re-check the
   branch before committing.
+- Restore the version files if the PR bumped them (Step 1.5).
 - Apply **all** "fix on main" findings, plus small "Follow-ups noticed" from the brief.
   Anything that needs design thought → a **detailed issue** (root cause, call sites,
   acceptance criteria) for an implementation agent. A parity gap left by the PR → an issue
@@ -109,7 +110,7 @@ with what actually happened:
 **For consumers:** <who sees what, or "nothing until they call X">
 **Fixed on main after merge:** <commit sha — what; or "none">
 **Verified:** pytest <N passed, M pre-existing> · swift test <N passed | not touched>
-**Release will need:** <bump patch|minor → 0.x.y (or "already bumped to 0.x.y"), pip and/or SPM tag, DB rebuild>
+**Release will need:** <bump patch|minor → 0.x.y (PR's own bump reverted, if any), pip tag, DB rebuild>
 **Consumer follow-up:** <pin bumps / code changes in consumers, or "none">
 **Left open:** <issues opened, deferred findings, decisions pending — or "none">
 ```
