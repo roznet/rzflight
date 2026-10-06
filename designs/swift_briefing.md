@@ -234,6 +234,7 @@ Convenience: `departureNotams`, `destinationNotams`, `flightWindowNotams`
   depending on spacing, and field 19 adds a field — either shifts the count without moving
   field 13, giving departure "N011" and destination "DOF/" while still "succeeding". Fields
   15+ are taken positionally after field 13; falls back to index 3 if nothing matches.
+  Python `parse_icao_fpl` does the same (same regex); keep them in step.
 
 ## References
 
