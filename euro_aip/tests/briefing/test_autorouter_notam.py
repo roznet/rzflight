@@ -24,8 +24,8 @@ SAMPLE_ROW = {
     "scope": "A",
     "lower": 0,
     "upper": 999,
-    "lat": 49.01,
-    "lon": 2.55,
+    "lat": 584712075,  # Garmin semicircles = 49.01°
+    "lon": 30422685,  # 2.55°
     "startvalidity": 1711929600,  # 2024-04-01 00:00:00 UTC
     "endvalidity": 1711972800,    # 2024-04-01 12:00:00 UTC
     "suppressed": False,
@@ -49,8 +49,8 @@ SAMPLE_PERMANENT_ROW = {
     "scope": "W",
     "lower": 0,
     "upper": 20,
-    "lat": 51.47,
-    "lon": -0.20,
+    "lat": 614061019,  # 51.47°
+    "lon": -2386093,  # -0.20°
     "startvalidity": 1711929600,
     "endvalidity": 0,  # permanent
     "suppressed": False,
@@ -125,10 +125,10 @@ class TestRowToNotam:
         assert notam.upper_limit == 99900  # FL999 * 100
 
     def test_coordinates(self):
-        """Test coordinates are mapped as (lat, lon) tuple."""
+        """Test semicircle lat/lon are converted to a (lat, lon) tuple in degrees."""
         notam = AutorouterNotamSource._row_to_notam(SAMPLE_ROW)
 
-        assert notam.coordinates == (49.01, 2.55)
+        assert notam.coordinates == pytest.approx((49.01, 2.55), abs=1e-6)
 
     def test_no_coordinates(self):
         """Test missing coordinates result in None."""
