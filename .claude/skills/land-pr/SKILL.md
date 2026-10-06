@@ -51,11 +51,17 @@ Run locally on the Mac (Swift needs it). `gh` must run with the sandbox disabled
    the landing summary. Exception: the user said this PR is being released as that
    version — then leave it.
 
-## Step 2 — Verify the head locally (there is no CI)
+## Step 2 — Verify what will land, locally (there is no CI)
 
-1. Check the head out in a throwaway worktree:
-   `git worktree add --detach .claude/worktrees/land-<n> <head-sha>`. Never switch the main
-   checkout.
+Test the PR **as it will land**: its commits rebased onto current `origin/main`, not the
+head as pushed. The branch is often behind `main`, and an interaction with what landed
+since only shows up on the rebased result.
+
+1. `git fetch origin`, then in a throwaway worktree (never switch the main checkout):
+   `git worktree add --detach .claude/worktrees/land-<n> <head-sha>`, and inside it
+   `git rebase origin/main`. Record `git rev-list --count <head-sha>..origin/main` (how far
+   behind it was) for the summary. If the rebase conflicts, `git rebase --abort` and
+   **pause**: the merge would fail too, and the fix belongs on the branch.
 2. **Python:** from the worktree's `euro_aip/`, run the full suite with the main venv:
    `~/Developer/public/rzflight/euro_aip/venv/bin/pytest -q` (~10 s; it imports the
    worktree's code from there).
@@ -63,7 +69,7 @@ Run locally on the Mac (Swift needs it). `gh` must run with the sandbox disabled
    `swift build && swift test` in the worktree (~30 s, longer on first build). Read the
    executed count; "0 tests" is not a pass.
 4. **Pre-existing failures:** run any failing test on `origin/main` too. Fails there as
-   well → baseline, note it, carry on. Fails only on the head → **pause** with the
+   well → baseline, note it, carry on. Fails only on the rebased PR → **pause** with the
    error excerpt and your recommendation (usually a fix pushed to the branch).
 5. Remove the throwaway worktree when done.
 
@@ -109,7 +115,7 @@ with what actually happened:
 **What it does:** <one line>
 **For consumers:** <who sees what, or "nothing until they call X">
 **Fixed on main after merge:** <commit sha — what; or "none">
-**Verified:** pytest <N passed, M pre-existing> · swift test <N passed | not touched>
+**Verified:** rebased on main (<k> behind) · pytest <N passed, M pre-existing> · swift test <N passed | not touched>
 **Release will need:** <bump patch|minor → 0.x.y (PR's own bump reverted, if any), pip tag, DB rebuild>
 **Consumer follow-up:** <pin bumps / code changes in consumers, or "none">
 **Left open:** <issues opened, deferred findings, decisions pending — or "none">
