@@ -47,11 +47,11 @@ def make_airport(icao, lat, lon):
 
 
 def make_model(airports, route_firs):
-    """Mock EuroAipModel: airports.get() resolves coords, firs_along_route()
-    returns the supplied FIR list."""
+    """Mock EuroAipModel: find_airport_by_code() resolves coords,
+    firs_along_route() returns the supplied FIR list."""
     model = MagicMock()
     by_icao = {a.ident: a for a in airports}
-    model.airports.get.side_effect = lambda icao, default=None: by_icao.get(icao, default)
+    model.find_airport_by_code.side_effect = lambda icao: by_icao.get(icao.strip().upper())
     model.firs_along_route.return_value = list(route_firs)
     return model
 
@@ -94,7 +94,7 @@ class TestNavPointRoute:
         result = service.fetch_route_sigmets(route, corridor_nm=10, model=model)
         assert [rs.sigmet.fir_id for rs in result.sigmets] == ["EGTT"]
         assert result.route_icaos == ["AAAA", "NAVDA", "BBBB"]
-        model.airports.get.assert_not_called()
+        model.find_airport_by_code.assert_not_called()
 
 
 class TestGeometryMatching:
