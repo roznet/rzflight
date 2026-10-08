@@ -493,6 +493,14 @@ class WeatherParser:
 
         upper = vis_str.upper()
 
+        # metar_taf_parser >= 1.13 strips the unit off the distance ("10",
+        # "1 1/2", "P6") and reports it separately; older versions keep it in
+        # the string ("10SM"). Without this a bare "10" falls through to the
+        # plain-number branch and 10SM reads as 10 m (LIFR).
+        unit = getattr(vis, 'unit', None)
+        if str(getattr(unit, 'value', unit) or '').upper() == 'SM' and not upper.endswith('SM'):
+            upper += 'SM'
+
         # Check if value is in statute miles (e.g. "2SM", "1/2SM")
         if upper.endswith('SM'):
             sm_str = upper[:-2].strip()

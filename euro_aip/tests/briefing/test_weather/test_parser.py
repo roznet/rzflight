@@ -180,6 +180,41 @@ class TestMinimumVisibility:
         assert [t.visibility_meters for t in report.trends] == [1400, 3000]
 
 
+class TestStatuteMileVisibility:
+    """US visibility in statute miles, whichever way metar_taf_parser gives it.
+
+    metar_taf_parser >= 1.13 returns the distance without its unit ("10",
+    unit SM); older versions return "10SM". A bare "10" was read as 10 m, so
+    every clear US METAR graded LIFR.
+    """
+
+    @pytest.mark.parametrize("group, metres, category", [
+        ("10SM", 16093, FlightCategory.VFR),
+        ("P6SM", 9656, FlightCategory.VFR),
+        ("4SM", 6437, FlightCategory.MVFR),
+        ("1 1/2SM", 2414, FlightCategory.IFR),
+        ("1/4SM", 402, FlightCategory.LIFR),
+        ("M1/4SM", 402, FlightCategory.LIFR),
+    ])
+    def test_metar(self, group, metres, category):
+        report = WeatherParser.parse_metar(f"METAR ZZAA 081215Z 00000KT {group} CLR 13/13 A2992")
+        assert report.visibility_meters == metres
+        assert report.flight_category == category
+
+    def test_taf_and_trends(self):
+        raw = (
+            "TAF ZZAA 081130Z 0812/0912 18005KT P6SM SKC "
+            "TEMPO 0814/0816 3SM BR FM081800 20010KT 1/2SM FG OVC002"
+        )
+        report = WeatherParser.parse_taf(raw)
+        assert report.visibility_meters == 9656
+        assert [t.visibility_meters for t in report.trends] == [4828, 804]
+
+    def test_metric_unchanged(self):
+        report = WeatherParser.parse_metar("METAR ZZAA 081215Z 22007KT 3000 BKN030 09/08 Q1022")
+        assert report.visibility_meters == 3000
+
+
 class TestParseTaf:
     """Test TAF parsing."""
 
