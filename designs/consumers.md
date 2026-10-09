@@ -46,7 +46,9 @@ the Codable keys of the Swift models.
 - Reads `airports.db` through `DatabaseStorage` (`AIRPORTS_DB`).
 
 Sensitive to: parser output for the same input (it grades weather from it), the
-shape of briefing/weather results, and network-source failure behaviour.
+shape of briefing/weather results, and network-source failure behaviour. Its live
+layer reads `RouteSigmetResult.fetch_ok` / `covers()` (from
+`AvWxSource.fetch_isigmet_result`) to tell a failed SIGMET fetch from "none listed".
 
 ## Other consumers
 

@@ -1,6 +1,6 @@
 """Tests for RouteSigmetService."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 from euro_aip.briefing.weather.route_sigmet import (
@@ -57,7 +57,8 @@ def make_model(airports, route_firs):
 
 
 def make_source(sigmets):
-    source = MagicMock()
+    # Only fetch_isigmet, as a source written before fetch_isigmet_result.
+    source = MagicMock(spec=["fetch_isigmet"])
     source.fetch_isigmet.return_value = sigmets
     return source
 
@@ -278,7 +279,7 @@ class TestLazySource:
         model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
         service = RouteSigmetService()
         with patch("euro_aip.briefing.sources.avwx.AvWxSource") as mock_cls:
-            instance = MagicMock()
+            instance = MagicMock(spec=["fetch_isigmet"])
             instance.fetch_isigmet.return_value = []
             mock_cls.return_value = instance
             service.fetch_route_sigmets(ROUTE, corridor_nm=25, model=model)
@@ -301,3 +302,45 @@ class TestLookahead:
         source = make_source([])
         RouteSigmetService(source=source).fetch_route_sigmets(ROUTE, corridor_nm=25, model=model)
         assert "lookahead" not in source.fetch_isigmet.call_args.kwargs
+
+
+class TestFetchStatus:
+    """A source with ``fetch_isigmet_result`` reports whether the fetch
+    succeeded and when it queried (#686 in flyfun-weather)."""
+
+    T0 = datetime(2026, 10, 5, 6, 36, tzinfo=timezone.utc)
+
+    def _source(self, fetched):
+        source = MagicMock(spec=["fetch_isigmet", "fetch_isigmet_result"])
+        source.fetch_isigmet_result.return_value = fetched
+        return source
+
+    def test_status_carried_on_result(self):
+        from euro_aip.briefing.weather.sigmet import IsigmetFetch
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        queried = [self.T0, self.T0 + timedelta(minutes=30)]
+        source = self._source(IsigmetFetch(reports=[], base_ok=True, queried_at=queried))
+        result = RouteSigmetService(source=source).fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model, lookahead=timedelta(hours=1),
+        )
+        assert result.fetch_ok is True
+        assert result.queried_at == queried
+        assert source.fetch_isigmet_result.call_args.kwargs["lookahead"] == timedelta(hours=1)
+        source.fetch_isigmet.assert_not_called()
+
+    def test_failed_fetch_is_not_none_listed(self):
+        from euro_aip.briefing.weather.sigmet import IsigmetFetch
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        source = self._source(IsigmetFetch(reports=[], base_ok=False, queried_at=[]))
+        result = RouteSigmetService(source=source).fetch_route_sigmets(ROUTE, corridor_nm=25, model=model)
+        assert result.fetch_ok is False
+        assert result.sigmets == []
+        assert not result.covers(self.T0 - timedelta(hours=1), self.T0 + timedelta(hours=3))
+
+    def test_source_without_status_is_unknown(self):
+        model = make_model(ROUTE_AIRPORTS, route_firs=["EGTT"])
+        result = RouteSigmetService(source=make_source([])).fetch_route_sigmets(
+            ROUTE, corridor_nm=25, model=model,
+        )
+        assert result.fetch_ok is True and result.queried_at is None
+        assert not result.covers(self.T0 - timedelta(hours=1), self.T0 + timedelta(hours=3))
