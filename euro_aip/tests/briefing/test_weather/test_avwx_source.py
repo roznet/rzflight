@@ -147,9 +147,9 @@ def _awc_sigmet(fir, series, start, end):
     }
 
 
-class TestFetchIsigmetLookahead:
-    """isigmet lists only SIGMETs valid at the query time; the lookahead adds
-    shifted queries for the ones issued but not yet valid (#683)."""
+class _IsigmetQueryHelpers:
+    """A mock isigmet endpoint that answers each query by its ``date``. No
+    tests here, so subclasses don't re-run each other's."""
 
     BASE = "2026-10-05T06:36:00Z"
 
@@ -182,6 +182,11 @@ class TestFetchIsigmetLookahead:
         from datetime import timedelta
         source = AvWxSource(session=session, retry_backoff=0)
         return source.fetch_isigmet(date=self.BASE, lookahead=timedelta(hours=4), **kw)
+
+
+class TestFetchIsigmetLookahead(_IsigmetQueryHelpers):
+    """isigmet lists only SIGMETs valid at the query time; the lookahead adds
+    shifted queries for the ones issued but not yet valid (#683)."""
 
     def test_expiring_soon_and_pending_both_kept(self):
         expiring = _awc_sigmet("LECB", "2", self._at(-120), self._at(30))
@@ -249,7 +254,7 @@ class TestFetchIsigmetLookahead:
         assert timedelta(minutes=29) <= first - before <= timedelta(minutes=31)
 
 
-class TestFetchIsigmetResult(TestFetchIsigmetLookahead):
+class TestFetchIsigmetResult(_IsigmetQueryHelpers):
     """fetch_isigmet_result tells a failed fetch from "none listed" and says
     which query times succeeded (#686 in flyfun-weather)."""
 
@@ -317,6 +322,7 @@ class TestIsigmetCovers:
         from euro_aip.briefing.weather.sigmet import isigmet_covers
         assert not isigmet_covers(None, datetime(2026, 10, 5, 7), datetime(2026, 10, 5, 11))
         assert not isigmet_covers([], datetime(2026, 10, 5, 7), datetime(2026, 10, 5, 11))
+
 
 class TestFetchMetars:
     """Test METAR fetching and parsing."""

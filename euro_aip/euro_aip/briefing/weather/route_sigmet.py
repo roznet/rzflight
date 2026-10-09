@@ -222,7 +222,8 @@ class RouteSigmetService:
             fetch_ok, queried_at = fetched.base_ok, list(fetched.queried_at)
         else:
             # A source with only fetch_isigmet (or a stub answering anything):
-            # its outcome is unknown.
+            # its outcome is unknown. A stub whose fetch_isigmet_result returns
+            # something else is queried twice; real sources never are.
             sigmets = source.fetch_isigmet(region=region, hazard=hazard, **extra)
         logger.info(
             "Fetched %d SIGMET(s); route crosses FIRs %s",
