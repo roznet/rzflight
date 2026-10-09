@@ -16,7 +16,7 @@ shipped over time — so a future tweak degrades gracefully rather than crashing
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from euro_aip.utils.geometry import (
@@ -289,3 +289,57 @@ class SigmetReport:
     def __repr__(self) -> str:
         bits = " ".join(b for b in (self.qualifier, self.hazard) if b)
         return f"SigmetReport({self.fir_id} {bits})".replace("  ", " ")
+
+
+#: How far inside a SIGMET's validity an isigmet query must fall before the
+#: SIGMET's absence from it counts (:func:`isigmet_covers`). AWC lists the
+#: SIGMETs valid at the query's ``date``; whether it rounds or caches that time
+#: has not been checked, so a query just inside the validity is not trusted.
+ISIGMET_COVER_MARGIN = timedelta(minutes=30)
+
+
+def _as_utc(t: datetime) -> datetime:
+    return t if t.tzinfo is not None else t.replace(tzinfo=timezone.utc)
+
+
+def isigmet_covers(
+    queried_at: Optional[List[datetime]],
+    valid_from: Optional[datetime],
+    valid_to: Optional[datetime],
+    margin: timedelta = ISIGMET_COVER_MARGIN,
+) -> bool:
+    """Whether isigmet queries made at ``queried_at`` would have listed a
+    SIGMET valid ``[valid_from, valid_to]``: one of them falls inside that
+    validity by at least ``margin`` on each side.
+
+    So a SIGMET missing from such a fetch is no longer issued (cancelled or
+    never there), rather than out of the queries' reach. False when the query
+    times or the validity are unknown, and for a validity shorter than twice
+    ``margin``. Naive datetimes are taken as UTC.
+    """
+    if not queried_at or valid_from is None or valid_to is None:
+        return False
+    lo = _as_utc(valid_from) + margin
+    hi = _as_utc(valid_to) - margin
+    return any(lo <= _as_utc(q) <= hi for q in queried_at)
+
+
+@dataclass
+class IsigmetFetch:
+    """An isigmet fetch with its outcome (``AvWxSource.fetch_isigmet_result``).
+
+    Attributes:
+        reports: The SIGMETs fetched (what ``fetch_isigmet`` returns).
+        base_ok: The base (now, or ``date``) query succeeded. When False,
+            ``reports`` is empty and says nothing about what is issued.
+        queried_at: The ``date`` of every query that succeeded, base first,
+            then the lookahead steps up to the first failed one.
+    """
+
+    reports: List[SigmetReport] = field(default_factory=list)
+    base_ok: bool = True
+    queried_at: List[datetime] = field(default_factory=list)
+
+    def covers(self, valid_from: Optional[datetime], valid_to: Optional[datetime]) -> bool:
+        """See :func:`isigmet_covers`."""
+        return isigmet_covers(self.queried_at, valid_from, valid_to)

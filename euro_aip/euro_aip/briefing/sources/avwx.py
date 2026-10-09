@@ -9,7 +9,7 @@ import requests
 
 from euro_aip.briefing.weather.models import WeatherReport
 from euro_aip.briefing.weather.parser import WeatherParser
-from euro_aip.briefing.weather.sigmet import SigmetReport
+from euro_aip.briefing.weather.sigmet import IsigmetFetch, SigmetReport
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +140,9 @@ class AvWxSource:
         """
         Fetch international (FIR) SIGMETs from the isigmet endpoint.
 
+        The SIGMETs alone: a failed fetch reads as none. Use
+        :meth:`fetch_isigmet_result` to tell the two apart.
+
         Args:
             region: Region code, kept for forward-compatibility. NB: the AWC
                 isigmet endpoint currently ignores it and always returns the
@@ -183,6 +186,29 @@ class AvWxSource:
             List of parsed SigmetReport objects. Empty on any fetch/parse
             failure of the base query.
         """
+        return self.fetch_isigmet_result(
+            region=region, hazard=hazard, level=level, date=date,
+            lookahead=lookahead, step=step,
+        ).reports
+
+    def fetch_isigmet_result(
+        self,
+        region: str = "eur",
+        hazard: Optional[str] = None,
+        level: Optional[int] = None,
+        date: Optional[str] = None,
+        lookahead: Optional[timedelta] = None,
+        step: timedelta = DEFAULT_SIGMET_LOOKAHEAD_STEP,
+    ) -> IsigmetFetch:
+        """:meth:`fetch_isigmet` (same arguments and queries), with how far it got.
+
+        ``base_ok`` is False when the base query failed: the empty list then
+        means "unknown", not "no SIGMETs". ``queried_at`` holds the time of
+        every query that succeeded (the base first; it is "now" when ``date``
+        is None), so ``covers(valid_from, valid_to)`` tells whether a SIGMET
+        missing from ``reports`` would have been listed by one of them, i.e.
+        is no longer issued rather than beyond a failed lookahead step.
+        """
         params: dict = {"format": "json"}
         if region:
             params["region"] = region
@@ -194,13 +220,20 @@ class AvWxSource:
             params["date"] = date
 
         try:
+            base: Optional[datetime] = _parse_query_time(date) if date else datetime.now(timezone.utc)
+        except ValueError:
+            if lookahead is not None and lookahead > timedelta(0):
+                raise
+            base = None  # sent to AWC as given; when it points to is unknown
+        try:
             entries = self._isigmet_entries(params)
         except Exception as e:
             logger.warning("AvWx JSON fetch failed for isigmet: %s", e)
-            return []
+            return IsigmetFetch(reports=[], base_ok=False, queried_at=[])
 
+        queried_at = [base] if base is not None else []
         if lookahead is not None and lookahead > timedelta(0):
-            entries = self._merge_lookahead(entries, params, date, lookahead, step)
+            entries = self._merge_lookahead(entries, params, base, lookahead, step, queried_at)
 
         reports = []
         for entry in entries:
@@ -208,15 +241,16 @@ class AvWxSource:
                 reports.append(SigmetReport.from_awc(entry, source="avwx"))
             except Exception as e:
                 logger.warning("Failed to parse SIGMET entry: %s", e)
-        return reports
+        return IsigmetFetch(reports=reports, base_ok=True, queried_at=queried_at)
 
     def _isigmet_entries(self, params: dict, max_retries: Optional[int] = None) -> List[Dict[str, Any]]:
-        """The isigmet JSON objects for one query. Raises on a failed request;
-        an unexpected payload (not a list) is logged and reads as empty."""
+        """The isigmet JSON objects for one query. Raises on a failed request
+        and on an unexpected payload (not a list): neither says what is issued.
+        An empty payload reads as no SIGMETs."""
         payload = self._get_json("isigmet", params, max_retries=max_retries)
         if not isinstance(payload, list):
             if payload:
-                logger.warning("AvWx isigmet returned unexpected payload type: %s", type(payload))
+                raise ValueError(f"unexpected isigmet payload type: {type(payload).__name__}")
             return []
         return [e for e in payload if isinstance(e, dict)]
 
@@ -224,14 +258,15 @@ class AvWxSource:
         self,
         entries: List[Dict[str, Any]],
         params: dict,
-        date: Optional[str],
+        base: datetime,
         lookahead: timedelta,
         step: timedelta,
+        queried_at: List[datetime],
     ) -> List[Dict[str, Any]]:
-        """``entries`` plus the lookahead queries' new entries (see fetch_isigmet)."""
+        """``entries`` plus the lookahead queries' new entries (see fetch_isigmet).
+        Appends the time of each query that succeeded to ``queried_at``."""
         if step <= timedelta(0):
             raise ValueError("isigmet lookahead step must be positive")
-        base = _parse_query_time(date) if date else datetime.now(timezone.utc)
         merged = list(entries)
         seen = {_isigmet_identity(e) for e in entries}
         n = int(lookahead / step)
@@ -247,6 +282,7 @@ class AvWxSource:
                     "from the earlier queries", k * step, e, len(merged),
                 )
                 break
+            queried_at.append(at)
             for e in step_entries:
                 ident = _isigmet_identity(e)
                 if ident not in seen:

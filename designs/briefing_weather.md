@@ -176,12 +176,16 @@ sigmets = AvWxSource().fetch_isigmet(lookahead=timedelta(hours=4))
 **Lookahead (pending SIGMETs).** isigmet lists only SIGMETs valid at the query time, so a SIGMET issued at 06:32 to start at 07:00 is invisible until 07:00. `lookahead=` adds queries at `date = now + k·step` (default step 30 min) and merges them into the now query. Choices, each load-bearing:
 
 - **Combine, never replace**: the now query is the source of truth for what is valid now; a shifted query alone loses a SIGMET expiring before it.
-- **Failures**: a failed now query returns `[]` as always and skips the lookahead. A failed lookahead query is logged and **ends** the lookahead (not retried): the now result and earlier steps are kept. Stopping at the first failure bounds the extra latency of a sick upstream to one timeout instead of eight.
+- **Failures**: a failed now query returns `[]` as always and skips the lookahead. A failed lookahead query is logged and **ends** the lookahead (not retried): the now result and earlier steps are kept. Stopping at the first failure bounds the extra latency of a sick upstream to one timeout instead of eight. A non-list payload (an error object) counts as a failed query, not as "none".
 - **Dedupe** on `(firId, seriesId, validTimeFrom)`, else `rawSigmet`; now entries first.
 - **Gap**: a pending SIGMET valid for less than `step` can fall between two queries.
 - **Cost**: one global request (~150 entries) per step, sequential. 4 h / 30 min = 9 requests per call.
 
-`RouteSigmetService.fetch_route_sigmets(lookahead=...)` forwards it, only when set (sources without the parameter keep working).
+**Fetch status (`fetch_isigmet_result`).** `fetch_isigmet` returns `[]` both for "none issued" and for a failed fetch, and a client diffing fetches (flyfun-weather's live layer) must tell them apart: a failure would read as every SIGMET "no longer active", and a pending SIGMET cancelled before its start would vanish silently. `fetch_isigmet_result` makes the same queries and returns an `IsigmetFetch(reports, base_ok, queried_at)`: `queried_at` is the `date` of each query that succeeded (base first, then steps up to the first failure). `fetch_isigmet` is a thin wrapper returning `.reports`, so its callers are unchanged.
+
+`IsigmetFetch.covers(valid_from, valid_to)` (`isigmet_covers`) answers "would one of these queries have listed this SIGMET?", so its absence means it is no longer issued rather than beyond a failed step. A query must fall inside the validity by `ISIGMET_COVER_MARGIN` (30 min) on each side: whether AWC rounds or caches `date` is unverified, and a false "it is gone" costs more than a late one. A validity under an hour is therefore never covered; unknown query times (None/empty) cover nothing.
+
+`RouteSigmetService.fetch_route_sigmets(lookahead=...)` forwards it, only when set (sources without the parameter keep working). It calls `fetch_isigmet_result` when the source has it and carries `fetch_ok` / `queried_at` (and `covers()`) on `RouteSigmetResult`; with a source offering only `fetch_isigmet` (or a stub whose `fetch_isigmet_result` does not return an `IsigmetFetch`) they stay `True` / `None`, i.e. unknown.
 
 ### RouteSigmetService (`route_sigmet.py`)
 

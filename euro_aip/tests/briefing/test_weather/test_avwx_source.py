@@ -249,6 +249,75 @@ class TestFetchIsigmetLookahead:
         assert timedelta(minutes=29) <= first - before <= timedelta(minutes=31)
 
 
+class TestFetchIsigmetResult(TestFetchIsigmetLookahead):
+    """fetch_isigmet_result tells a failed fetch from "none listed" and says
+    which query times succeeded (#686 in flyfun-weather)."""
+
+    def _result(self, session, **kw):
+        from datetime import timedelta
+        source = AvWxSource(session=session, retry_backoff=0)
+        return source.fetch_isigmet_result(date=self.BASE, lookahead=timedelta(hours=4), **kw)
+
+    def test_all_queries_succeed(self):
+        pending = _awc_sigmet("LECB", "3", self._at(90), self._at(330))
+        result = self._result(self._session([pending]))
+        assert result.base_ok
+        assert [s.raw_text for s in result.reports] == ["LECB SIGMET 3 VALID"]
+        assert result.queried_at == [self._at(30 * k) for k in range(0, 9)]
+
+    def test_failed_base_query_is_not_none_listed(self):
+        pending = _awc_sigmet("LECB", "3", self._at(90), self._at(330))
+        result = self._result(self._session([pending], fail_at=(0,)))
+        assert not result.base_ok
+        assert result.reports == [] and result.queried_at == []
+
+    def test_unexpected_base_payload_is_a_failure(self):
+        session = make_json_session({"error": "bad request"})
+        result = AvWxSource(session=session).fetch_isigmet_result()
+        assert not result.base_ok
+
+    def test_empty_base_payload_is_none_listed(self):
+        result = AvWxSource(session=make_session("", status_code=204)).fetch_isigmet_result()
+        assert result.base_ok and result.reports == []
+        assert len(result.queried_at) == 1
+
+    def test_failed_lookahead_step_bounds_the_coverage(self):
+        # Steps at +30 ok, +60 fails: the lookahead ends there.
+        result = self._result(self._session([], fail_at=(60,)))
+        assert result.base_ok
+        assert result.queried_at == [self._at(0), self._at(30)]
+        # A SIGMET from +150 is beyond what was queried: its absence says nothing.
+        assert not result.covers(self._at(150), self._at(390))
+        # One valid from -60 to +120 would have been listed by the base query.
+        assert result.covers(self._at(-60), self._at(120))
+
+    def test_covers_needs_a_query_well_inside_the_validity(self):
+        result = self._result(self._session([]))
+        # Queries every 30 min from +0 to +240; margin 30 min each side.
+        assert result.covers(self._at(150), self._at(390))       # +180 inside
+        assert not result.covers(self._at(230), self._at(470))   # +240 only 10 min in
+        assert not result.covers(self._at(-100), self._at(20))   # ends too soon after +0
+        assert not result.covers(None, self._at(120))
+
+    def test_fetch_isigmet_still_returns_the_list(self):
+        pending = _awc_sigmet("LECB", "3", self._at(90), self._at(330))
+        sigmets = self._fetch(self._session([pending]))
+        assert [s.raw_text for s in sigmets] == ["LECB SIGMET 3 VALID"]
+
+
+class TestIsigmetCovers:
+    def test_naive_times_are_utc(self):
+        from datetime import datetime, timezone
+        from euro_aip.briefing.weather.sigmet import isigmet_covers
+        q = [datetime(2026, 10, 5, 8, 0, tzinfo=timezone.utc)]
+        assert isigmet_covers(q, datetime(2026, 10, 5, 7, 0), datetime(2026, 10, 5, 11, 0))
+
+    def test_unknown_queries_cover_nothing(self):
+        from datetime import datetime
+        from euro_aip.briefing.weather.sigmet import isigmet_covers
+        assert not isigmet_covers(None, datetime(2026, 10, 5, 7), datetime(2026, 10, 5, 11))
+        assert not isigmet_covers([], datetime(2026, 10, 5, 7), datetime(2026, 10, 5, 11))
+
 class TestFetchMetars:
     """Test METAR fetching and parsing."""
 

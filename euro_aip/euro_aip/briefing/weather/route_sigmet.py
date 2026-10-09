@@ -32,6 +32,7 @@ from euro_aip.utils.geometry import (
     sample_polyline,
 )
 from euro_aip.briefing.weather.route_weather import RoutePointLike, route_point_name
+from euro_aip.briefing.weather.sigmet import IsigmetFetch, isigmet_covers
 from euro_aip.models.navpoint import NavPoint
 
 if TYPE_CHECKING:
@@ -78,6 +79,12 @@ class RouteSigmetResult:
             either bound may be None (open-ended).
         route_firs: FIR ICAO codes the route corridor crosses.
         sigmets: Matched SIGMETs, sorted by nearest enroute distance.
+        fetch_ok: The source's base SIGMET query succeeded. False means
+            ``sigmets`` is empty because the fetch failed, not because none
+            affect the route.
+        queried_at: Times of the source queries that succeeded (see
+            ``IsigmetFetch``); None when the source does not report them, or
+            no fetch was made.
     """
 
     route_icaos: List[str]
@@ -86,6 +93,15 @@ class RouteSigmetResult:
     time_window: Tuple[Optional[datetime], Optional[datetime]] = (None, None)
     route_firs: List[str] = field(default_factory=list)
     sigmets: List[RouteSigmet] = field(default_factory=list)
+    fetch_ok: bool = True
+    queried_at: Optional[List[datetime]] = None
+
+    def covers(self, valid_from: Optional[datetime], valid_to: Optional[datetime]) -> bool:
+        """Whether this fetch would have listed a SIGMET valid ``[valid_from,
+        valid_to]`` (:func:`~euro_aip.briefing.weather.sigmet.isigmet_covers`),
+        so its absence means it is no longer issued. The route filters
+        (corridor, band, time window) are the caller's to apply."""
+        return self.fetch_ok and isigmet_covers(self.queried_at, valid_from, valid_to)
 
 
 @dataclass
@@ -169,6 +185,9 @@ class RouteSigmetService:
 
         Returns:
             RouteSigmetResult with matched SIGMETs sorted by enroute distance.
+            With a source that has ``fetch_isigmet_result`` (AvWxSource), it
+            also says whether the fetch succeeded (``fetch_ok``) and when it
+            queried (``queried_at``).
         """
         low_ft, high_ft = altitude_band_ft
         time_window = (from_datetime, to_datetime)
@@ -195,7 +214,16 @@ class RouteSigmetService:
         source = self._get_source()
         # Only passed when set, so a source without the lookahead still works.
         extra = {"lookahead": lookahead} if lookahead is not None else {}
-        sigmets = source.fetch_isigmet(region=region, hazard=hazard, **extra)
+        fetch_ok, queried_at = True, None
+        fetch_result = getattr(source, "fetch_isigmet_result", None)
+        fetched = fetch_result(region=region, hazard=hazard, **extra) if callable(fetch_result) else None
+        if isinstance(fetched, IsigmetFetch):
+            sigmets = fetched.reports
+            fetch_ok, queried_at = fetched.base_ok, list(fetched.queried_at)
+        else:
+            # A source with only fetch_isigmet (or a stub answering anything):
+            # its outcome is unknown.
+            sigmets = source.fetch_isigmet(region=region, hazard=hazard, **extra)
         logger.info(
             "Fetched %d SIGMET(s); route crosses FIRs %s",
             len(sigmets), sorted(route_firs),
@@ -246,6 +274,8 @@ class RouteSigmetService:
             time_window=time_window,
             route_firs=sorted(route_firs),
             sigmets=matched,
+            fetch_ok=fetch_ok,
+            queried_at=queried_at,
         )
 
     @staticmethod
