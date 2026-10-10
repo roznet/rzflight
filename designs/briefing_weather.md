@@ -239,6 +239,7 @@ Core fields — same structure for METARs, SPECIs, and TAF base/trends:
 | `wind_unit` | `str` | Wind unit: "KT", "MPS", "KMH" (default "KT") |
 | `visibility_meters` | `int?` | Visibility in meters |
 | `visibility_sm` | `float?` | Visibility in statute miles |
+| `visibility_unit` | `str?` | Unit the report was written in: `"M"` (m/km/9999/CAVOK) or `"SM"`; None for hand-built or pre-0.22 serialised reports |
 | `visibility_min_meters` | `int?` | Minimum visibility (second group, `9999 1400` / `9999 1400SW`); never used for the category |
 | `visibility_min_direction` | `str?` | Its direction (`SW`), when reported |
 | `ceiling_ft` | `int?` | Lowest BKN/OVC layer in feet |
@@ -296,6 +297,16 @@ min(FlightCategory.VFR, FlightCategory.IFR)  # → IFR
 | VFR | > 5 SM | > 3000 ft |
 
 Worst condition (ceiling or visibility) determines category.
+
+**Metric exception (flyfun-weather #757):** a report written in metres
+(`visibility_unit == "M"`) with visibility ≥ `METRIC_VFR_VISIBILITY_M` (8000 m)
+is VFR. 5 SM is 8047 m, so 8000 m converted to 4.97 SM and read MVFR purely
+through the unit conversion, raising false TAF alerts on European `TEMPO 8000`
+groups. SM reports keep the FAA edge (5SM is MVFR). The decision is made on the
+unit, not on `visibility_meters` being present: the parser fills both distances
+for every report (5SM → 8046 m), so "has metres" would have made 5SM VFR. A
+report without a unit falls back to the FAA rule. flyfun-weather uses the same
+constant for its model-side category.
 
 ## Gotchas
 

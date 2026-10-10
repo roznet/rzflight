@@ -115,6 +115,49 @@ class TestFlightCategory:
         ) == FlightCategory.LIFR
 
 
+class TestMetricVfrVisibility:
+    """A metric report of 8000 m or more is VFR (#757); SM reports keep the FAA edge."""
+
+    @staticmethod
+    def _metar(body):
+        return WeatherReport.from_metar(f"METAR ZZAA 101050Z 27010KT {body} 12/08 Q1015")
+
+    @pytest.mark.parametrize("body,expected", [
+        ("8000 BKN040", FlightCategory.VFR),
+        ("9999 SCT020", FlightCategory.VFR),
+        ("7000 BKN040", FlightCategory.MVFR),
+        ("5000 BKN040", FlightCategory.MVFR),
+        ("4000 BKN040", FlightCategory.IFR),
+        ("8000 BKN025", FlightCategory.MVFR),  # the ceiling still decides
+    ])
+    def test_metric_metar(self, body, expected):
+        report = self._metar(body)
+        assert report.visibility_unit == "M"
+        assert report.flight_category == expected
+
+    @pytest.mark.parametrize("body,expected", [
+        ("5SM BKN040", FlightCategory.MVFR),
+        ("6SM BKN040", FlightCategory.VFR),
+    ])
+    def test_sm_metar_keeps_faa_edge(self, body, expected):
+        """5SM fills visibility_meters with 8046 m, but it is an SM report."""
+        report = self._metar(body)
+        assert report.visibility_unit == "SM"
+        assert report.visibility_meters >= 8000
+        assert report.flight_category == expected
+
+    def test_unknown_unit_keeps_faa_edge(self):
+        """A hand-built report without a unit reads the SM figure, as before."""
+        report = WeatherReport(visibility_meters=8000, visibility_sm=8000 * 0.000621371)
+        assert WeatherAnalyzer.flight_category(report) == FlightCategory.MVFR
+
+    def test_unit_round_trips_through_dict(self):
+        report = self._metar("8000 BKN040")
+        again = WeatherReport.from_dict(report.to_dict())
+        assert again.visibility_unit == "M"
+        assert WeatherAnalyzer.flight_category(again) == FlightCategory.VFR
+
+
 class TestWindComponents:
     """Test wind component calculations."""
 

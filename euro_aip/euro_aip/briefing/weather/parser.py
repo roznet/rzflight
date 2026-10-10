@@ -288,12 +288,13 @@ class WeatherParser:
                 )
 
         wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(parsed)
-        vis_m, vis_sm = cls._extract_visibility(parsed)
+        vis_m, vis_sm, vis_unit = cls._extract_visibility(parsed)
         vis_min_m, vis_min_dir = None, None
         groups = None if parsed.cavok else cls._metar_visibility_groups(raw_text)
         if groups is not None:
             vis_m, vis_min_m, vis_min_dir = groups
             vis_sm = vis_m * _METERS_TO_SM
+            vis_unit = "M"
         ceiling = cls._extract_ceiling(parsed)
         clouds = cls._extract_clouds(parsed)
         conditions = cls._extract_weather_conditions(parsed)
@@ -311,6 +312,7 @@ class WeatherParser:
             wind_unit=wind_unit,
             visibility_meters=vis_m,
             visibility_sm=vis_sm,
+            visibility_unit=vis_unit,
             visibility_min_meters=vis_min_m,
             visibility_min_direction=vis_min_dir,
             ceiling_ft=ceiling,
@@ -354,7 +356,7 @@ class WeatherParser:
             )
 
         wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(parsed)
-        vis_m, vis_sm = cls._extract_visibility(parsed)
+        vis_m, vis_sm, vis_unit = cls._extract_visibility(parsed)
         ceiling = cls._extract_ceiling(parsed)
         clouds = cls._extract_clouds(parsed)
         conditions = cls._extract_weather_conditions(parsed)
@@ -375,6 +377,7 @@ class WeatherParser:
             wind_unit=wind_unit,
             visibility_meters=vis_m,
             visibility_sm=vis_sm,
+            visibility_unit=vis_unit,
             ceiling_ft=ceiling,
             cavok=parsed.cavok,
             clouds=clouds,
@@ -411,7 +414,7 @@ class WeatherParser:
                 val_start, val_end = cls._extract_validity(trend.validity, reference)
 
             wind_dir, wind_speed, wind_gust, wind_var_from, wind_var_to, wind_unit = cls._extract_wind(trend)
-            vis_m, vis_sm = cls._extract_visibility(trend)
+            vis_m, vis_sm, vis_unit = cls._extract_visibility(trend)
             ceiling = cls._extract_ceiling(trend)
             clouds = cls._extract_clouds(trend)
             conditions = cls._extract_weather_conditions(trend)
@@ -428,6 +431,7 @@ class WeatherParser:
                 wind_unit=wind_unit,
                 visibility_meters=vis_m,
                 visibility_sm=vis_sm,
+                visibility_unit=vis_unit,
                 ceiling_ft=ceiling,
                 cavok=getattr(trend, 'cavok', False),
                 clouds=clouds,
@@ -471,22 +475,25 @@ class WeatherParser:
         Uses safe arithmetic for fraction parsing (no eval()).
 
         Returns:
-            (visibility_meters, visibility_sm)
+            (visibility_meters, visibility_sm, visibility_unit): the unit is
+            the one the report was written in, ``"SM"`` or ``"M"`` (metres or
+            km), None without a visibility. Both distances are always filled,
+            so the unit is the only way to tell a 5SM report from 8000 m.
         """
         if getattr(parsed, 'cavok', False):
-            return 10000, 10000 * _METERS_TO_SM
+            return 10000, 10000 * _METERS_TO_SM, "M"
 
         vis = getattr(parsed, 'visibility', None)
         if not vis:
-            return None, None
+            return None, None, None
 
         distance = getattr(vis, 'distance', None)
         if distance is None:
-            return None, None
+            return None, None, None
 
         vis_str = str(distance).replace('>', '').replace('<', '').strip()
         if not vis_str:
-            return None, None
+            return None, None, None
 
         vis_m = None
         vis_sm = None
@@ -535,7 +542,9 @@ class WeatherParser:
                     vis_m = int(val)
                     vis_sm = vis_m * _METERS_TO_SM
 
-        return vis_m, vis_sm
+        if vis_m is None and vis_sm is None:
+            return None, None, None
+        return vis_m, vis_sm, ("SM" if upper.endswith('SM') else "M")
 
     @classmethod
     def _metar_visibility_groups(

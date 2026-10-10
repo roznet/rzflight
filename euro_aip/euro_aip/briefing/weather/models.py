@@ -156,6 +156,11 @@ class WeatherReport:
         wind_unit: Wind unit (KT, MPS, KMH)
         visibility_meters: Visibility in meters
         visibility_sm: Visibility in statute miles
+        visibility_unit: Unit the report was written in, ``"M"`` (metres or
+            km) or ``"SM"``; None when unknown (a hand-built or older
+            serialised report). Both distances are always filled, so the
+            flight category reads this to apply the metric VFR edge
+            (``WeatherAnalyzer.flight_category``).
         visibility_min_meters: Minimum visibility in meters, when reported as
             a second group (``9999 1400`` / ``9999 1400SW``). Never used for
             the flight category, which reads the prevailing visibility.
@@ -194,6 +199,7 @@ class WeatherReport:
     # Visibility
     visibility_meters: Optional[int] = None
     visibility_sm: Optional[float] = None
+    visibility_unit: Optional[str] = None
     visibility_min_meters: Optional[int] = None
     visibility_min_direction: Optional[str] = None
 
@@ -297,6 +303,7 @@ class WeatherReport:
             'wind_unit': self.wind_unit,
             'visibility_meters': self.visibility_meters,
             'visibility_sm': self.visibility_sm,
+            'visibility_unit': self.visibility_unit,
             'visibility_min_meters': self.visibility_min_meters,
             'visibility_min_direction': self.visibility_min_direction,
             'ceiling_ft': self.ceiling_ft,
@@ -367,6 +374,7 @@ class WeatherReport:
             wind_unit=data.get('wind_unit', 'KT'),
             visibility_meters=data.get('visibility_meters'),
             visibility_sm=data.get('visibility_sm'),
+            visibility_unit=data.get('visibility_unit'),
             visibility_min_meters=data.get('visibility_min_meters'),
             visibility_min_direction=data.get('visibility_min_direction'),
             ceiling_ft=data.get('ceiling_ft'),

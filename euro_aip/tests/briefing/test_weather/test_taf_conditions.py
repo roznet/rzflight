@@ -190,3 +190,25 @@ class TestSignificantWeather:
         )
         cond = WeatherAnalyzer.taf_conditions_at(taf, _utc(13, 13))
         assert cond.significant_weather == []
+
+
+class TestMetricTempoVisibility:
+    """EGJB 2026-10-10 (#757): a TEMPO 8000 m was MVFR only through 4.97 SM."""
+
+    EGJB = (
+        "TAF EGJB 100455Z 1006/1015 30013KT 9999 SCT020 "
+        "PROB30 TEMPO 1006/1015 31015G25KT 8000 SHRA"
+    )
+
+    def test_tempo_8000_is_vfr(self):
+        taf = _taf(self.EGJB, datetime(2026, 10, 10, 5, tzinfo=timezone.utc))
+        cond = WeatherAnalyzer.taf_conditions_at(taf, datetime(2026, 10, 10, 10, tzinfo=timezone.utc))
+        assert cond.prevailing.flight_category == FlightCategory.VFR
+        assert cond.worst_temporary.visibility_meters == 8000
+        assert cond.worst_temporary.flight_category == FlightCategory.VFR
+        assert cond.flight_category == FlightCategory.VFR
+
+    def test_tempo_7000_stays_mvfr(self):
+        taf = _taf(self.EGJB.replace(" 8000 ", " 7000 "), datetime(2026, 10, 10, 5, tzinfo=timezone.utc))
+        cond = WeatherAnalyzer.taf_conditions_at(taf, datetime(2026, 10, 10, 10, tzinfo=timezone.utc))
+        assert cond.flight_category == FlightCategory.MVFR
