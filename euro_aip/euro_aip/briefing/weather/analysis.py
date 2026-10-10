@@ -185,15 +185,18 @@ class WeatherAnalyzer:
                 max_crosswind=0.0,
             )
 
-        # Variable wind (no direction) — use full speed as worst-case crosswind
+        # Variable wind (no direction) — use full speed as worst-case crosswind.
+        # The direction is unknown, so a gust can come from abeam too: the
+        # worst case is the gust when there is one (VRB05G20 → 20, not 5).
         if wind_dir is None:
+            worst = float(max(wind_speed, report.wind_gust or 0))
             return WindComponents(
                 runway_ident=runway_ident,
                 runway_heading=runway_heading,
                 headwind=0.0,
                 crosswind=float(wind_speed),
                 crosswind_direction="",
-                max_crosswind=float(wind_speed),
+                max_crosswind=worst,
             )
 
         headwind, crosswind = _compute_components(wind_dir, runway_heading, wind_speed)
