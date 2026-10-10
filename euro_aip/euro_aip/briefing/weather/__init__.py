@@ -27,7 +27,11 @@ from euro_aip.briefing.weather.models import (
     WeatherType,
 )
 from euro_aip.briefing.weather.parser import WeatherParser
-from euro_aip.briefing.weather.analysis import WeatherAnalyzer, TafConditions
+from euro_aip.briefing.weather.analysis import (
+    METRIC_VFR_VISIBILITY_M,
+    WeatherAnalyzer,
+    TafConditions,
+)
 from euro_aip.briefing.weather.collection import WeatherCollection
 from euro_aip.briefing.weather.route_weather import (
     RouteWeatherService,
@@ -48,6 +52,7 @@ __all__ = [
     'WeatherType',
     'WeatherParser',
     'WeatherAnalyzer',
+    'METRIC_VFR_VISIBILITY_M',
     'TafConditions',
     'WeatherCollection',
     'RouteWeatherService',
