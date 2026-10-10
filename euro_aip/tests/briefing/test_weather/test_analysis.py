@@ -177,6 +177,15 @@ class TestWindComponents:
         assert wc.crosswind == 10.0
         assert wc.max_crosswind == 10.0
 
+    def test_variable_wind_no_direction_with_gust(self):
+        """VRB with a gust: the gust can come from abeam, so it is the worst case."""
+        report = WeatherReport(wind_direction=None, wind_speed=5, wind_gust=20)
+        wc = WeatherAnalyzer.wind_components(report, 270, "27")
+
+        assert wc is not None
+        assert wc.crosswind == 5.0
+        assert wc.max_crosswind == 20.0
+
     def test_gust_components(self):
         report = WeatherReport(wind_direction=270, wind_speed=15, wind_gust=25)
         wc = WeatherAnalyzer.wind_components(report, 270, "27")

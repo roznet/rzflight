@@ -269,7 +269,7 @@ min(FlightCategory.VFR, FlightCategory.IFR)  # → IFR
 | `headwind` | `float` | Positive = from ahead |
 | `crosswind` | `float` | Positive = from right |
 | `gust_headwind/crosswind` | `float?` | Gust components |
-| `max_crosswind` | `float?` | Worst-case including variable wind |
+| `max_crosswind` | `float?` | Worst-case including variable wind and gusts (VRB: the gust, else the speed) |
 
 `within_limits(max_crosswind_kt=20, max_tailwind_kt=10)` checks all components including gusts.
 
@@ -309,7 +309,7 @@ Worst condition (ceiling or visibility) determines category.
   TEMPO/BECMG/NOSIG/PROB/RMK): first group prevailing → `visibility_meters`
   and the category; the group right after it → `visibility_min_*`. TAFs and
   trend groups carry one visibility each and are not affected.
-- **Variable wind without direction**: Uses full speed as worst-case crosswind
+- **Variable wind without direction**: Uses full speed as worst-case crosswind, or the gust when there is one (`VRB05G20` → `max_crosswind` 20): with no direction, a gust can come from abeam too
 - **TAF validity month-crossing**: Parser handles end_day < start_day (spans month boundary)
 - **Package name**: PyPI package is `metar-taf-parser-mivek`, not `metar-taf-parser`
 
