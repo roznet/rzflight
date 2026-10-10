@@ -75,6 +75,13 @@ class TafConditions:
         return self.prevailing.flight_category
 
 
+# Lowest visibility, in metres, that a metric report counts as VFR. The
+# metric counterpart of the FAA "> 5 SM" (8047 m); SM reports keep the FAA
+# edge. Consumers that classify metric visibility themselves (flyfun-weather's
+# model-side category) use the same number.
+METRIC_VFR_VISIBILITY_M = 8000
+
+
 class WeatherAnalyzer:
     """
     Aviation weather analysis functions.
@@ -95,6 +102,11 @@ class WeatherAnalyzer:
             IFR:   1 <= vis < 3 SM    or  500 <= ceiling < 1000 ft
             MVFR:  3 <= vis <= 5 SM   or  1000 <= ceiling <= 3000 ft
             VFR:   visibility > 5 SM  and ceiling > 3000 ft
+
+        Except for a metric report (``visibility_unit == "M"``), where
+        visibility of 8000 m or more is VFR. 5 SM is 8047 m, so without this
+        a European 8000 m (4.97 SM) reads as MVFR purely through the unit
+        conversion. SM reports keep the FAA edge: 5SM stays MVFR.
 
         The worst condition (ceiling or visibility) determines the category.
 
@@ -121,7 +133,11 @@ class WeatherAnalyzer:
                 vis_cat = FlightCategory.LIFR
             elif vis_sm < 3:
                 vis_cat = FlightCategory.IFR
-            elif vis_sm <= 5:
+            elif vis_sm <= 5 and not (
+                report.visibility_unit == "M"
+                and report.visibility_meters is not None
+                and report.visibility_meters >= METRIC_VFR_VISIBILITY_M
+            ):
                 vis_cat = FlightCategory.MVFR
             else:
                 vis_cat = FlightCategory.VFR
@@ -594,6 +610,7 @@ def _overlay(
             cavok=True,
             visibility_meters=group.visibility_meters or 10000,
             visibility_sm=group.visibility_sm,
+            visibility_unit=group.visibility_unit or "M",
             clouds=[],
             ceiling_ft=None,
             weather_conditions=[],
@@ -603,6 +620,7 @@ def _overlay(
             changes.update(
                 visibility_meters=group.visibility_meters,
                 visibility_sm=group.visibility_sm,
+                visibility_unit=group.visibility_unit,
                 cavok=False,
             )
         if group.clouds:
@@ -646,6 +664,7 @@ def _worse_of(before: WeatherReport, after: WeatherReport) -> WeatherReport:
         changes.update(
             visibility_meters=before.visibility_meters,
             visibility_sm=before.visibility_sm,
+            visibility_unit=before.visibility_unit,
         )
     result = replace(after, **changes)
     result.flight_category = WeatherAnalyzer.flight_category(result)
