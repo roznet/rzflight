@@ -228,6 +228,9 @@ class TestWindComponents:
         assert wc is not None
         assert wc.crosswind == 5.0
         assert wc.max_crosswind == 20.0
+        assert wc.gust_crosswind is None
+        assert not wc.within_limits(max_crosswind_kt=15)
+        assert wc.within_limits(max_crosswind_kt=20)
 
     def test_gust_components(self):
         report = WeatherReport(wind_direction=270, wind_speed=15, wind_gust=25)
@@ -251,6 +254,22 @@ class TestWindComponents:
         # Worst-case crosswind from variable range should be >= basic crosswind
         assert wc.max_crosswind is not None
         assert wc.max_crosswind >= abs(wc.crosswind)
+
+    def test_within_limits_uses_variable_sector_worst_case(self):
+        """within_limits checks max_crosswind, not just the mean-direction crosswind."""
+        report = WeatherReport(
+            wind_direction=270,
+            wind_speed=15,
+            wind_variable_from=240,
+            wind_variable_to=300,
+        )
+        wc = WeatherAnalyzer.wind_components(report, 270, "27")
+
+        assert wc is not None
+        assert wc.crosswind == pytest.approx(0.0, abs=0.1)
+        assert wc.max_crosswind == pytest.approx(7.5, abs=0.1)
+        assert not wc.within_limits(max_crosswind_kt=5)
+        assert wc.within_limits(max_crosswind_kt=10)
 
     def test_within_limits_integration(self):
         """Wind components within_limits method works with calculated values."""

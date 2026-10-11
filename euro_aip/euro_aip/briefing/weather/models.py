@@ -101,6 +101,9 @@ class WindComponents:
             True if within limits
         """
         xwind = abs(self.gust_crosswind if self.gust_crosswind is not None else self.crosswind)
+        # max_crosswind is the worst case: variable sectors and VRB gusts
+        if self.max_crosswind is not None:
+            xwind = max(xwind, self.max_crosswind)
         if xwind > max_crosswind_kt:
             return False
         if self.headwind < 0 and abs(self.headwind) > max_tailwind_kt:

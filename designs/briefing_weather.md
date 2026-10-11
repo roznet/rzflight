@@ -269,10 +269,10 @@ min(FlightCategory.VFR, FlightCategory.IFR)  # → IFR
 |-------|------|-------------|
 | `headwind` | `float` | Positive = from ahead |
 | `crosswind` | `float` | Positive = from right |
-| `gust_headwind/crosswind` | `float?` | Gust components |
+| `gust_headwind/crosswind` | `float?` | Gust components; None for VRB (no direction), where only `max_crosswind` carries the gust |
 | `max_crosswind` | `float?` | Worst-case including variable wind and gusts (VRB: the gust, else the speed) |
 
-`within_limits(max_crosswind_kt=20, max_tailwind_kt=10)` checks all components including gusts.
+`within_limits(max_crosswind_kt=20, max_tailwind_kt=10)` checks all components including gusts, and the crosswind check uses `max_crosswind` when set (variable sectors, VRB gusts).
 
 ## Key Choices
 
