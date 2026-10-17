@@ -100,3 +100,17 @@ def test_single_point_route():
     assert hit["along_track_nm"] == 0.0
     assert hit["cross_track_nm"] is None
     assert hit["route_end"] is None
+
+
+def test_airport_on_second_leg_adds_first_leg_length():
+    # ~9 NM south of the EHMZ→EGTF midpoint: along must be leg 1 plus half of leg 2.
+    ehmz, egtf = ROUTE[1][1:], ROUTE[2][1:]
+    mid = ((ehmz[0] + egtf[0]) / 2, (ehmz[1] + egtf[1]) / 2)
+    model = _model(*ROUTE, ("ZZL2", mid[0] - 0.15, mid[1]))
+    hit = _found(model, "ZZL2")
+    leg1 = NavPoint(*ROUTE[0][1:]).haversine_distance(NavPoint(*ehmz))[1]
+    leg2 = NavPoint(*ehmz).haversine_distance(NavPoint(*egtf))[1]
+    assert hit["closest_segment"] == ("EHMZ", "EGTF")
+    assert hit["route_end"] is None
+    assert hit["along_track_nm"] == pytest.approx(leg1 + leg2 / 2, abs=1.5)
+    assert hit["cross_track_nm"] == pytest.approx(-9, abs=2)  # south of westbound: left

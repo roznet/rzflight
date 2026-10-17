@@ -1524,6 +1524,9 @@ class EuroAipModel:
               the route length when it lies past the last.
             - cross_track_nm: Signed distance off the closest segment's great circle,
               positive right of track, negative left (None for a single-point route).
+              Measured to the full great circle, not the segment, so for a point
+              beyond a corner or off a route end ``abs(cross_track_nm)`` is smaller
+              than ``segment_distance_nm``.
             - route_end: "departure" / "destination" when the projection falls off that
               end of the route, else None.
             - closest_segment: Tuple of (start_airport_name, end_airport_name) for the closest segment
@@ -1628,13 +1631,12 @@ class EuroAipModel:
                         _, dist_AP = segment_start.haversine_distance(airport_point)
                         enroute_distance = cumulative_distances[i] + dist_AP  # At segment start
 
+            # Check if airport is within the specified distance
+            if min_distance <= distance_nm:
                 if closest_segment_index is not None:
                     along_track, cross_track, route_end = _route_position(
                         airport_point, route_points, cumulative_distances, closest_segment_index
                     )
-            
-            # Check if airport is within the specified distance
-            if min_distance <= distance_nm:
                 nearby_airports.append({
                     'airport': airport,
                     'segment_distance_nm': round(min_distance, 2),

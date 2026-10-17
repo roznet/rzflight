@@ -765,7 +765,9 @@ nearby = model.find_airports_near_route(route, distance_nm=50.0)
 #                                      # distance to the airport (NOT a projection)
 #     'along_track_nm': float,         # True projection, signed: < 0 behind the
 #                                      # departure, > route length past the destination
-#     'cross_track_nm': float | None,  # Signed, + right of track (None: 1-point route)
+#     'cross_track_nm': float | None,  # Signed, + right of track (None: 1-point route);
+#                                      # to the leg's great circle, so beyond a corner or
+#                                      # route end |cross| < segment_distance_nm
 #     'route_end': str | None,         # "departure" / "destination" when off that end
 #     'closest_segment': Tuple[str, str]
 # }

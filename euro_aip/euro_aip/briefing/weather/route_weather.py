@@ -40,7 +40,9 @@ class RouteAirportWeather:
         along_track_nm: The airport projected onto the route, NM from departure.
             Signed: negative behind the departure, beyond the route length past
             the destination.
-        cross_track_nm: Signed distance off track, positive right, negative left.
+        cross_track_nm: Signed distance off the closest segment's great circle,
+            positive right, negative left. Not the segment distance: beyond a
+            corner or a route end it is smaller than the distance to the route.
         route_end: "departure" / "destination" when the projection falls off
             that end of the route, else None.
     """
