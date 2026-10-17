@@ -33,8 +33,16 @@ class RouteAirportWeather:
         icao: Airport ICAO code.
         name: Airport name (if available).
         distance_from_route_nm: Perpendicular distance to route centerline.
-        enroute_distance_nm: Distance along route from departure.
+        enroute_distance_nm: ``find_airports_near_route``'s enroute distance
+            (closest segment's start + straight distance to the airport; not a
+            projection, see there).
         reports: WeatherCollection of all reports for this airport.
+        along_track_nm: The airport projected onto the route, NM from departure.
+            Signed: negative behind the departure, beyond the route length past
+            the destination.
+        cross_track_nm: Signed distance off track, positive right, negative left.
+        route_end: "departure" / "destination" when the projection falls off
+            that end of the route, else None.
     """
 
     icao: str
@@ -42,6 +50,9 @@ class RouteAirportWeather:
     distance_from_route_nm: float
     enroute_distance_nm: Optional[float]
     reports: WeatherCollection = field(default_factory=lambda: WeatherCollection([]))
+    along_track_nm: Optional[float] = None
+    cross_track_nm: Optional[float] = None
+    route_end: Optional[str] = None
 
     @property
     def latest_metar(self) -> Optional[WeatherReport]:
@@ -167,6 +178,9 @@ class RouteWeatherService:
                 name=getattr(airport, "name", None),
                 distance_from_route_nm=entry["segment_distance_nm"],
                 enroute_distance_nm=entry.get("enroute_distance_nm"),
+                along_track_nm=entry.get("along_track_nm"),
+                cross_track_nm=entry.get("cross_track_nm"),
+                route_end=entry.get("route_end"),
             )
             alt_ident = getattr(airport, "alt_ident", None)
             if isinstance(alt_ident, str) and alt_ident and alt_ident != icao:

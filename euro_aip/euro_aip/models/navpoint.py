@@ -189,6 +189,28 @@ class NavPoint:
         _, d_ab = a.haversine_distance(b)
         return (d_aw + d_wb) - d_ab
 
+    def track_position(self, line_start: 'NavPoint', line_end: 'NavPoint') -> Tuple[float, float]:
+        """Signed (along, cross) position of this point against the great circle start→end, in NM.
+
+        ``along`` is the projection measured from ``line_start``, not clamped:
+        negative when the point is behind the start, larger than the segment
+        length when it is past the end. ``cross`` is positive right of track
+        (looking from start to end), negative left.
+        """
+        bearing_AB, dist_AB = line_start.haversine_distance(line_end)
+        bearing_AP, dist_AP = line_start.haversine_distance(self)
+        if dist_AB < 1e-6 or dist_AP < 1e-9:
+            return 0.0, 0.0
+        R = self.EARTH_RADIUS_NM
+        d13 = dist_AP / R
+        dtheta = math.radians(bearing_AP - bearing_AB)
+        xt = math.asin(max(-1.0, min(1.0, math.sin(d13) * math.sin(dtheta))))
+        # Napier: tan(along) = tan(d13)·cos(Δθ). atan2 keeps the sign (behind
+        # the start when the bearings differ by more than 90°) and stays stable
+        # close to the track.
+        at = math.atan2(math.sin(d13) * math.cos(dtheta), math.cos(d13))
+        return at * R, xt * R
+
     def distance_to_segment(self, line_start: 'NavPoint', line_end: 'NavPoint') -> float:
         """
         Compute distance from this point to a segment defined by two NavPoints.

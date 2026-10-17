@@ -761,7 +761,12 @@ nearby = model.find_airports_near_route(route, distance_nm=50.0)
 # {
 #     'airport': Airport,
 #     'segment_distance_nm': float,    # Perpendicular distance
-#     'enroute_distance_nm': float,    # Distance along route
+#     'enroute_distance_nm': float,    # Legacy: closest segment's start + straight
+#                                      # distance to the airport (NOT a projection)
+#     'along_track_nm': float,         # True projection, signed: < 0 behind the
+#                                      # departure, > route length past the destination
+#     'cross_track_nm': float | None,  # Signed, + right of track (None: 1-point route)
+#     'route_end': str | None,         # "departure" / "destination" when off that end
 #     'closest_segment': Tuple[str, str]
 # }
 

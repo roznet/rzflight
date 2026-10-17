@@ -1514,7 +1514,18 @@ class EuroAipModel:
             List of dictionaries containing airport data and distance information, including:
             - airport: Airport object
             - segment_distance_nm: Perpendicular distance to the route in nautical miles
-            - enroute_distance_nm: Distance along the route to the closest point in nautical miles
+            - enroute_distance_nm: Cumulative route distance to the start of the closest
+              segment plus the straight-line distance from that segment start to the
+              airport. NOT a projection: an airport behind the departure reads positive
+              and an off-track airport is pushed forward. Kept as is because consumers
+              filter on it; use ``along_track_nm`` for a true position along the route.
+            - along_track_nm: The airport projected onto the route, NM from the first
+              point. Signed: negative when it lies behind the first point, larger than
+              the route length when it lies past the last.
+            - cross_track_nm: Signed distance off the closest segment's great circle,
+              positive right of track, negative left (None for a single-point route).
+            - route_end: "departure" / "destination" when the projection falls off that
+              end of the route, else None.
             - closest_segment: Tuple of (start_airport_name, end_airport_name) for the closest segment
         """
         if len(route_airports) < 1:
@@ -1584,12 +1595,17 @@ class EuroAipModel:
             min_distance = float('inf')
             closest_segment = None
             enroute_distance = None
+            along_track = None
+            cross_track = None
+            route_end = None
             
+            closest_segment_index = None
             if len(route_points) == 1:
                 # Single airport: calculate direct distance to the point
                 _, min_distance = airport_point.haversine_distance(route_points[0])
                 closest_segment = (route_points[0].name, route_points[0].name)
                 enroute_distance = 0.0  # At the starting point
+                along_track = 0.0
             else:
                 # Multiple airports: calculate minimum distance to any segment of
                 # the route (only segments whose box holds the airport can be
@@ -1611,7 +1627,11 @@ class EuroAipModel:
                         # Calculate along-track distance within this segment
                         _, dist_AP = segment_start.haversine_distance(airport_point)
                         enroute_distance = cumulative_distances[i] + dist_AP  # At segment start
-                        
+
+                if closest_segment_index is not None:
+                    along_track, cross_track, route_end = _route_position(
+                        airport_point, route_points, cumulative_distances, closest_segment_index
+                    )
             
             # Check if airport is within the specified distance
             if min_distance <= distance_nm:
@@ -1619,6 +1639,9 @@ class EuroAipModel:
                     'airport': airport,
                     'segment_distance_nm': round(min_distance, 2),
                     'enroute_distance_nm': round(enroute_distance, 2) if enroute_distance is not None else None,
+                    'along_track_nm': round(along_track, 2) if along_track is not None else None,
+                    'cross_track_nm': round(cross_track, 2) if cross_track is not None else None,
+                    'route_end': route_end,
                     'closest_segment': closest_segment
                 })
         
@@ -1741,6 +1764,32 @@ class EuroAipModel:
             logger.info(f"{interpreter_name}: {len(successful)} successful, {len(failed)} failed, {len(missing)} missing")
         
         return results
+
+
+def _route_position(point: NavPoint, route_points: List[NavPoint],
+                    cumulative: List[float], i: int):
+    """(along_nm, cross_nm, route_end) of ``point`` against segment ``i`` of the route.
+
+    Within the route the projection is clamped to the segment, so a point
+    beyond a corner reads at the corner. Only the first segment may go
+    negative and only the last may run past the route's end, which is how
+    "behind the departure" / "past the destination" are told apart.
+    """
+    start, end = route_points[i], route_points[i + 1]
+    leg = cumulative[i + 1] - cumulative[i]
+    along, cross = point.track_position(start, end)
+    route_end = None
+    if along < 0.0:
+        if i == 0:
+            route_end = "departure"
+        else:
+            along = 0.0
+    elif along > leg:
+        if i == len(route_points) - 2:
+            route_end = "destination"
+        else:
+            along = leg
+    return cumulative[i] + along, cross, route_end
 
 
 def _segment_bbox(start: NavPoint, end: NavPoint, distance_nm: float):
