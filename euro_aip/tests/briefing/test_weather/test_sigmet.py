@@ -345,6 +345,14 @@ class TestParseTextPolygon:
         assert _parse_text_polygon("WI N4500 E00100 - N4600 E00100") == []
         assert _parse_text_polygon("WI N4500 E00100 - N4500 E00100 - N4600 E00100") == []
 
+    def test_out_of_range_minutes_or_degrees_drop_the_polygon(self):
+        assert _parse_text_polygon("WI N4275 E00100 - N4600 E00100 - N4600 E00200") == []
+        assert _parse_text_polygon("WI N4500 E00160 - N4600 E00100 - N4600 E00200") == []
+        assert _parse_text_polygon("WI N9030 E00100 - N4600 E00100 - N4600 E00200") == []
+
+    def test_crlf_line_endings(self):
+        assert _parse_text_polygon(LFBB_U07.replace("\n", "\r\n")) == _parse_text_polygon(LFBB_U07)
+
     def test_no_polygon(self):
         assert _parse_text_polygon("") == []
         assert _parse_text_polygon("LFFF SIGMET 2 VALID SEV TURB FCST ENTIRE FIR FL200/300=") == []
