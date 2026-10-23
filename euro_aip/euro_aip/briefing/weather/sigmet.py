@@ -15,6 +15,7 @@ missing key, and the level/time helpers accept the several encodings AWC has
 shipped over time — so a future tweak degrades gracefully rather than crashing.
 """
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -111,6 +112,47 @@ def _parse_coords(value: Any) -> List[Coord]:
     return ring
 
 
+#: One ICAO SIGMET point, hemisphere first: ``N4230 E00215`` or ``N42 E002``
+#: (degrees, optional minutes). Annex 3 also allows the space to be omitted.
+_TEXT_POINT = r"([NS])(\d{2})(\d{2})?\s*([EW])(\d{3})(\d{2})?"
+#: ``WI <point> - <point> - ...``: an area given as a polygon.
+_TEXT_POLYGON_RE = re.compile(
+    r"\bWI\s+(" + _TEXT_POINT + r"(?:\s*-\s*" + _TEXT_POINT + r")+)"
+)
+_TEXT_POINT_RE = re.compile(_TEXT_POINT)
+
+
+def _parse_text_polygon(raw_text: str) -> List[Coord]:
+    """Parse the ``WI <point> - <point> - ...`` polygon of a SIGMET bulletin.
+
+    The fallback for entries where AWC sends no ``coords`` (LFBB, 2026-10-23).
+    Returns a closed ring of ``(lon, lat)`` tuples, or ``[]`` when the text
+    has no polygon, has fewer than three distinct points, or has more than one
+    ``WI`` polygon (e.g. an observed area plus a ``FCST AT`` position): the
+    model holds one ring, and picking one of two areas could drop the part
+    a route crosses, so those stay coordless and fall back to the FIR match.
+    ``OF LINE`` areas, ``ENTIRE FIR`` and radius forms are not parsed either.
+    """
+    if not raw_text:
+        return []
+    text = " ".join(raw_text.split())
+    matches = _TEXT_POLYGON_RE.findall(text)
+    if len(matches) != 1:
+        return []
+    ring: List[Coord] = []
+    for ns, lat_d, lat_m, ew, lon_d, lon_m in _TEXT_POINT_RE.findall(matches[0][0]):
+        lat = int(lat_d) + int(lat_m or 0) / 60.0
+        lon = int(lon_d) + int(lon_m or 0) / 60.0
+        if lat > 90 or lon > 180:
+            return []
+        ring.append((-lon if ew == "W" else lon, -lat if ns == "S" else lat))
+    if len(set(ring)) < 3:
+        return []
+    if ring[0] != ring[-1]:
+        ring.append(ring[0])
+    return ring
+
+
 @dataclass
 class SigmetReport:
     """A parsed international SIGMET.
@@ -130,6 +172,9 @@ class SigmetReport:
         speed_kt: Movement speed in knots (None if unknown).
         coords: Polygon outline as ``(lon, lat)`` vertices.
         source: Data source identifier.
+        coords_source: Where ``coords`` came from: ``"awc"`` (AWC's
+            ``coords``), ``"text"`` (parsed from ``raw_text`` because AWC sent
+            none) or None (no geometry).
     """
 
     raw_text: str = ""
@@ -146,6 +191,7 @@ class SigmetReport:
     speed_kt: Optional[int] = None
     coords: List[Coord] = field(default_factory=list)
     source: str = ""
+    coords_source: Optional[str] = None
 
     @classmethod
     def from_awc(cls, data: Dict[str, Any], source: str = "avwx") -> "SigmetReport":
@@ -159,8 +205,16 @@ class SigmetReport:
             direction = direction.strip().upper() or None
             if direction == "-":
                 direction = None
+        raw_text = data.get("rawSigmet") or data.get("rawAirSigmet") or ""
+        # AWC's coords win when present; some entries come with none although
+        # the bulletin carries a polygon, so read it from the text then.
+        coords = _parse_coords(data.get("coords"))
+        coords_source: Optional[str] = "awc" if coords else None
+        if not coords:
+            coords = _parse_text_polygon(raw_text)
+            coords_source = "text" if coords else None
         return cls(
-            raw_text=data.get("rawSigmet") or data.get("rawAirSigmet") or "",
+            raw_text=raw_text,
             fir_id=fir_id,
             fir_name=data.get("firName"),
             icao_id=data.get("icaoId"),
@@ -172,8 +226,9 @@ class SigmetReport:
             valid_to=_parse_time(data.get("validTimeTo")),
             direction=direction,
             speed_kt=_parse_level(data.get("spd")),
-            coords=_parse_coords(data.get("coords")),
+            coords=coords,
             source=source,
+            coords_source=coords_source,
         )
 
     @property
@@ -263,6 +318,7 @@ class SigmetReport:
             "speed_kt": self.speed_kt,
             "coords": [list(c) for c in self.coords],
             "source": self.source,
+            "coords_source": self.coords_source,
         }
 
     @classmethod
@@ -284,6 +340,8 @@ class SigmetReport:
             speed_kt=data.get("speed_kt"),
             coords=coords,
             source=data.get("source", ""),
+            # Dicts written before coords_source existed only had AWC coords.
+            coords_source=data.get("coords_source", "awc" if coords else None),
         )
 
     def __repr__(self) -> str:
