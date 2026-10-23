@@ -120,6 +120,8 @@ _TEXT_POLYGON_RE = re.compile(
     r"\bWI\s+(" + _TEXT_POINT + r"(?:\s*-\s*" + _TEXT_POINT + r")+)"
 )
 _TEXT_POINT_RE = re.compile(_TEXT_POINT)
+#: Any ``<point> - <point> ...`` list, with or without ``WI`` before it.
+_TEXT_POINT_LIST_RE = re.compile(_TEXT_POINT + r"(?:\s*-\s*" + _TEXT_POINT + r")+")
 
 
 def _parse_text_polygon(raw_text: str) -> List[Coord]:
@@ -131,13 +133,17 @@ def _parse_text_polygon(raw_text: str) -> List[Coord]:
     ``WI`` polygon (e.g. an observed area plus a ``FCST AT`` position): the
     model holds one ring, and picking one of two areas could drop the part
     a route crosses, so those stay coordless and fall back to the FIR match.
+    The same holds for any second point list, with or without ``WI`` (a
+    ``FCST AT 1600Z N4500 E00200 - ...`` position). A ``MOV`` speed alone is
+    kept: AWC's own coords are the observed area too. Rings are taken as
+    given (no antimeridian or self-intersection handling; fine for Europe).
     ``OF LINE`` areas, ``ENTIRE FIR`` and radius forms are not parsed either.
     """
     if not raw_text:
         return []
     text = " ".join(raw_text.split())
     matches = _TEXT_POLYGON_RE.findall(text)
-    if len(matches) != 1:
+    if len(matches) != 1 or len(_TEXT_POINT_LIST_RE.findall(text)) != 1:
         return []
     ring: List[Coord] = []
     for ns, lat_d, lat_m, ew, lon_d, lon_m in _TEXT_POINT_RE.findall(matches[0][0]):

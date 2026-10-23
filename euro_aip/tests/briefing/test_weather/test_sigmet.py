@@ -341,6 +341,19 @@ class TestParseTextPolygon:
         )
         assert _parse_text_polygon(text) == []
 
+    def test_forecast_position_without_wi_left_coordless(self):
+        text = (
+            "EMBD TS OBS AT 1200Z WI N4500 E00100 - N4600 E00100 - N4600 E00200 "
+            "TOP FL350 FCST AT 1600Z N4500 E00200 - N4600 E00200 - N4600 E00300="
+        )
+        assert _parse_text_polygon(text) == []
+
+    def test_moving_polygon_kept(self):
+        ring = _parse_text_polygon(
+            "EMBD TS OBS WI N4500 E00100 - N4600 E00100 - N4600 E00200 TOP FL350 MOV E 25KT NC="
+        )
+        assert len(ring) == 4
+
     def test_too_few_points(self):
         assert _parse_text_polygon("WI N4500 E00100 - N4600 E00100") == []
         assert _parse_text_polygon("WI N4500 E00100 - N4500 E00100 - N4600 E00100") == []
