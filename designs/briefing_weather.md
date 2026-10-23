@@ -172,8 +172,9 @@ Geometry helpers mirror `FIR`: `polygons` (multipolygon shape), `bbox`, `contain
 **Text polygon fallback.** AWC sometimes sends empty `coords` for a SIGMET whose bulletin has an ordinary polygon (4 LFBB SEV TURB of 47 on flyfun-weather routes, 2026-10-23, flyfun-weather#897). A coordless SIGMET can only be matched by FIR, so it lands on every route crossing the FIR (false alerts 80 NM away) and has no bbox for reissue chaining. `from_awc` then parses `WI <pt> - <pt> - …` from `raw_text` (`_parse_text_polygon`; points `N4230 E00215` or `N42 E002`, with or without the space; ring closed if open). Choices:
 
 - **AWC coords always win** when non-empty; the text is only read when they are empty.
-- **Only a single `WI` polygon is parsed.** Two (an `OBS AT … WI` area plus a `FCST AT … WI` position) stay coordless: the model holds one ring, and keeping one area could drop the part a route crosses, while the FIR fallback is the louder reading.
+- **Only a single `WI` polygon is parsed**, and only when it is the text's only point list. Two (an `OBS AT … WI` area plus a `FCST AT …` position, with or without `WI`) stay coordless: the model holds one ring, and keeping one area could drop the part a route crosses, while the FIR fallback is the louder reading.
 - **`OF LINE` areas, `ENTIRE FIR`, radius forms (`WI 60NM OF …`) are not parsed**: a line area needs the FIR boundary to close it. They keep the FIR fallback.
+- A `MOV` speed alone keeps the polygon: AWC's own coords are the observed area too. No antimeridian or self-intersection handling (European FIRs).
 - `coords_source` records `awc` / `text` so reviews can count fallbacks; `from_dict` of an older dict infers `awc` when it has coords.
 
 ```python
