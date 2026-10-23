@@ -141,6 +141,9 @@ def _parse_text_polygon(raw_text: str) -> List[Coord]:
         return []
     ring: List[Coord] = []
     for ns, lat_d, lat_m, ew, lon_d, lon_m in _TEXT_POINT_RE.findall(matches[0][0]):
+        # A typo (N4275) gives a wrong area: drop the polygon instead.
+        if int(lat_m or 0) >= 60 or int(lon_m or 0) >= 60:
+            return []
         lat = int(lat_d) + int(lat_m or 0) / 60.0
         lon = int(lon_d) + int(lon_m or 0) / 60.0
         if lat > 90 or lon > 180:
