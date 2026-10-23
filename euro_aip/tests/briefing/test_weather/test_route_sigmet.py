@@ -198,6 +198,33 @@ class TestFirFallback:
         )
         assert result.sigmets == []
 
+    def test_text_polygon_replaces_fir_match(self):
+        """AWC sent no coords for LFBB U07 (flyfun-weather #897): its text
+        polygon (up to 46.25N) keeps it off a route along 47.5N, 75 NM away,
+        which the FIR match alone would have put it on."""
+        raw = (
+            "LFBB SIGMET U07 VALID 231000/231400 LFPW-\n"
+            "LFBB BORDEAUX FIR/UIR SEV TURB FCST WI N4230 E00230 - N4230 E00215 -\n"
+            "N4615 E00230 - N4615 E00300 - N4230 E00230 SFC/FL070 STNR INTSF="
+        )
+        awc = {"firId": "LFBB", "hazard": "TURB", "qualifier": "SEV",
+               "base": 0, "top": 7000, "coords": [], "rawSigmet": raw}
+        model = make_model(
+            [make_airport("AAAA", 47.5, 0.0), make_airport("BBBB", 47.5, 6.0)],
+            route_firs=["LFBB"],
+        )
+        service = RouteSigmetService(source=make_source([SigmetReport.from_awc(awc)]))
+        far = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=50, model=model, altitude_band_ft=(0, 18000),
+        )
+        assert far.sigmets == []
+
+        near = service.fetch_route_sigmets(
+            ROUTE, corridor_nm=100, model=model, altitude_band_ft=(0, 18000),
+        )
+        assert len(near.sigmets) == 1
+        assert 70 < near.sigmets[0].min_distance_nm < 80
+
 
 def _utc(hour):
     return datetime(2026, 5, 20, hour, tzinfo=timezone.utc)

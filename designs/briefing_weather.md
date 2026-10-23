@@ -165,8 +165,16 @@ Parsed from aviationweather.gov's `/api/data/isigmet` JSON. Coordinates use the 
 | `valid_from` / `valid_to` | `datetime?` | Validity window (aware UTC) |
 | `direction` / `speed_kt` | `str?` / `int?` | Movement (None if stationary/unknown) |
 | `coords` | `List[(lon, lat)]` | Polygon outline |
+| `coords_source` | `str?` | `"awc"`, `"text"` (parsed from `raw_text`), or None (no geometry) |
 
 Geometry helpers mirror `FIR`: `polygons` (multipolygon shape), `bbox`, `contains_point`, `overlaps_altitude(low, high)`, `is_valid_at(when)`. `to_dict`/`from_dict` round-trip like `WeatherReport`. The parser is defensive — every field tolerates a missing key, and the level/time helpers accept the encodings AWC has shipped (epoch / ISO time; feet / `FL340` / `SFC`) — so the Sept-2025 schema change (dropped `isigmetId`) degrades gracefully.
+
+**Text polygon fallback.** AWC sometimes sends empty `coords` for a SIGMET whose bulletin has an ordinary polygon (4 LFBB SEV TURB of 47 on flyfun-weather routes, 2026-10-23, flyfun-weather#897). A coordless SIGMET can only be matched by FIR, so it lands on every route crossing the FIR (false alerts 80 NM away) and has no bbox for reissue chaining. `from_awc` then parses `WI <pt> - <pt> - …` from `raw_text` (`_parse_text_polygon`; points `N4230 E00215` or `N42 E002`, with or without the space; ring closed if open). Choices:
+
+- **AWC coords always win** when non-empty; the text is only read when they are empty.
+- **Only a single `WI` polygon is parsed.** Two (an `OBS AT … WI` area plus a `FCST AT … WI` position) stay coordless: the model holds one ring, and keeping one area could drop the part a route crosses, while the FIR fallback is the louder reading.
+- **`OF LINE` areas, `ENTIRE FIR`, radius forms (`WI 60NM OF …`) are not parsed**: a line area needs the FIR boundary to close it. They keep the FIR fallback.
+- `coords_source` records `awc` / `text` so reviews can count fallbacks; `from_dict` of an older dict infers `awc` when it has coords.
 
 ```python
 from euro_aip.briefing.sources import AvWxSource

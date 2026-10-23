@@ -6,6 +6,7 @@ from euro_aip.briefing.weather.sigmet import (
     SigmetReport,
     _parse_coords,
     _parse_level,
+    _parse_text_polygon,
     _parse_time,
 )
 
@@ -293,3 +294,90 @@ class TestRoundTrip:
         import json
         s = SigmetReport.from_awc(sample_awc_entry())
         json.dumps(s.to_dict())  # should not raise
+
+
+# LFBB SIGMETs AWC served with empty coords on 2026-10-23 (flyfun-weather #897).
+LFBB_U07 = (
+    "WSFR31 LFPW 230932\n"
+    "LFBB SIGMET U07 VALID 231000/231400 LFPW-\n"
+    "LFBB BORDEAUX FIR/UIR SEV TURB FCST WI N4230 E00230 - N4230 E00215 -\n"
+    "N4615 E00230 - N4615 E00300 - N4230 E00230 SFC/FL070 STNR INTSF="
+)
+LFBB_U10 = (
+    "LFBB SIGMET U10 VALID 231400/231800 LFPW-\n"
+    "LFBB BORDEAUX FIR/UIR SEV TURB FCST SE OF LINE N4345 E00245 - N4245 E00215 "
+    "AND NE OF LINE N4245 E00215 - N4245 E00230 SFC/FL070 STNR NC="
+)
+
+
+class TestParseTextPolygon:
+    def test_lfbb_u07_polygon_across_line_breaks(self):
+        assert _parse_text_polygon(LFBB_U07) == [
+            (2.5, 42.5), (2.25, 42.5), (2.5, 46.25), (3.0, 46.25), (2.5, 42.5),
+        ]
+
+    def test_ring_closed_when_text_leaves_it_open(self):
+        ring = _parse_text_polygon(
+            "EGTT SIGMET 1 VALID 231000/231400 EGRR- SEV ICE FCST "
+            "WI N5000 W00130 - N5100 W00130 - N5100 E00100 FL080/150 STNR NC="
+        )
+        assert ring == [(-1.5, 50.0), (-1.5, 51.0), (1.0, 51.0), (-1.5, 50.0)]
+
+    def test_degrees_only_and_southern_points(self):
+        ring = _parse_text_polygon("SEV TURB FCST WI S10 W020 - S12 W020 - S12 W018 FL300/400")
+        assert ring == [(-20.0, -10.0), (-20.0, -12.0), (-18.0, -12.0), (-20.0, -10.0)]
+
+    def test_points_without_space(self):
+        ring = _parse_text_polygon("WI N4230E00230 - N4230E00215 - N4615E00230")
+        assert ring[:3] == [(2.5, 42.5), (2.25, 42.5), (2.5, 46.25)]
+
+    def test_line_form_not_parsed(self):
+        assert _parse_text_polygon(LFBB_U10) == []
+
+    def test_two_polygons_left_coordless(self):
+        text = (
+            "EMBD TS OBS AT 1200Z WI N4500 E00100 - N4600 E00100 - N4600 E00200 "
+            "TOP FL350 MOV E 20KT FCST AT 1600Z WI N4500 E00200 - N4600 E00200 - N4600 E00300="
+        )
+        assert _parse_text_polygon(text) == []
+
+    def test_too_few_points(self):
+        assert _parse_text_polygon("WI N4500 E00100 - N4600 E00100") == []
+        assert _parse_text_polygon("WI N4500 E00100 - N4500 E00100 - N4600 E00100") == []
+
+    def test_no_polygon(self):
+        assert _parse_text_polygon("") == []
+        assert _parse_text_polygon("LFFF SIGMET 2 VALID SEV TURB FCST ENTIRE FIR FL200/300=") == []
+
+
+class TestFromAwcTextFallback:
+    def test_empty_coords_fall_back_to_text(self):
+        s = SigmetReport.from_awc(sample_awc_entry(coords=[], rawSigmet=LFBB_U07))
+        assert s.coords_source == "text"
+        assert len(s.polygons) == 1
+        assert s.contains_point(2.6, 44.0)
+        assert not s.contains_point(5.0, 44.0)
+
+    def test_awc_coords_win_over_text(self):
+        s = SigmetReport.from_awc(sample_awc_entry(rawSigmet=LFBB_U07))
+        assert s.coords_source == "awc"
+        assert s.coords[0] == (-2.0, 51.0)
+
+    def test_unparsed_text_stays_coordless(self):
+        s = SigmetReport.from_awc(sample_awc_entry(coords=[], rawSigmet=LFBB_U10))
+        assert s.coords == []
+        assert s.coords_source is None
+        assert s.polygons == []
+
+    def test_coords_source_round_trips(self):
+        s = SigmetReport.from_awc(sample_awc_entry(coords=[], rawSigmet=LFBB_U07))
+        restored = SigmetReport.from_dict(s.to_dict())
+        assert restored.coords_source == "text"
+        assert restored.coords == s.coords
+
+    def test_legacy_dict_without_coords_source(self):
+        d = SigmetReport.from_awc(sample_awc_entry()).to_dict()
+        del d["coords_source"]
+        assert SigmetReport.from_dict(d).coords_source == "awc"
+        d["coords"] = []
+        assert SigmetReport.from_dict(d).coords_source is None
