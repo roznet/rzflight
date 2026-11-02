@@ -453,6 +453,36 @@ class TestAntimeridian:
         assert s.contains_point(-179.0, 47.0)
         assert not s.contains_point(10.0, 47.0)
 
+    def test_any_start_vertex_gives_the_same_answers(self):
+        # AWC rings start at an arbitrary vertex: east of the line, west of it
+        # or mid-ring, closed or not.
+        ring = [(175.0, 45.0), (175.0, 50.0), (-175.0, 50.0), (-175.0, 45.0)]
+        for start in range(len(ring)):
+            rotated = ring[start:] + ring[:start]
+            for coords in (rotated, rotated + rotated[:1]):
+                s = SigmetReport(coords=coords)
+                for lon in (176.0, 180.0, -180.0, -176.0):
+                    assert s.contains_point(lon, 47.0), (coords, lon)
+                for lon in (170.0, -170.0, 10.0):
+                    assert not s.contains_point(lon, 47.0), (coords, lon)
+
+    def test_kzak_from_every_start_vertex(self):
+        coords = self._kzak().coords[:-1]
+        for start in range(len(coords)):
+            s = SigmetReport(coords=coords[start:] + coords[:start])
+            assert s.contains_point(179.0, 47.0)
+            assert s.contains_point(-179.0, 47.0)
+            assert not s.contains_point(10.93, 48.43)
+
+    def test_a_vertex_on_the_line_itself(self):
+        for first in (180.0, -180.0):
+            s = SigmetReport(coords=[
+                (first, 45.0), (first, 50.0), (-175.0, 50.0), (-175.0, 45.0),
+            ])
+            assert s.contains_point(-178.0, 47.0)
+            assert not s.contains_point(178.0, 47.0)
+            assert not s.contains_point(10.0, 47.0)
+
     def test_raw_coords_are_untouched(self):
         s = self._kzak()
         assert s.coords[0][0] < -173

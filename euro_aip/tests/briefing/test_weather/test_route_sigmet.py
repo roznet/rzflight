@@ -382,9 +382,9 @@ class TestAntimeridian:
         (178.1167, 49.3667), (-173.7167, 50.15),
     ]
 
-    def _match(self, a, b, corridor_nm=25.0):
+    def _match(self, a, b, corridor_nm=25.0, ring=None):
         airports = [make_airport("AAAA", *a), make_airport("BBBB", *b)]
-        service = RouteSigmetService(source=make_source([make_sigmet("KZAK", self.KZAK)]))
+        service = RouteSigmetService(source=make_source([make_sigmet("KZAK", ring or self.KZAK)]))
         return service.fetch_route_sigmets(
             ["AAAA", "BBBB"], corridor_nm=corridor_nm,
             model=make_model(airports, route_firs=[]),
@@ -411,3 +411,15 @@ class TestAntimeridian:
 
     def test_route_beyond_the_corridor_does_not_match(self):
         assert self._match((47.0, 170.0), (47.0, 171.0)) == []
+
+    def test_ring_starting_east_of_the_line_matches_both_sides(self):
+        east_first = self.KZAK[2:4] + self.KZAK[:2] + self.KZAK[2:3]
+        for a, b in [((47.0, 178.0), (47.0, 179.0)), ((47.0, -179.0), (47.0, -178.0))]:
+            hits = self._match(a, b, ring=east_first)
+            assert len(hits) == 1, (a, b)
+            assert hits[0].min_distance_nm == 0.0
+        assert self._match((51.0, 8.0), (48.4, 10.9), ring=east_first) == []
+        # Distance from the near copy, on the side away from the first vertex.
+        hits = self._match((50.2, -173.3), (50.3, -173.3), ring=east_first)
+        assert len(hits) == 1
+        assert 0.0 < hits[0].min_distance_nm < 25.0

@@ -15,6 +15,7 @@ missing key, and the level/time helpers accept the several encodings AWC has
 shipped over time — so a future tweak degrades gracefully rather than crashing.
 """
 
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -250,10 +251,12 @@ class SigmetReport:
         Returns an empty list when the SIGMET has no usable outline. The shape
         matches ``euro_aip.utils.geometry`` helpers and ``FIR.polygons``.
 
-        A ring crossing the antimeridian comes back as two copies, unwrapped and
-        shifted by 360 degrees, with longitudes beyond 180: flat, the raw ring
-        would span the planet the wrong way round. Query points in -180..180
-        fall in the copy on their side. One that circles a pole has no outline.
+        A ring crossing the antimeridian comes back as two copies with longitudes
+        beyond 180: flat, the raw ring would span the planet the wrong way round.
+        Unwrapped, it starts wherever its first vertex was, so it is placed with
+        its western edge in -180..180, and the other copy sits 360 degrees west.
+        A query point in -180..180 falls in the copy on its side. A ring that
+        circles a pole has no outline.
         """
         if len(self.coords) < 3:
             return []
@@ -262,7 +265,10 @@ class SigmetReport:
         ring = unwrap_ring(self.coords)
         if not ring:
             return []
-        return [[ring], [[(lon + 360.0, lat) for lon, lat in ring]]]
+        west = min(lon for lon, _ in ring)
+        shift = 360.0 * math.floor((west + 180.0) / 360.0)
+        east_copy = [(lon - shift, lat) for lon, lat in ring]
+        return [[east_copy], [[(lon - 360.0, lat) for lon, lat in east_copy]]]
 
     @property
     def bbox(self) -> Optional[Tuple[float, float, float, float]]:
