@@ -402,3 +402,76 @@ class TestFromAwcTextFallback:
         assert SigmetReport.from_dict(d).coords_source == "awc"
         d["coords"] = []
         assert SigmetReport.from_dict(d).coords_source is None
+
+
+# flyfun-weather 2026-11-02: AWC sent no coords, and read as a flat ring this
+# small Pacific area became a band round the planet at 44-50N, over Europe.
+KZAK_ECHO = (
+    "WSPN05 KKCI 020610\n"
+    "KZAK SIGMET ECHO 1 VALID 020610/021010 KKCI-\n"
+    "OAKLAND OCEANIC FIR FRQ TS OBS AT 0610Z WI N5009 W17343 - N4507\n"
+    "W17625 - N4355 E17442 - N4922 E17807 - N5009 W17343. TOP FL330.\n"
+    "MOV W 60KT. NC."
+)
+
+
+class TestAntimeridian:
+    def _kzak(self, **overrides):
+        return SigmetReport.from_awc(
+            sample_awc_entry(coords=[], rawSigmet=KZAK_ECHO, **overrides)
+        )
+
+    def test_european_points_are_outside(self):
+        s = self._kzak()
+        for lon, lat in [(10.93, 48.43), (4.94, 45.73), (-0.71, 44.83), (140.0, 47.0)]:
+            assert not s.contains_point(lon, lat), (lon, lat)
+
+    def test_points_either_side_of_the_line_are_inside(self):
+        s = self._kzak()
+        for lon in (179.0, 180.0, -180.0, -179.0):
+            assert s.contains_point(lon, 47.0), lon
+
+    def test_points_just_beyond_the_shape_are_outside(self):
+        s = self._kzak()
+        assert not s.contains_point(170.0, 47.0)
+        assert not s.contains_point(-170.0, 47.0)
+
+    def test_bbox_keeps_true_latitudes_and_spans_all_longitudes(self):
+        min_lon, min_lat, max_lon, max_lat = self._kzak().bbox
+        assert (min_lon, max_lon) == (-180.0, 180.0)
+        assert 43.9 < min_lat < 44.0
+        assert 50.1 < max_lat < 50.2
+
+    def test_unclosed_awc_ring(self):
+        s = SigmetReport.from_awc(sample_awc_entry(coords=[
+            {"lat": 50.0, "lon": -175.0},
+            {"lat": 45.0, "lon": -175.0},
+            {"lat": 45.0, "lon": 175.0},
+            {"lat": 50.0, "lon": 175.0},
+        ]))
+        assert s.contains_point(179.0, 47.0)
+        assert s.contains_point(-179.0, 47.0)
+        assert not s.contains_point(10.0, 47.0)
+
+    def test_raw_coords_are_untouched(self):
+        s = self._kzak()
+        assert s.coords[0][0] < -173
+        assert s.coords[2][0] > 174
+        assert SigmetReport.from_dict(s.to_dict()).coords == s.coords
+
+    def test_ring_circling_a_pole_has_no_usable_shape(self):
+        s = SigmetReport.from_awc(sample_awc_entry(coords=[
+            {"lat": 80.0, "lon": 0.0},
+            {"lat": 80.0, "lon": 120.0},
+            {"lat": 80.0, "lon": -120.0},
+            {"lat": 80.0, "lon": 0.0},
+        ]))
+        assert s.polygons == []
+        assert not s.contains_point(0.0, 85.0)
+
+    def test_ordinary_ring_is_unchanged(self):
+        s = SigmetReport.from_awc(sample_awc_entry())
+        assert s.polygons == [[list(s.coords)]]
+        lons = [c[0] for c in s.coords]
+        lats = [c[1] for c in s.coords]
+        assert s.bbox == (min(lons), min(lats), max(lons), max(lats))

@@ -371,3 +371,43 @@ class TestFetchStatus:
         )
         assert result.fetch_ok is True and result.queried_at is None
         assert not result.covers(self.T0 - timedelta(hours=1), self.T0 + timedelta(hours=3))
+
+
+class TestAntimeridian:
+    """An area across the 180 line stays in the Pacific (flyfun-weather 2026-11-02)."""
+
+    # KZAK ECHO of 2026-11-02: lon -173.7 ... 174.7, lat 44-50.
+    KZAK = [
+        (-173.7167, 50.15), (-176.4167, 45.1167), (174.7, 43.9167),
+        (178.1167, 49.3667), (-173.7167, 50.15),
+    ]
+
+    def _match(self, a, b, corridor_nm=25.0):
+        airports = [make_airport("AAAA", *a), make_airport("BBBB", *b)]
+        service = RouteSigmetService(source=make_source([make_sigmet("KZAK", self.KZAK)]))
+        return service.fetch_route_sigmets(
+            ["AAAA", "BBBB"], corridor_nm=corridor_nm,
+            model=make_model(airports, route_firs=[]),
+        ).sigmets
+
+    def test_european_route_does_not_match(self):
+        assert self._match((51.0, 8.0), (48.4, 10.9)) == []
+
+    def test_route_west_of_the_line_matches(self):
+        hits = self._match((47.0, 178.0), (47.0, 179.0))
+        assert len(hits) == 1
+        assert hits[0].min_distance_nm == 0.0
+
+    def test_route_east_of_the_line_matches(self):
+        hits = self._match((47.0, -179.0), (47.0, -178.0))
+        assert len(hits) == 1
+        assert hits[0].min_distance_nm == 0.0
+
+    def test_route_in_the_corridor_gets_the_short_distance(self):
+        # About 15 NM west of the area's western edge, not half a world away.
+        hits = self._match((44.0, 174.4), (44.1, 174.4))
+        assert len(hits) == 1
+        assert 5.0 < hits[0].min_distance_nm < 25.0
+
+    def test_route_beyond_the_corridor_does_not_match(self):
+        assert self._match((47.0, 170.0), (47.0, 171.0)) == []

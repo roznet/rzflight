@@ -174,8 +174,10 @@ Geometry helpers mirror `FIR`: `polygons` (multipolygon shape), `bbox`, `contain
 - **AWC coords always win** when non-empty; the text is only read when they are empty.
 - **Only a single `WI` polygon is parsed**, and only when it is the text's only point list. Two (an `OBS AT … WI` area plus a `FCST AT …` position, with or without `WI`) stay coordless: the model holds one ring, and keeping one area could drop the part a route crosses, while the FIR fallback is the louder reading.
 - **`OF LINE` areas, `ENTIRE FIR`, radius forms (`WI 60NM OF …`) are not parsed**: a line area needs the FIR boundary to close it. They keep the FIR fallback.
-- A `MOV` speed alone keeps the polygon: AWC's own coords are the observed area too. No antimeridian or self-intersection handling (European FIRs).
+- A `MOV` speed alone keeps the polygon: AWC's own coords are the observed area too. No self-intersection handling.
 - `coords_source` records `awc` / `text` so reviews can count fallbacks; `from_dict` of an older dict infers `awc` when it has coords.
+
+**Antimeridian.** Neighbouring vertices more than 180° of longitude apart join the short way round, across the line. Read flat, such a ring spans the planet: KZAK ECHO of 2026-11-02, a small Pacific area, became a band at 44-50°N and matched European routes. `coords` stays raw; `polygons` returns the unwrapped ring plus a copy shifted by 360° (longitudes beyond 180, so don't export them as GeoJSON), so a point in -180..180 falls in the copy on its side and distances come from the near copy. `bbox` gets all longitudes with the true latitudes, as a prefilter only. A ring circling a pole has no `polygons`, so it takes the FIR fallback.
 
 ```python
 from euro_aip.briefing.sources import AvWxSource

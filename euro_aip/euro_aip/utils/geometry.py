@@ -84,6 +84,40 @@ def point_in_multipolygon(lon: float, lat: float,
     return False
 
 
+def ring_crosses_antimeridian(ring: Sequence[Tuple[float, float]]) -> bool:
+    """True if a ring of (lon, lat) vertices crosses the 180 degree line.
+
+    Neighbouring vertices more than 180 degrees of longitude apart are taken to
+    join the short way round the globe, across the line. The closing edge counts
+    too, so the ring need not be explicitly closed.
+    """
+    return any(
+        abs(ring[i][0] - ring[i - 1][0]) > 180.0
+        for i in range(len(ring))
+    )
+
+
+def unwrap_ring(ring: Sequence[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    """Make a ring's longitudes continuous, each step going the short way round.
+
+    The result can leave the -180..180 range (-176 then 174 becomes -176 then
+    -186). Returns ``[]`` for a ring that does not come back to its start once
+    unwrapped: it circles a pole, and has no flat (lon, lat) outline.
+    """
+    if not ring:
+        return []
+
+    def nearest(lon: float, ref: float) -> float:
+        return lon - 360.0 * round((lon - ref) / 360.0)
+
+    out = [(ring[0][0], ring[0][1])]
+    for lon, lat in ring[1:]:
+        out.append((nearest(lon, out[-1][0]), lat))
+    if abs(nearest(ring[0][0], out[-1][0]) - ring[0][0]) > 1e-9:
+        return []
+    return out
+
+
 def bbox_of_ring(ring: Sequence[Tuple[float, float]]) -> Tuple[float, float, float, float]:
     """Bounding box (min_lon, min_lat, max_lon, max_lat) of a ring."""
     lons = [p[0] for p in ring]

@@ -23,6 +23,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from euro_aip.utils.geometry import (
     bbox_of_ring,
     point_in_multipolygon,
+    ring_crosses_antimeridian,
+    unwrap_ring,
 )
 
 Coord = Tuple[float, float]  # (lon, lat)
@@ -136,7 +138,8 @@ def _parse_text_polygon(raw_text: str) -> List[Coord]:
     The same holds for any second point list, with or without ``WI`` (a
     ``FCST AT 1600Z N4500 E00200 - ...`` position). A ``MOV`` speed alone is
     kept: AWC's own coords are the observed area too. Rings are taken as
-    given (no antimeridian or self-intersection handling; fine for Europe).
+    given (no self-intersection handling); ``polygons`` deals with one that
+    crosses the antimeridian.
     ``OF LINE`` areas, ``ENTIRE FIR`` and radius forms are not parsed either.
     """
     if not raw_text:
@@ -246,17 +249,35 @@ class SigmetReport:
 
         Returns an empty list when the SIGMET has no usable outline. The shape
         matches ``euro_aip.utils.geometry`` helpers and ``FIR.polygons``.
+
+        A ring crossing the antimeridian comes back as two copies, unwrapped and
+        shifted by 360 degrees, with longitudes beyond 180: flat, the raw ring
+        would span the planet the wrong way round. Query points in -180..180
+        fall in the copy on their side. One that circles a pole has no outline.
         """
         if len(self.coords) < 3:
             return []
-        return [[list(self.coords)]]
+        if not ring_crosses_antimeridian(self.coords):
+            return [[list(self.coords)]]
+        ring = unwrap_ring(self.coords)
+        if not ring:
+            return []
+        return [[ring], [[(lon + 360.0, lat) for lon, lat in ring]]]
 
     @property
     def bbox(self) -> Optional[Tuple[float, float, float, float]]:
-        """Bounding box ``(min_lon, min_lat, max_lon, max_lat)`` of the outline."""
+        """Bounding box ``(min_lon, min_lat, max_lon, max_lat)`` of the outline.
+
+        A ring crossing the antimeridian gets every longitude: one box can't
+        hold both sides, and this is a prefilter, so wide is safe and
+        ``polygons`` decides.
+        """
         if not self.coords:
             return None
-        return bbox_of_ring(self.coords)
+        box = bbox_of_ring(self.coords)
+        if ring_crosses_antimeridian(self.coords):
+            return (-180.0, box[1], 180.0, box[3])
+        return box
 
     def contains_point(self, lon: float, lat: float) -> bool:
         """True if ``(lon, lat)`` lies inside the SIGMET polygon."""
