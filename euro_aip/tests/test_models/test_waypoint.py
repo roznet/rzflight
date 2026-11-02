@@ -637,6 +637,24 @@ class TestDetourFilter:
         assert route.rejected_waypoints
         assert route.rejected_waypoints[0]["threshold_nm"] <= 200
 
+    def test_default_is_a_flat_300_nm(self, model):
+        r = RouteResolver(model)
+        for leg_nm in (5.0, 59.0, 340.0, 2000.0):
+            assert r._detour_threshold_nm(leg_nm) == 300.0
+
+    def test_real_route_on_a_short_leg_is_kept(self):
+        """Filed routing several times longer than direct: 80 nm detour on a
+        59 nm leg. The gate catches wrong places, it doesn't judge the route."""
+        m = EuroAipModel()
+        m.add_airport(Airport(ident="LSZR", name="St Gallen-Altenrhein", latitude_deg=47.485, longitude_deg=9.561))
+        m.add_airport(Airport(ident="LSZS", name="Samedan", latitude_deg=46.534, longitude_deg=9.884))
+        m.add_waypoint(Waypoint(name="TRA", latitude_deg=47.689, longitude_deg=8.437, point_type="VOR"))
+        m.add_waypoint(Waypoint(name="GERSA", latitude_deg=47.039, longitude_deg=8.532, point_type="5LNC"))
+        m.add_waypoint(Waypoint(name="PELAD", latitude_deg=46.599, longitude_deg=9.726, point_type="5LNC"))
+        route = RouteResolver(m).resolve("LSZR TRA GERSA PELAD LSZS")
+        assert route.waypoints == ["TRA", "GERSA", "PELAD"]
+        assert route.rejected_waypoints == []
+
     def test_candidate_selection_picks_min_detour(self, model):
         """When multiple candidates exist, the on-route one is chosen."""
         r = RouteResolver(model)

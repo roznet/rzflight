@@ -42,10 +42,12 @@ class RouteResolver:
         route = resolver.resolve("EGTF POGOL REM VESAN LSGS")
     """
 
-    # Default detour-filter thresholds (nautical miles). The leg here is
-    # `prev_resolved → destination`, so the filter tightens automatically as
-    # resolution progresses.
-    DEFAULT_DETOUR_FLOOR_NM = 30.0
+    # Default detour-filter thresholds (nautical miles). The filter is there to
+    # catch a name resolving to the wrong place, not to judge the routing: on a
+    # short leg a real route can be several times longer than direct (LSZR TRA
+    # GERSA PELAD LSZS, 80 nm detour on 59 nm). Logged rejections fall in two
+    # groups, up to 238 nm and from 699 nm, so floor = cap: a flat 300 nm.
+    DEFAULT_DETOUR_FLOOR_NM = 300.0
     DEFAULT_DETOUR_COEF = 0.5
     DEFAULT_DETOUR_CAP_NM = 300.0
 
